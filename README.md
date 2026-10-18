@@ -1,6 +1,6 @@
-# GeoMatik2D
+# drAW2D
 
-Tarayıcıda çalışan, kurulum gerektirmeyen **2B geometri ve fonksiyon çizim** uygulaması.
+Web ve masaüstü için **2B geometri ve fonksiyon çizim** uygulaması.
 
 made by **mADEMatik** — [madematik.com](https://www.madematik.com)
 
@@ -37,32 +37,87 @@ Dizi(1/n,1,7)                # dizi değerleri
 
 ## Çalıştırma
 
- saf HTML/CSS/JS'tir; derleme adımı yoktur.
+Node.js 22.12 veya üzeri gerekir. NVM kullanılıyorsa proje kökünde `nvm use` çalıştırın.
 
 ```bash
-python3 -m http.server 8080
-# veya
-npx serve .
+npm ci
+npm run dev
 ```
 
-Sonra tarayıcıda `http://localhost:8080` adresini açın. `index.html` dosyasını doğrudan açmak da çalışır.
+Terminalde gösterilen adresi tarayıcıda açın. Electron ile geliştirme için:
+
+```bash
+npm run electron:dev
+```
+
+Üretim derlemesini hazırlamak ve incelemek için:
+
+```bash
+npm run build
+npm run preview       # Web önizlemesi
+npm run electron      # Derlenmiş uygulamayı masaüstünde açar
+```
+
+Web yayınına yalnızca `dist/` klasörünün içeriği yüklenir. Çıktı statik dosyalardan oluşur;
+Node.js son kullanıcının bilgisayarında veya web sunucusunda gerekli değildir. Kaynak
+`index.html` yerine Vite geliştirme sunucusu veya derlenmiş çıktı kullanılmalıdır.
+
+## Masaüstü paketleri
+
+```bash
+npm run pack          # Kurulum paketi oluşturmadan uygulama klasörü
+npm run dist:linux    # Linux/Pardus için AppImage ve .deb
+npm run dist:win      # Windows için NSIS .exe kurulum paketi
+```
+
+Paketler `release/` altında oluşur. Linux paketlerini Linux üzerinde, Windows paketini
+Windows üzerinde üretmek önerilir; Linux'ta Windows için çapraz derleme ek Wine
+araçları gerektirebilir. Pardus uyumluluğu hedeflenen Pardus sürümünde ayrıca denenmelidir.
+
+## Kontroller
+
+```bash
+npm run typecheck
+npm test
+```
+
+Tarayıcı testleri sistemdeki Chromium'u kullanır; farklı bir Chromium çalıştırılabilir
+dosyası `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` ile seçilebilir. Test yapılandırması ve örnekler
+[tests/README.md](tests/README.md) içinde açıklanır.
 
 ## Proje yapısı
 
 ```
-GeoMatik2D/
-├── index.html        # Arayüz kabuğu, yardım penceresi
-├── js/
-│   ├── app.js        # Çizim motoru ve komut yorumlayıcı
-│   └── toolbar.js    # Radyal araç çubuğu tanımları
-├── css/              # styles.css, toolbar.css
-├── img/              # SVG araç simgeleri, favicon
-├── sound/            # clear.mp3
-└── vendor/           # math.js (yerel kopya)
+drAW2D/
+├── index.html        # Ortak web/masaüstü arayüzü
+├── src/
+│   ├── main.ts       # TypeScript giriş noktası
+│   ├── math.ts       # math.js yapılandırması
+│   ├── ui/           # TypeScript radyal araç çubuğu ve tipleri
+│   ├── legacy/       # Aşamalı taşınacak JavaScript geometri motoru
+│   └── styles/       # Mevcut stiller
+├── public/           # SVG simgeler, uygulama simgesi ve ses
+├── electron/         # TypeScript masaüstü uygulama kabuğu
+├── build/            # Linux ve Windows paket simgeleri
+├── scripts/          # Electron geliştirme başlatıcısı
+├── tests/            # Tarayıcı regresyon kontrolleri
+└── docs/             # Geçiş planı
 ```
 
 ## Teknoloji
 
-- Vanilla JavaScript + `<canvas>`
-- [math.js](https://mathjs.org/) — ifade çözümleme ve analiz (yerel kopya, `vendor/math.js`)
-- Harici sunucu/CDN bağımlılığı yok, çevrimdışı çalışır.
+- TypeScript + Vite + Canvas; mevcut motor geçiş sırasında JavaScript modülü olarak korunur.
+- Electron + electron-builder ile Linux ve Windows paketleme.
+- [math.js](https://mathjs.org/) 15.2.0 — eski uygulamayla aynı sürüm ve logaritma davranışı.
+- Uygulama varlıkları ve matematik kütüphanesi çıktıya dahil edilir; çalışma sırasında CDN gerekmez.
+- Android/iOS paketleri henüz eklenmedi. Ortak web çekirdeği ileride mobil paketlemeye temel olur.
+
+## Aşamalı geçiş
+
+Bu ilk aşama çalışan uygulamayı yeni geliştirme ve paketleme altyapısına taşır.
+Geometri motorunun tamamı henüz TypeScript'e çevrilmemiştir. Sonraki modüller ve
+doğrulama sırası [geçiş planında](docs/gecis-plani.md) açıklanır.
+
+Geçiş sırasında oluşturulan eski uygulama kopyası karşılaştırmalar tamamlandıktan
+sonra kaldırıldı. Eski davranışlardan ölçülen beklenen çıktılar regresyon testlerinde,
+önceki kaynaklar Git geçmişinde bulunur.

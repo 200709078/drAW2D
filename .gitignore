@@ -21,3 +21,8 @@ node_modules/
 # Yerel sunucu artıkları
 .cache/
 dist/
+dist-electron/
+release/
+test-results/
+playwright-report/
+*.tsbuildinfo
