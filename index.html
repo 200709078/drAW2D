@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="tr" lang="tr">
+
+<head>
+	<title>GeoMatik2D</title>
+	<meta charset="UTF-8">
+	<meta http-equiv="Content-Type" content="text/html" charset="UTF-8">
+	<meta name="keywords" content="Graph, functions, axis, javascript, canvas, GeoMatik2D, GeoMatik3D">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="made by mADEMatik">
+	<meta name="author" content="made by mADEMatik">
+	<script src="./vendor/math.js"></script>
+
+	<script>
+		math.import({
+			log: function (a, b) {
+				if (b === undefined) return Math.log(a);
+				return Math.log(b) / Math.log(a);
+			}
+		}, { override: true });
+	</script>
+	<link rel="shortcut icon" href="img/favicon.svg" />
+	<link rel="stylesheet" href="./css/toolbar.css" type="text/css" />
+	<link rel="stylesheet" href="./css/styles.css" type="text/css" />
+</head>
+
+<body>
+	<div id="centerWrapper">
+		<canvas id="canvas"></canvas>
+		<div id="toolbarStage" class="toolbar-stage">
+			<div id="radialToolbar" class="radial-toolbar" aria-label="GeoMatik2D araç menüsü"></div>
+		</div>
+		<div class="rightToolbar" id="rightToolbar">
+			<button class="calcMenuButton" id="btnCalc" type="button" title="Paneli Gizle">
+				<img id="btnimgCalc" src="./img/arrow.svg">
+			</button>
+
+			<button class="rightToolbarButton" id="btnAcordeon" type="button" title="Araçları göster"
+				aria-expanded="false">
+				<img id="btnimgAcordeon" src="./img/acordeon.svg">
+			</button>
+
+			<div class="rightToolbarCollapsible" id="rightToolbarCollapsible">
+				<button class="rightToolbarButton standardMenuButton" id="btnStandartWiew" type="button"
+					title="Standart Görünüm">
+					<img src="./img/default.svg">
+				</button>
+
+				<div class="historyControls" id="ucrButtons">
+					<button type="button" id="undo" title="Geri Al">
+						<img src="./img/toogle.svg" style="transform:rotateX(180deg) rotate(30deg)">
+					</button>
+					<button type="button" id="redo" title="Yinele">
+						<img src="./img/toogle.svg" style="transform:rotate(210deg)">
+					</button>
+				</div>
+
+				<div class="clearControl">
+					<button type="button" id="clear" title="Temizle">
+						<img src="./img/clear.svg">
+					</button>
+				</div>
+
+				<button class="helpMenuButton" id="helpMenuButton" type="button" title="Yardım">
+					<img id="btnimgHelpMenu" src="./img/help.svg">
+				</button>
+			</div>
+		</div>
+		<div class="rightWrapper" id="rightWrapper">
+			<div class="reSizer"></div>
+			<div id="scrollWrapper">
+				<div class="expr-block-giris">
+					<input id="giris" placeholder="Giriş" title="Giriş" value="" onkeydown="girisKeyDown(event)"
+						oninput="handleParanthesis(event)">
+				</div>
+				<hr>
+				<div id="objectsContainer"></div>
+			</div>
+		</div>
+	</div>
+	<!-- Toast Message -->
+	<div id="snackbar" class="tool-toast" role="status" aria-live="polite">
+		<strong id="snackTitle" class="tool-toast-title">Nokta</strong>
+		<span id="snackContent" class="tool-toast-message">Konum seçin</span>
+	</div>
+	<!-- Yardım Penceresi -->
+	<div class="help-popup" id="help-popup">
+		<div class="help-content">
+			<div id="help-header">
+				<h2>GeoMatik2D Yardım</h2>
+				<button class="help-close"
+					onclick="document.getElementById('help-popup').style.display='none'">&times;</button>
+			</div>
+
+			<div class="help-section">
+				<h3>Giriş Alanı Komutları</h3>
+
+				<h4>Nokta</h4>
+				<pre>(apsis, ordinat)
+<code class="example">(-1, 2)</code></pre>
+				<pre>YansıtNokta(Nokta, Merkez Nokta)
+<code class="example">YansıtNokta((1,2),(0,0))</code><code class="example">YansıtNokta(A,B)</code></pre>
+
+				<h4>Doğru</h4>
+
+				<pre>Eğimli Doğru: ax + b
+<code class="example">2x-3</code>
+Dik Doğru: x = c
+<code class="example">x=2</code>
+Doğru(Nokta, Nokta)
+<code class="example">Doğru((-1,0),(1,1))</code>
+<code class="example">Kesiştir(f,g)</code></pre>
+
+				<h4>Doğru Parçası</h4>
+				<pre>DoğruParçası(Nokta, Nokta)
+<code class="example">DoğruParçası((-2,1),(-1,2))</code></pre>
+				<pre>Uzaklık(Nokta, Nokta)
+<code class="example">Uzaklık((-2,1),(-1,2))</code></pre>
+
+				<h4>Çember</h4>
+				<pre>Çember(Nokta, r)
+<code class="example">Çember((-1,2),1)</code></pre>
+				<pre>Çember(Nokta, Nokta)
+<code class="example">Çember((-1,1),(0,2))</code></pre>
+				<pre>Çember(Nokta, Nokta,Nokta)
+<code class="example">Çember((0,0),(0,-2),(-2,0))</code></pre>
+
+				<h4>Açı</h4>
+				<pre>Açı(Nokta, Nokta, Nokta)
+<code class="example">Açı((-1,2),(0,1),(-1,0))</code></pre>
+
+				<h4>Yay Ölçüsü</h4>
+				<pre>YayÖlçüsü(Nokta, Nokta)
+<code class="example">YayÖlçüsü(A,B)</code></pre>
+
+				<h4>Trigonometrik İfadeler</h4>
+				<pre>sin(...), cos(...), tan(...), cot(...)
+<code class="example">sin(-x+4)</code><code class="example">cos(3x-1)</code><code class="example">tan(1/x)</code><code class="example">cot(x+1)</code></pre>
+
+				<h4>Üstel İfadeler</h4>
+				<pre>(Taban)^(Üs)
+<code class="example">2^(x-1)</code><code class="example">(1/2)^sin(x)</code><code class="example">E^(x-1)</code></pre>
+
+				<h4>Logaritmik İfadeler</h4>
+				<pre>log(Taban,...)
+<code class="example">log(E,4-x^2)</code><code class="example">log(5,2x-3)</code></pre>
+
+				<h4>Dizi</h4>
+				<pre>Dizi(Fonksiyon (n),Başlangıç,Bitiş)
+<code class="example">Dizi(1/n,1,7)</code></pre>
+
+				<h4>Limit</h4>
+				<pre>Limit(Fonksiyon,Apsis)
+<code class="example">Limit(sin(2x-1),2)</code></pre>
+
+				<h4>Türev</h4>
+				<pre>Türev(Fonksiyon)
+<code class="example">Türev(sin(x+1))</code></pre>
+
+				<h4>Bileşke Fonksiyon</h4>
+				<pre>Bileşke(Fonksiyon,Fonksiyon,...)
+<code class="example">Bileşke(x-1,x^2-2)</code></pre>
+
+				<h4>Teğet</h4>
+				<pre>Teğet(Fonksiyon,Apsis)
+<code class="example">Teğet(sin(2x-1),2)</code></pre>
+				<pre>TeğetH(Fonksiyon,Apsis)
+<code class="example">TeğetH(x^2,1)</code></pre>
+				<pre>TeğetX(Fonksiyon,Apsis)
+<code class="example">TeğetX(x^2,1)</code></pre>
+				<pre>TeğetC(Çember,Nokta)
+<code class="example">TeğetC(c,A)</code><code class="example">TeğetC(a,(3,2))</code></pre>
+
+				<h4>Fonksiyon İşlemleri</h4>
+				<h6>Kullanılacak fonksiyonların daha önce grafiğinin çizilmesi şartıyla </h6>
+				<pre><code class="example">2f/(1-3x)</code><code class="example">f+2(3x-4)</code><code class="example">3f-4g</code><code class="example">f*g</code></pre>
+
+				<h4>Parçalı Fonksiyon</h4>
+				<pre>Fonksiyon,Aralık;Fonksiyon,Aralık;...
+<code class="example">2x+1,x&lt;0; x^2,x>=0</code></pre>
+			</div>
+		</div>
+	</div>
+	<!-- Yardım Penceresi Son -->
+	<a id="made-signature" href="https://www.madematik.com" target="_blank" rel="noopener noreferrer">
+		<span>m</span><span class="made-highlight">ADEM</span><span>atik</span>
+	</a>
+	<script type="text/javascript" src="./js/toolbar.js"></script>
+	<script type="text/javascript" src="./js/app.js"></script>
+</body>
+
+</html>

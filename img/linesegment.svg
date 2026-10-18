@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg
+  viewBox="-128 -384 2092 2092"
+  width="100%"
+  height="100%"
+  xmlns="http://www.w3.org/2000/svg"
+  style="fill: rgb(0, 0, 255); stroke: rgb(0, 0, 0);">
+
+  <line
+    x1="501.727"
+    y1="1089.360"
+    x2="1373.816"
+    y2="187.357"
+    style="stroke-width: 100px; stroke-linecap: round;" />
+
+  <ellipse
+    cx="501.727"
+    cy="1089.360"
+    rx="162.615"
+    ry="162.615"
+    style="stroke-width: 10px;" />
+
+  <ellipse
+    cx="1373.816"
+    cy="187.357"
+    rx="162.615"
+    ry="162.615"
+    style="stroke-width: 10px;" />
+
+</svg>

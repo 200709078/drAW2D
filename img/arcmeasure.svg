@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 12 35 35">
+	<path d="M24 24 L39 15 A18 18 0 0 1 36 36 Z" fill="#7dd3fc" opacity="0.35" />
+	<path d="M39 15 A18 18 0 0 1 36 36" fill="none" stroke="#ff0000" stroke-width="2"
+		stroke-linecap="round" />
+	<line x1="24" y1="24" x2="39" y2="15" stroke="#111111" stroke-width="1.5" />
+	<line x1="24" y1="24" x2="36" y2="36" stroke="#111111" stroke-width="1.5" />
+	<circle cx="39" cy="15" r="2.8" fill="#ff0000" />
+	<circle cx="36" cy="36" r="2.8" fill="#ff0000" />
+	<circle cx="24" cy="24" r="2.8" fill="#0000ff" />
+	<text x="50" y="26" fill="#0000ff" font-family="Arial, sans-serif" font-size="14"
+		font-weight="700" text-anchor="middle">α</text>
+</svg>
