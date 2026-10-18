@@ -34,7 +34,8 @@ async function objectRows(page: Page): Promise<ObjectRow[]> {
 }
 
 async function canvasHash(page: Page): Promise<number> {
-  return page.locator('#canvas').evaluate((canvas: HTMLCanvasElement) => {
+  return page.locator('#canvas').evaluate(async (canvas: HTMLCanvasElement) => {
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     const pixels = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
     let hash = 2166136261;
     for (const value of pixels) hash = Math.imul(hash ^ value, 16777619);

@@ -1,5 +1,9 @@
 # Geçiş regresyon kontrolleri
 
+`geometry-models.spec.ts`, tarayıcı açmadan TypeScript modellerinin
+geçici nesne kimlik/adlandırma davranışını, paylaşılan başvurularla geri alma
+kopyalarını ve metin koordinatlarla kesişim bilgilerinin korunmasını denetler.
+
 İki temel Chromium testi arayüzü, Canvas çizimini ve geçmişi kontrol eder.
 Ek komut matrisi; doğru, doğru parçası, çember, açı, uzaklık, yansıtma, kesişim,
 limit, bileşke, teğet çeşitleri, dizi ve logaritma komutlarını bağımsız sayfalarda
@@ -7,9 +11,35 @@ limit, bileşke, teğet çeşitleri, dizi ve logaritma komutlarını bağımsız
 ölçüldü. Rastgele nesne renkleri nedeniyle sabit ekran görüntüsü kullanılmaz;
 Canvas içeriğinin çizimle değişmesi ve temizlemeyle başlangıca dönmesi denetlenir.
 
-Matris mevcut davranışı korur. Örneğin eski sürümde `TeğetC(a,(3,2))` iki teğet
+Matris ilk geçişte kaydedilen örnekleri denetler. Örneğin eski sürümde `TeğetC(a,(3,2))` iki teğet
 noktasına aynı `C` adını verir; fixture bu mevcut adlandırmayı aynen kaydeder.
-Bu geçiş kontrolleri matematik motorunun doğruluğuna ilişkin yeni kurallar koymaz.
+Bu eski davranışlar zorunlu hedef değildir; doğruluk veya kullanım iyileştirmelerinde
+beklentiler gerekçesiyle güncellenebilir.
+
+Çizim testleri ayrıca kare taleplerinin birleşmesini, ızgara/derleme önbelleğini,
+görünür eksen etiketlerini, dpr=2 ekranda tıklama/sürükleme/resize doğruluğunu ve
+`sqrt(x)`, `log(x)`, `1/x` gibi kısmi tanımlı eğrilerin doğru dallarını denetler.
+Canvas piksel okumaları planlanmış çizimin tamamlanmasını bekler. Hız sınırı yerine
+tek kare ve gereksiz ızgara boyamasının yokluğu gibi deterministik ölçütler kullanılır.
+Ek tarayıcı kontrolleri, kesirli işaretçi konumunun modelde yuvarlanmadan kalmasını,
+teğet kaydırıcısının kartı hemen güncellemesini ve boyamanın geçmişe boş adım
+eklememesini denetler.
+
+`coordinate-transform.spec.ts` ortak matematik/CSS piksel dönüşümünü negatif
+koordinat, pan, farklı eksen ölçekleri ve π/e birimleriyle iki yönde denetler;
+orijin, eksen yönleri, yarıçap, görünür sınırlar ve geçersiz görünümleri de kapsar.
+Dönüşüm yuvarlama veya ızgaraya yakalama içermez. İşaretçi girişinde hesap değeri
+korunur; kartlarda görünen metin ayrı biçimlendirilir. DPR, dönüşümün dışında
+Canvas raster boyutunda uygulanır; dönüşüm görünüm değişene kadar tekrar kullanılır.
+
+`function-plotter.spec.ts`, Canvas çağrılarını kaydederek örneklemenin görünür x ve
+tanım aralıklarında kalmasını, örnek sayısının sınırlı olmasını, tanımsız bölgelerin
+ve asimptot dallarının birleştirilmemesini denetler. Çok dik/büyük değerli eğrilerin
+kırpılması ve hata durumunda çizim stilinin geri yüklenmesi de kontrol edilir.
+`function-evaluator.spec.ts` derleme önbelleğini; `coordinate-grid.spec.ts` görünür
+ızgarayı, okunabilir aralıkları ve etiketleri; `frame-renderer.spec.ts` kare
+planlamasını denetler. Bu adımda yeni araç veya mobil etkileşim uygulanmadığından
+bu kontroller dokunma/kalem ya da mobil paket doğrulaması sayılmaz.
 
 ```sh
 npm test

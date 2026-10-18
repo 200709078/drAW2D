@@ -4,7 +4,7 @@ Web ve masaüstü için **2B geometri ve fonksiyon çizim** uygulaması.
 
 made by **mADEMatik Solutions** — [madematik.com](https://www.madematik.com/drAW2D)
 
-İlgili proje: [GeoMatik3D](https://github.com/200709078/GeoMatik3D)
+İlgili proje: [drAW3D](https://github.com/200709078/drAW3D)
 
 ## Özellikler
 
@@ -93,6 +93,8 @@ drAW2D/
 ├── src/
 │   ├── main.ts       # TypeScript giriş noktası
 │   ├── math.ts       # math.js yapılandırması
+│   ├── geometry/     # TypeScript temel geometri modelleri ve bağımlılık tipleri
+│   ├── rendering/    # Ortak koordinat dönüşümü, kare/ızgara önbelleği ve fonksiyon çizimi
 │   ├── ui/           # TypeScript radyal araç çubuğu ve tipleri
 │   ├── legacy/       # Aşamalı taşınacak JavaScript geometri motoru
 │   └── styles/       # Mevcut stiller
@@ -106,17 +108,26 @@ drAW2D/
 
 ## Teknoloji
 
-- TypeScript + Vite + Canvas; mevcut motor geçiş sırasında JavaScript modülü olarak korunur.
+- TypeScript + Vite + Canvas; temel geometri modelleri TypeScript'tir, kalan motor aşamalı taşınır.
 - Electron + electron-builder ile Linux ve Windows paketleme.
 - [math.js](https://mathjs.org/) 15.2.0 — eski uygulamayla aynı sürüm ve logaritma davranışı.
 - Uygulama varlıkları ve matematik kütüphanesi çıktıya dahil edilir; çalışma sırasında CDN gerekmez.
+- Çizim talepleri ekran karelerinde birleştirilir; eksen/ızgara ve derlenmiş fonksiyon ifadeleri önbelleğe alınır. Yüksek yoğunluklu ekranlar desteklenir.
+- Çizim ve işaretçi girişi aynı matematik/CSS piksel dönüşümünü kullanır; görünüm değişene kadar dönüşüm önbellekten kullanılır. Dönüşüm koordinatları yuvarlamaz veya ızgaraya yakalamaz; metin gösterimi ayrıca biçimlendirilir.
+- Fonksiyon çizicisi görünür x aralığını ve tanım aralığını sınırlı örneklemeyle çizer; tanımsız bölgelerde ve tespit edilen asimptot sıçramalarında eğriyi keser.
 - Android/iOS paketleri henüz eklenmedi. Ortak web çekirdeği ileride mobil paketlemeye temel olur.
 
 ## Aşamalı geçiş
 
-Bu ilk aşama çalışan uygulamayı yeni geliştirme ve paketleme altyapısına taşır.
-Geometri motorunun tamamı henüz TypeScript'e çevrilmemiştir. Sonraki modüller ve
+Geliştirme, paketleme, temel çizim altyapısı ve 10 geometri modeli TypeScript'e taşındı.
+Geometri motorunun tamamı henüz TypeScript'e çevrilmemiştir. Her taşıma adımından
+sonra durulur; daha verimli veya kullanışlı tasarımlar için eski uygulama davranışı
+değiştirilebilir. Tamamlanan adımlar, sonraki modüller ve
 doğrulama sırası [geçiş planında](docs/gecis-plani.md) açıklanır.
+
+GeoGebra benzeri araçları ileride genişletmek için araç durumu/controller,
+geometri/bağımlılık hesapları ve çizicileri ayırma hedeflenir. Mevcut çizim adımı
+yeni araçlar veya mobil etkileşim eklemez; dokunma/kalem desteği ileriki adımlardadır.
 
 Geçiş sırasında oluşturulan eski uygulama kopyası karşılaştırmalar tamamlandıktan
 sonra kaldırıldı. Eski davranışlardan ölçülen beklenen çıktılar regresyon testlerinde,

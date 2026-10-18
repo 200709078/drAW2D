@@ -1,108 +1,53 @@
 import { math } from '../math'
+import { createGeometryModels } from '../geometry/models'
+import { createFunctionModels } from '../geometry/function-models'
+import { composeExpressions, differentiate, linearExpression } from '../math/function-algebra'
+import { createGridRenderer } from '../rendering/coordinate-grid'
+import { createCanvasSurface } from '../rendering/canvas-surface'
+import { createFrameRenderer, createSceneOrder } from '../rendering/frame-renderer'
+import { createFunctionEvaluator } from '../rendering/function-evaluator'
+import { createCoordinateTransform } from '../rendering/coordinate-transform'
+import { drawFunctionPlot } from '../rendering/function-plotter'
 
-// Mevcut geometri motoru, aşamalı TypeScript geçişi boyunca JavaScript modülü olarak korunur.
-// Asimptotlardaki atlamalar düzeltilecek.
-// Mobil versiyona geçilecek.
-class mPoint {
-	constructor(a, b, temp = false) {
-		this.type = 'point'
-		temp ? this.name = null : this.name = createName('point')
-		temp ? this.id = null : this.id = idCounter()
-		this.a = a
-		this.b = b
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 3
-		this.temp = temp
-		this.onOther = []
-	}
-}
+const {
+	mPoint,
+	mCircleR,
+	mCircle2,
+	mCircle3,
+	mAngle,
+	mArcMeasure,
+	mLineWithPoints,
+	mLineSegment,
+	mDistanceSegment,
+	mCircleTangent,
+} = createGeometryModels({
+	createName,
+	nextId: idCounter,
+	randomColor: getRandomColor,
+})
 
-class mCircleR {
-	constructor(A, r, temp = false) {
-		this.type = 'circleR'
-		this.name = createName('circleR')
-		temp ? this.id = null : this.id = idCounter()
-		this.A = A
-		this.r = r
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 1
-		this.temp = temp
-	}
-}
-class mCircle2 {
-	constructor(A, B, temp = false) {
-		this.type = 'circle2'
-		this.name = createName('circleR')
-		temp ? this.id = null : this.id = idCounter()
-		this.A = A
-		this.B = B
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 1
-		this.temp = temp
-	}
-}
+const {
+	mVerLine,
+	mLineWithEquation,
+	mSequence,
+	mLimit,
+	mFunction,
+	mFunctionComposition,
+	mTangent,
+	mTangentHX,
+	mDerivative,
+	mSectionalFunctions,
+	updateTangent,
+	updateTangentHX,
+} = createFunctionModels({
+	createName,
+	nextId: idCounter,
+	randomColor: getRandomColor,
+	createPoint: (a, b, temp) => new mPoint(a, b, temp),
+	createLineWithPoints: (A, B, temp) => new mLineWithPoints(A, B, temp),
+})
 
-class mCircle3 {
-	constructor(A, B, C, temp = false) {
-		this.type = 'circle3'
-		this.name = createName('circleR')
-		temp ? this.id = null : this.id = idCounter()
-		this.A = A
-		this.B = B
-		this.C = C
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 1
-		this.temp = temp
-	}
-}
-
-class mAngle {
-	constructor(A, B, C, temp = false) {
-		this.type = 'angle'
-		this.name = createName('angle')
-		temp ? this.id = null : this.id = idCounter()
-		this.A = A
-		this.B = B
-		this.C = C
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 1
-		this.temp = temp
-	}
-}
-
-class mArcMeasure {
-	constructor(A, B, circle, temp = false) {
-		this.type = 'arcMeasure'
-		this.name = createName('arcMeasure')
-		temp ? this.id = null : this.id = idCounter()
-		this.A = A
-		this.B = B
-		this.circle = circle
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-
-class mVerLine {
-	constructor(x, temp = null) {
-		this.type = "verLine"
-		const denkCount = arrObjects.filter(f => f.name.includes("denk")).length + 1
-		this.name = "denk" + denkCount
-		temp ? this.id = null : this.id = idCounter()
-		this.x = x
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
+// Geometri ve fonksiyon modelleri TypeScript modüllerinden gelir; kalan motor aşamalı taşınır.
 
 function normalizeLine(m, n) {
 	let displayM = formatDisplayNumber(m)
@@ -133,211 +78,6 @@ function normalizeLine(m, n) {
 		result += `${displayN}`;
 	}
 	return result;
-}
-
-class mLineWithEquation {
-	constructor(m, n, temp = false, startX = null, endX = null) {
-		this.type = 'lineWithEquation'
-		temp ? this.name = null : this.name = createName('line')
-		temp ? this.id = null : this.id = idCounter()
-		this.m = m
-		this.n = n
-		this.func = normalizeLine(m, n)
-		this.startX = startX
-		this.endX = endX
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-
-class mLineWithPoints {
-	constructor(A, B, temp = false) {
-		this.type = 'lineWithPoints'
-		temp ? this.name = null : this.name = createName('line')
-		temp ? this.id = null : this.id = idCounter()
-		this.A = A
-		this.B = B
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-
-class mLineSegment {
-	constructor(A, B, temp = false) {
-		this.type = 'lineSegment'
-		this.name = createName('lineSegment')
-		temp ? this.id = null : this.id = idCounter()
-		this.A = A
-		this.B = B
-		this.color = getRandomColor()
-		this.lineDash = []
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-
-class mDistanceSegment {
-	constructor(A, B, temp = false) {
-		this.type = 'distanceSegment'
-		this.name = createName('distanceSegment')
-		temp ? this.id = null : this.id = idCounter()
-		this.A = A
-		this.B = B
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-
-class mCircleTangent {
-	constructor(A, circle, temp = false) {
-		this.type = 'circleTangent'
-		temp ? this.name = null : this.name = createName('line')
-		temp ? this.id = null : this.id = idCounter()
-		this.A = A
-		this.circle = circle
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-class mSequence {
-	constructor(func, s, e, temp = false) {
-		this.type = 'sequence'
-		this.name = createName('sequence')
-		temp ? this.id = null : this.id = idCounter()
-		this.func = func
-		this.start = s
-		this.end = e
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-
-class mLimit {
-	constructor(func, a, temp = false) {
-		this.type = 'limit'
-		this.name = createName('limit')
-		temp ? this.id = null : this.id = idCounter()
-		this.func = func
-		this.approachVal = a
-		this.approachValRight = Number(a) + 0.4
-		this.approachValLeft = a - 0.4
-		this.color = getRandomColor()
-		this.lineDash = []
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-
-class mFunction {
-	constructor(func, temp = false, startX = null, endX = null) {
-		this.type = 'function'
-		temp ? this.name = null : this.name = createName('function')
-		temp ? this.id = null : this.id = idCounter()
-		this.func = func
-		this.startX = startX
-		this.endX = endX
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-
-class mFunctionComposions {
-	constructor(funcs, temp = false, startX = null, endX = null) {
-		this.type = 'functioncomposition'
-		temp ? this.name = null : this.name = createName('functioncomposition')
-		temp ? this.id = null : this.id = idCounter()
-		this.funcs = funcs
-		this.func = bileskeProcess(funcs)
-		this.startX = startX
-		this.endX = endX
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-class mTangent {
-	constructor(func, a, temp = false) {
-		this.type = 'tangent'
-		this.name = createName('tangent')
-		temp ? this.id = null : this.id = idCounter()
-		this.func = func
-		this.approachVal = a
-		let m = math.evaluate(derivative(func), { x: a })
-		let c = math.evaluate(func, { x: a }) - m * a
-		this.tngLine = new mLineWithEquation(m, c, true)
-		this.color = getRandomColor()
-		this.lineDash = []
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-
-class mTangentHX {
-	constructor(func, a, haveH, temp = false) {
-		this.type = 'tangentHX'
-		this.name = createName('tangentHX')
-		temp ? this.id = null : this.id = idCounter()
-		this.func = func
-		this.approachVal = a
-		this.h = 2
-		this.haveH = haveH
-		let A = new mPoint(a, math.evaluate(func, { x: a }), true)
-		let B = haveH ? new mPoint(a + this.h, math.evaluate(func, { x: a + this.h }), true) : new mPoint(this.h, math.evaluate(func, { x: this.h }), true)
-		let m = math.evaluate(derivative(func), { x: a })
-		let c = math.evaluate(func, { x: a }) - m * a
-		this.tngLine = new mLineWithEquation(m, c, true)
-		this.aodLine = new mLineWithPoints(A, B, true)
-		this.color = getRandomColor()
-		this.lineDash = []
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-
-class mDerivative {
-	constructor(func, derFunc, temp = false) {
-		this.type = 'derivative'
-		this.name = createName('derivative')
-		temp ? this.id = null : this.id = idCounter()
-		this.func = func
-		this.derFunc = derFunc
-		this.color = getRandomColor()
-		this.lineDash = []
-		this.visibility = true
-		this.size = 2
-		this.temp = temp
-	}
-}
-
-class mSectionalFunctions {
-	constructor(str, temp = false) {
-		this.name = createName('function')
-		temp ? this.id = null : this.id = idCounter()
-		this.secFuncs = null
-		this.color = getRandomColor()
-		this.visibility = true
-		this.size = 2
-		this.type = 'sectionalFunctions'
-		this.cmd = str
-		this.temp = temp
-	}
 }
 
 function distanceAB(A, B) {
@@ -1255,81 +995,36 @@ function text2canvas(x, y, style, align, font, text) {
 	ctx.font = '10px arial'
 }
 
-function formatAxisLabel(n, unit, symbol = null) {
-	if (symbol) {
-		if (n == 0) return '0'
-		if (n == 1) return symbol
-		if (n == -1) return '-' + symbol
-		return n + symbol
-	}
-	return formatDisplayNumber(n * unit)
+const gridRenderer = createGridRenderer()
+const sceneOrder = createSceneOrder()
+const functionEvaluator = createFunctionEvaluator()
+let renderPreview = null
+const frameRenderer = createFrameRenderer(paintScene)
+
+if (import.meta.hot) {
+	import.meta.hot.dispose(() => frameRenderer.dispose())
 }
 
-function drawAll() {
+// Belge bağımlılıkları kartlar/geçmiş için hemen eşitlenir; yalnız boyama ertelenir.
+function drawAll(preview = null) {
+	syncCoordinates()
 	reprojectAllOnOther()
-	ctx.strokeStyle = ctx.fillStyle = 'white'
-	ctx.fillRect(0, 0, innerWidth, innerHeight)
+	renderPreview = preview
+	frameRenderer.request()
+}
 
-	const minorStep = 0.2
-	const axisEpsilon = 0.000001
-	const firstHorizontalGrid = Math.floor(minY / minorStep) * minorStep
-	const lastHorizontalGrid = minY + canvas.height / scaleX
-	for (let gridY = firstHorizontalGrid; gridY <= lastHorizontalGrid + axisEpsilon; gridY += minorStep) {
-		gridY = Number(gridY.toFixed(10))
-		let canvasY = (gridY - minY) * scaleX
-		let majorGridY = Math.round(gridY)
-		let isMajor = Math.abs(gridY - majorGridY) < axisEpsilon
-
-		ctx.beginPath()
-		ctx.lineWidth = isMajor ? .5 : .2
-		ctx.strokeStyle = "black"
-		if (Math.abs(gridY) < axisEpsilon) {
-			ctx.lineWidth = 2
-			ctx.strokeStyle = "red"
-		}
-		ctx.moveTo(0, canvasY)
-		ctx.lineTo(canvas.width, canvasY)
-		ctx.stroke()
-		ctx.closePath()
-
-		if (isMajor && Math.abs(majorGridY * unitX) >= axisEpsilon) {
-			let txt = formatDisplayNumber(-majorGridY * unitX)
-			text2canvas(-minX * scaleY + 10, canvasY + 15, 'black', 'center', '15px arial', txt)
-		}
-	}
-	let xAxisSymbol = null
-	if (Math.abs(unitY - Math.E) < 0.0001) xAxisSymbol = 'e'
-	if (Math.abs(unitY - Math.PI) < 0.0001) xAxisSymbol = '\u03c0'
-	const firstVerticalGrid = Math.floor(minX / minorStep) * minorStep
-	const lastVerticalGrid = minX + canvas.width / scaleY
-	for (let gridX = firstVerticalGrid; gridX <= lastVerticalGrid + axisEpsilon; gridX += minorStep) {
-		gridX = Number(gridX.toFixed(10))
-		let canvasX = (gridX - minX) * scaleY
-		let majorGridX = Math.round(gridX)
-		let isMajor = Math.abs(gridX - majorGridX) < axisEpsilon
-
-		ctx.beginPath()
-		ctx.lineWidth = isMajor ? .6 : .2
-		ctx.strokeStyle = "black"
-		if (Math.abs(gridX) < axisEpsilon) {
-			ctx.lineWidth = 2
-			ctx.strokeStyle = "red"
-		}
-		ctx.moveTo(canvasX, 0)
-		ctx.lineTo(canvasX, canvas.height)
-		ctx.stroke()
-		ctx.closePath()
-
-		if (isMajor) {
-			let txt = formatAxisLabel(majorGridX, unitY, xAxisSymbol)
-			text2canvas(canvasX + 10, -minY * scaleX + 15, 'black', 'center', '15px arial', txt)
-		}
-	}
+function paintScene() {
+	surface.resize()
+	surface.prepare()
+	syncCoordinates()
+	gridRenderer.draw(ctx, {
+		width: surface.width,
+		height: surface.height,
+		minX, minY, scaleX, scaleY, unitX, unitY,
+	}, surface.pixelRatio)
 	if (angleA && angleB) drawLineSegment(new mLineSegment(angleA, angleB, true))
 
-	arrObjects.sort(function (a, b) { return a.id - b.id })
-	for (let i = arrObjects.length - 1; i >= 0; i--) {
-		const item = arrObjects[i]
+	for (const item of sceneOrder.get(arrObjects)) {
 		if (item.type === 'point') {
 			drawPoint(item)
 		} else if (item.type === 'verLine') {
@@ -1372,6 +1067,7 @@ function drawAll() {
 			drawDerivative(item)
 		} else { console.log('drawAll: Type bulunamadı.') }
 	}
+	renderPreview?.()
 }
 
 function drawPoint(point) {
@@ -1386,25 +1082,22 @@ function drawPoint(point) {
 
 	ctx.strokeStyle = 'black'
 	ctx.fillStyle = pColor
-	ctx.arc((-minX + point.a / unitY) * scaleY, (-minY - point.b / unitX) * scaleX, pSize, 0, 2 * Math.PI)
+	ctx.arc(pixelX(point.a), pixelY(point.b), pSize, 0, 2 * Math.PI)
 	ctx.lineWidth = 1
-	if (!point.temp) text2canvas((-minX + point.a / unitY) * scaleY - 10, (-minY - point.b / unitX) * scaleX - 5, pColor, 'center', 'bold 15px arial', point.name)
+	if (!point.temp) text2canvas(pixelX(point.a) - 10, pixelY(point.b) - 5, pColor, 'center', 'bold 15px arial', point.name)
 	ctx.fill()
 	ctx.stroke()
 	ctx.closePath()
 }
 
 function getCircleCanvasRadii(r) {
-	return {
-		x: Math.abs((r / unitY) * scaleY),
-		y: Math.abs((r / unitX) * scaleX),
-	}
+	return coordinates.radiusToPixels(Number(r))
 }
 
 function drawCircleR(circle) {
 	if (!circle.visibility) return
 
-	let sp = new mPoint(circle.A.a + circle.r, circle.A.b, true)
+	let sp = new mPoint(Number(circle.A.a) + Number(circle.r), circle.A.b, true)
 	drawPoint(sp)
 	let sls = new mLineSegment(circle.A, sp, true)
 	drawLineSegment(sls)
@@ -1416,10 +1109,10 @@ function drawCircleR(circle) {
 	let canvasR = getCircleCanvasRadii(circle.r)
 	ctx.beginPath()
 	ctx.strokeStyle = cColor
-	ctx.ellipse((-minX + circle.A.a / unitY) * scaleY, (-minY - circle.A.b / unitX) * scaleX, canvasR.x, canvasR.y, 0, 0, 2 * Math.PI)
+	ctx.ellipse(pixelX(circle.A.a), pixelY(circle.A.b), canvasR.x, canvasR.y, 0, 0, 2 * Math.PI)
 	ctx.lineWidth = cSize
-	if (!circle.temp) text2canvas((-minX + circle.A.a / unitY) * scaleY - canvasR.x * 0.75, (-minY - circle.A.b / unitX) * scaleX - canvasR.y * 0.75, cColor, 'center', 'bold 15px arial', circle.name)
-	text2canvas((-minX + (circle.A.a + sp.a) / 2 / unitY) * scaleY, (-minY - (circle.A.b + sp.b) / 2 / unitX) * scaleX, cColor, 'center', 'bold 15px arial', 'r = ' + formatDisplayNumber(circle.r))
+	if (!circle.temp) text2canvas(pixelX(circle.A.a) - canvasR.x * 0.75, pixelY(circle.A.b) - canvasR.y * 0.75, cColor, 'center', 'bold 15px arial', circle.name)
+	text2canvas(pixelX((Number(circle.A.a) + Number(sp.a)) / 2), pixelY((Number(circle.A.b) + Number(sp.b)) / 2), cColor, 'center', 'bold 15px arial', 'r = ' + formatDisplayNumber(circle.r))
 	ctx.stroke()
 	ctx.closePath()
 }
@@ -1435,9 +1128,9 @@ function drawCircle2(circle) {
 	let canvasR = getCircleCanvasRadii(r)
 	ctx.beginPath()
 	ctx.strokeStyle = cColor
-	ctx.ellipse((-minX + circle.A.a / unitY) * scaleY, (-minY - circle.A.b / unitX) * scaleX, canvasR.x, canvasR.y, 0, 0, 2 * Math.PI)
+	ctx.ellipse(pixelX(circle.A.a), pixelY(circle.A.b), canvasR.x, canvasR.y, 0, 0, 2 * Math.PI)
 	ctx.lineWidth = cSize
-	if (!circle.temp) text2canvas((-minX + circle.A.a / unitY) * scaleY - canvasR.x * 0.75, (-minY - circle.A.b / unitX) * scaleX - canvasR.y * 0.75, cColor, 'center', 'bold 15px arial', circle.name)
+	if (!circle.temp) text2canvas(pixelX(circle.A.a) - canvasR.x * 0.75, pixelY(circle.A.b) - canvasR.y * 0.75, cColor, 'center', 'bold 15px arial', circle.name)
 	ctx.stroke()
 	ctx.closePath()
 }
@@ -1453,9 +1146,9 @@ function drawCircle3(circle) {
 	let canvasR = getCircleCanvasRadii(mr.r)
 	ctx.beginPath()
 	ctx.strokeStyle = cColor
-	ctx.ellipse((-minX + mr.m / unitY) * scaleY, (-minY - mr.n / unitX) * scaleX, canvasR.x, canvasR.y, 0, 0, 2 * Math.PI)
+	ctx.ellipse(pixelX(mr.m), pixelY(mr.n), canvasR.x, canvasR.y, 0, 0, 2 * Math.PI)
 	ctx.lineWidth = cSize
-	if (!circle.temp) text2canvas((-minX + mr.m / unitY) * scaleY - canvasR.x * 0.75, (-minY - mr.n / unitX) * scaleX - canvasR.y * 0.75, cColor, 'center', 'bold 15px arial', circle.name)
+	if (!circle.temp) text2canvas(pixelX(mr.m) - canvasR.x * 0.75, pixelY(mr.n) - canvasR.y * 0.75, cColor, 'center', 'bold 15px arial', circle.name)
 	ctx.stroke()
 	ctx.closePath()
 }
@@ -1470,81 +1163,58 @@ function drawVerLine(vline) {
 
 	ctx.strokeStyle = ctx.fillStyle = vlColor
 	ctx.lineWidth = vlSize
-	ctx.moveTo((-minX + vline.x / unitY) * scaleY, canvas.height + 100)
-	ctx.lineTo((-minX + vline.x / unitY) * scaleY, -canvas.height - 100)
-	text2canvas((-minX + vline.x / unitY) * scaleY + 10, 15, vlColor, 'center', 'bold 15px arial', vline.name)
+	ctx.moveTo(pixelX(vline.x), surface.height)
+	ctx.lineTo(pixelX(vline.x), 0)
+	if (!vline.temp) text2canvas(pixelX(vline.x) + 10, 15, vlColor, 'center', 'bold 15px arial', vline.name)
 	ctx.fill()
 	ctx.stroke()
 	ctx.closePath()
 }
 
+// Doğrular yalnız görünür matematik dikdörtgenine kadar hesaplanır.
 function drawLineWithEquation(line) {
 	if (!line.visibility) return
+	const m = Number(line.m)
+	const n = Number(line.n)
+	if (!Number.isFinite(m) || !Number.isFinite(n)) return
+	const bounds = coordinates.bounds
+	let startX = Math.max(bounds.left, line.startX == null ? bounds.left : Number(line.startX))
+	let endX = Math.min(bounds.right, line.endX == null ? bounds.right : Number(line.endX))
+	if (m === 0) {
+		if (n < bounds.bottom || n > bounds.top) return
+	} else {
+		const xAtBottom = (bounds.bottom - n) / m
+		const xAtTop = (bounds.top - n) / m
+		startX = Math.max(startX, Math.min(xAtBottom, xAtTop))
+		endX = Math.min(endX, Math.max(xAtBottom, xAtTop))
+	}
+	if (!Number.isFinite(startX) || !Number.isFinite(endX) || startX > endX) return
 
-	let mostLeft = minX * unitY
-	let mostRight = (minX + canvas.width / scaleY) * unitY
-	let startX
-	let endX
-	line.startX == null ? startX = -50000 : startX = line.startX
-	line.endX == null ? endX = 50000 : endX = line.endX
-	startX = Math.max(mostLeft, startX)
-	endX = Math.min(mostRight, endX)
-	if (startX > endX) startX = endX
-	let x, y
-
-	let lSize
-	line.id == activeElementID ? lSize = line.size + 1 : lSize = line.size
-	let lColor = line.color
-	if (line.temp) lColor = '#000000'
-
+	const size = line.id == activeElementID ? line.size + 1 : line.size
+	const color = line.temp && !line.useOwnColorForTemp ? '#000000' : line.color
 	ctx.beginPath()
-	ctx.strokeStyle = ctx.fillStyle = lColor
-	ctx.lineWidth = lSize
-	x = startX
-	y = math.evaluate(line.m + "*" + x + "+" + line.n, { x: x })
-	ctx.moveTo(-minX * scaleY + (x * scaleY) / unitY, -minY * scaleX - (y * scaleX) / unitX)
-	x = endX
-	y = math.evaluate(line.m + "*" + x + "+" + line.n, { x: x })
-	ctx.lineTo(-minX * scaleY + (x * scaleY) / unitY, -minY * scaleX - (y * scaleX) / unitX)
-	if (!line.temp) text2canvas((-minX + (-minY - line.n) / line.m) * scaleY + 5, 20, lColor, 'center', 'bold 15px arial', line.name)
-	ctx.fill()
+	ctx.strokeStyle = color
+	ctx.lineWidth = size
+	ctx.moveTo(pixelX(startX), pixelY(m * startX + n))
+	ctx.lineTo(pixelX(endX), pixelY(m * endX + n))
 	ctx.stroke()
 	ctx.closePath()
+	if (!line.temp) {
+		const labelX = pixelX(startX) + (pixelX(endX) - pixelX(startX)) * 0.2
+		const labelY = pixelY(m * coordinates.pixelToX(labelX) + n)
+		text2canvas(labelX + 5, Math.max(15, Math.min(surface.height - 5, labelY - 8)), color, 'center', 'bold 15px arial', line.name)
+	}
 }
 
 function drawLineWithPoints(pl, useOwnColorForTemp = false) {
 	if (!pl.visibility) return
-
-	let plSize
-	pl.id == activeElementID ? plSize = pl.size + 1 : plSize = pl.size
-	let plColor = pl.color
-	if (pl.temp && !useOwnColorForTemp) plColor = '#000000'
-
-	if (pl.A.a == pl.B.a && pl.A.b != pl.B.b) {
-		ctx.beginPath()
-		ctx.strokeStyle = ctx.fillStyle = plColor
-		ctx.lineWidth = plSize
-		ctx.moveTo((-minX + pl.A.a / unitY) * scaleY, canvas.height + 100)
-		ctx.lineTo((-minX + pl.A.a / unitY) * scaleY, -canvas.height - 100)
-		ctx.fill()
-		ctx.stroke()
-		ctx.closePath()
-	} else {
-		let x, y
-		ctx.beginPath()
-		ctx.strokeStyle = ctx.fillStyle = plColor
-		ctx.lineWidth = plSize
-		x = -50000
-		y = math.evaluate(createLineEquation(pl.A, pl.B).m + '*x+' + createLineEquation(pl.A, pl.B).c, { x: x })
-		ctx.moveTo(-minX * scaleY + (x * scaleY) / unitY, -minY * scaleX - (y * scaleX) / unitX)
-		x = 50000
-		y = math.evaluate(createLineEquation(pl.A, pl.B).m + '*x+' + createLineEquation(pl.A, pl.B).c, { x: x })
-		ctx.lineTo(-minX * scaleY + (x * scaleY) / unitY, -minY * scaleX - (y * scaleX) / unitX)
-		if (!pl.temp) text2canvas((-minX + (-minY - createLineEquation(pl.A, pl.B).c) / createLineEquation(pl.A, pl.B).m) * scaleY + 5, 20, plColor, 'center', 'bold 15px arial', pl.name)
-		ctx.fill()
-		ctx.stroke()
-		ctx.closePath()
+	if (Number(pl.A.a) === Number(pl.B.a)) {
+		if (Number(pl.A.b) === Number(pl.B.b)) return
+		drawVerLine({ ...pl, x: pl.A.a, color: pl.temp && !useOwnColorForTemp ? '#000000' : pl.color })
+		return
 	}
+	const equation = createLineEquation(pl.A, pl.B)
+	drawLineWithEquation({ ...pl, m: equation.m, n: equation.c, useOwnColorForTemp })
 }
 
 function drawCircleTangent(tangent) {
@@ -1561,101 +1231,28 @@ function drawCircleTangent(tangent) {
 	})
 
 	if (!tangent.temp) {
-		let labelX = (-minX + tangent.A.a / unitY) * scaleY + 12
-		let labelY = (-minY - tangent.A.b / unitX) * scaleX - 12
+		let labelX = pixelX(tangent.A.a) + 12
+		let labelY = pixelY(tangent.A.b) - 12
 		text2canvas(labelX, labelY, tangent.color, 'center', 'bold 15px arial', tangent.name)
 	}
 }
 
-function getFunctionPoint(funcStr, x) {
-	let y = math.evaluate(funcStr, { x: x })
-	if (!isFinite(y)) return null
-
-	return {
-		x: x,
-		y: y,
-		canvasX: -minX * scaleY + (x * scaleY) / unitY,
-		canvasY: -minY * scaleX - (y * scaleX) / unitX,
-	}
-}
-
-function isCanvasYVisible(canvasY) {
-	return canvasY >= 0 && canvasY <= canvas.height
-}
-
-function drawFunction(func, temp = false) {
+function drawFunction(func, temp = false, lineWidth = null) {
 	if (!func.visibility) return
-	let lastFunc = func.func
-	if (func.type == 'sequence') lastFunc = lastFunc.replace(/(?<![a-zA-Z0-9_])n(?![a-zA-Z0-9_])/g, 'x');
-
-	let prevCanvasY = null
-	const jumpThreshold = canvas.height
-	let mostLeft = minX * unitY
-	let mostRight = (minX + Math.round(canvas.width / scaleY) + 1) * unitY
-	let startX
-	let endX
-	func.startX == null ? startX = -50000 : startX = func.startX
-	func.endX == null ? endX = 50000 : endX = func.endX
-	startX = Math.max(mostLeft, startX)
-	endX = Math.min(mostRight, endX)
-	if (startX > endX) startX = endX
-
-	let fSize
-	func.id == activeElementID ? fSize = func.size + 1 : fSize = func.size
-	let fColor = func.color
-
-	ctx.beginPath()
-	ctx.strokeStyle = fColor
-	ctx.lineWidth = fSize
-	if (temp) ctx.setLineDash([2, 5])
-	let firstPoint = true
-	let startCanvasX = Math.max(0, Math.ceil((-minX + startX / unitY) * scaleY))
-	let endCanvasX = Math.min(canvas.width, Math.floor((-minX + endX / unitY) * scaleY))
-	let lastInvalidCanvasX = null
-
-	for (let canvasX = startCanvasX; canvasX <= endCanvasX; canvasX++) {
-		let x = (canvasX / scaleY + minX) * unitY
-		let point = getFunctionPoint(lastFunc, x)
-		if (!point) {
-			firstPoint = true
-			prevCanvasY = null
-			lastInvalidCanvasX = canvasX
-			continue
-		}
-
-		let startPoint = null
-		if (firstPoint && lastInvalidCanvasX !== null && isCanvasYVisible(point.canvasY)) {
-			startPoint = {
-				canvasX: lastInvalidCanvasX,
-				canvasY: point.canvasY > canvas.height / 2 ? canvas.height + 100 : -100,
-			}
-		}
-
-		// ASIMPTOT KONTROLÜ
-		if (prevCanvasY !== null && Math.abs(point.canvasY - prevCanvasY) > jumpThreshold) {
-			firstPoint = true
-			prevCanvasY = point.canvasY
-			continue
-		}
-
-		if (firstPoint) {
-			if (startPoint) {
-				ctx.moveTo(startPoint.canvasX, startPoint.canvasY)
-				ctx.lineTo(point.canvasX, point.canvasY)
-			} else {
-				ctx.moveTo(point.canvasX, point.canvasY)
-			}
-			firstPoint = false
-		} else {
-			ctx.lineTo(point.canvasX, point.canvasY)
-		}
-
-		lastInvalidCanvasX = null
-		prevCanvasY = point.canvasY
-	}
-	ctx.stroke()
-	if (temp) ctx.setLineDash([])
-	ctx.closePath()
+	const expression = func.type === 'sequence'
+		? func.func.replace(/(?<![a-zA-Z0-9_])n(?![a-zA-Z0-9_])/g, 'x')
+		: func.func
+	drawFunctionPlot(ctx, {
+		expression,
+		transform: coordinates,
+		width: surface.width,
+		height: surface.height,
+		color: func.color,
+		lineWidth: lineWidth ?? (func.id == activeElementID ? func.size + 1 : func.size),
+		startX: func.startX == null ? null : Number(func.startX),
+		endX: func.endX == null ? null : Number(func.endX),
+		dashed: temp,
+	}, functionEvaluator)
 }
 
 function drawSequence(seq) {
@@ -1675,8 +1272,8 @@ function drawSequence(seq) {
 		ctx.fillStyle = seqColor
 		ctx.lineWidth = 1
 		let y = math.evaluate(seq.func, { n: n })
-		ctx.arc((-minX + n / unitY) * scaleY, (-minY - y / unitX) * scaleX, seqSize, 0, 2 * Math.PI)
-		text2canvas((-minX + n / unitY) * scaleY - 10, (-minY - y / unitX) * scaleX - 5, seqColor, 'center', 'bold 15px arial', seq.name + n)
+		ctx.arc(pixelX(n), pixelY(y), seqSize, 0, 2 * Math.PI)
+		text2canvas(pixelX(n) - 10, pixelY(y) - 5, seqColor, 'center', 'bold 15px arial', seq.name + n)
 		ctx.fill()
 		ctx.stroke()
 		ctx.closePath()
@@ -1748,9 +1345,6 @@ function drawTangent(tur) {
 	drawPoint(C)
 
 	//Teğet Doğrusu
-	let m = math.evaluate(derivative(tur.func), { x: tur.approachVal })
-	let c = math.evaluate(tur.func, { x: tur.approachVal }) - m * tur.approachVal
-	tur.tngLine = new mLineWithEquation(m, c, true)
 	if (tur.id == activeElementID) drawLineWithEquation(tur.tngLine)
 
 }
@@ -1793,7 +1387,7 @@ function drawTangentHX(turHX) {
 function drawDerivative(der) {
 	if (!der.visibility) return
 	drawFunction(der.derFunc)
-	if (activeElementID == der.id) drawFunction(der.func.func, true)
+	if (activeElementID == der.id) drawFunction(der.func, true)
 }
 function drawFunctionComposition(funcComp) {
 	if (!funcComp.visibility) return
@@ -1810,9 +1404,9 @@ function drawLineSegment(ls) {
 	ctx.strokeStyle = lsColor
 	ctx.lineWidth = lsSize
 	if (ls.temp) ctx.setLineDash(ls.lineDash)
-	ctx.moveTo((-minX + ls.A.a / unitY) * scaleY, (-minY - ls.A.b / unitX) * scaleX)
-	ctx.lineTo((-minX + ls.B.a / unitY) * scaleY, (-minY - ls.B.b / unitX) * scaleX)
-	if (!ls.temp) text2canvas((-minX + ((ls.A.a + ls.B.a) / 2) / unitY) * scaleY - 10, (-minY - ((ls.A.b + ls.B.b) / 2) / unitX) * scaleX - 10, lsColor, 'center', 'bold 15px arial', ls.name)
+	ctx.moveTo(pixelX(ls.A.a), pixelY(ls.A.b))
+	ctx.lineTo(pixelX(ls.B.a), pixelY(ls.B.b))
+	if (!ls.temp) text2canvas(pixelX(((Number(ls.A.a) + Number(ls.B.a)) / 2)) - 10, pixelY(((Number(ls.A.b) + Number(ls.B.b)) / 2)) - 10, lsColor, 'center', 'bold 15px arial', ls.name)
 	ctx.stroke()
 	ctx.setLineDash([])
 	ctx.closePath()
@@ -1831,8 +1425,8 @@ function drawDistanceSegment(ds) {
 
 	let dsColor = ds.temp ? '#000000' : ds.color
 	let distance = distanceAB(ds.A, ds.B)
-	let midX = (-minX + ((Number(ds.A.a) + Number(ds.B.a)) / 2) / unitY) * scaleY
-	let midY = (-minY - ((Number(ds.A.b) + Number(ds.B.b)) / 2) / unitX) * scaleX
+	let midX = pixelX(((Number(ds.A.a) + Number(ds.B.a)) / 2))
+	let midY = pixelY(((Number(ds.A.b) + Number(ds.B.b)) / 2))
 	let label = ds.temp ? formatDistanceValue(distance) + ' br' : ds.name + '=' + formatDistanceValue(distance) + ' br'
 	text2canvas(midX, midY - 10, dsColor, 'center', 'bold 15px arial', label)
 }
@@ -1849,8 +1443,8 @@ function drawMeasuredArc(arcInfo, color, lineWidth) {
 	ctx.lineWidth = lineWidth
 	for (let i = 0; i <= steps; i++) {
 		let angle = (arcInfo.startAngle + arcInfo.span * i / steps) * Math.PI / 180
-		let x = (-minX + (circleData.m + radius * Math.cos(angle)) / unitY) * scaleY
-		let y = (-minY - (circleData.n + radius * Math.sin(angle)) / unitX) * scaleX
+		let x = pixelX((circleData.m + radius * Math.cos(angle)))
+		let y = pixelY((circleData.n + radius * Math.sin(angle)))
 		if (i == 0) ctx.moveTo(x, y)
 		else ctx.lineTo(x, y)
 	}
@@ -1859,8 +1453,8 @@ function drawMeasuredArc(arcInfo, color, lineWidth) {
 
 	let midAngle = (arcInfo.startAngle + arcInfo.span / 2) * Math.PI / 180
 	let labelRadius = radius + 0.2
-	let labelX = (-minX + (circleData.m + labelRadius * Math.cos(midAngle)) / unitY) * scaleY
-	let labelY = (-minY - (circleData.n + labelRadius * Math.sin(midAngle)) / unitX) * scaleX
+	let labelX = pixelX((circleData.m + labelRadius * Math.cos(midAngle)))
+	let labelY = pixelY((circleData.n + labelRadius * Math.sin(midAngle)))
 	text2canvas(labelX, labelY, color, 'center', 'bold 15px arial', formatAngleValue(arcInfo.span) + '\u00b0')
 }
 
@@ -1873,16 +1467,15 @@ function drawArcMeasure(arcMeasure) {
 	let circleData = arcInfo.circleData
 	let midAngle = (arcInfo.startAngle + arcInfo.span / 2) * Math.PI / 180
 	let labelRadius = circleData.r + 0.25
-	let labelX = (-minX + (circleData.m + labelRadius * Math.cos(midAngle)) / unitY) * scaleY
-	let labelY = (-minY - (circleData.n + labelRadius * Math.sin(midAngle)) / unitX) * scaleX
+	let labelX = pixelX((circleData.m + labelRadius * Math.cos(midAngle)))
+	let labelY = pixelY((circleData.n + labelRadius * Math.sin(midAngle)))
 	let label = arcMeasure.temp ? formatAngleValue(arcInfo.span) + '\u00b0' : arcMeasure.name + '=' + formatAngleValue(arcInfo.span) + '\u00b0'
 	text2canvas(labelX, labelY, arcColor, 'center', 'bold 15px arial', label)
 }
 
 function drawScaledAngleArc(cx, cy, startAngle, span, radius, color, lineWidth) {
 	let steps = Math.max(16, Math.ceil(span / 6))
-	let radiusX = radius * scaleY / unitY
-	let radiusY = radius * scaleX / unitX
+	const { x: radiusX, y: radiusY } = getCircleCanvasRadii(radius)
 
 	ctx.beginPath()
 	ctx.strokeStyle = color
@@ -1909,47 +1502,32 @@ function drawAngle(ag) {
 	ctx.beginPath()
 	ctx.strokeStyle = agColor
 	ctx.lineWidth = agSize
-	ctx.moveTo((-minX + ag.A.a / unitY) * scaleY, (-minY - ag.A.b / unitX) * scaleX)
-	ctx.lineTo((-minX + ag.B.a / unitY) * scaleY, (-minY - ag.B.b / unitX) * scaleX)
-	ctx.lineTo((-minX + ag.C.a / unitY) * scaleY, (-minY - ag.C.b / unitX) * scaleX)
+	ctx.moveTo(pixelX(ag.A.a), pixelY(ag.A.b))
+	ctx.lineTo(pixelX(ag.B.a), pixelY(ag.B.b))
+	ctx.lineTo(pixelX(ag.C.a), pixelY(ag.C.b))
 	ctx.stroke()
 	ctx.closePath()
 
 	//Sembol ve Ölçü
 	let angles = calculateAngle(ag)
 	let angleBetween = getAngleMeasure(ag)
-	let cx = (-minX + ag.B.a / unitY) * scaleY
-	let cy = (-minY - ag.B.b / unitX) * scaleX
+	let cx = pixelX(ag.B.a)
+	let cy = pixelY(ag.B.b)
 	let startAngle = 360 - angles.angleBC
 	let endAngle = startAngle + angleBetween
 
 	drawScaledAngleArc(cx, cy, startAngle, angleBetween, 0.2, agColor, agSize + 1)
 	let textAngle = (startAngle + angleBetween / 2) * Math.PI / 180
-	let textRadiusX = 0.35 * scaleY / unitY
-	let textRadiusY = 0.35 * scaleX / unitX
+	const { x: textRadiusX, y: textRadiusY } = getCircleCanvasRadii(0.35)
 	text2canvas(cx + textRadiusX * Math.cos(textAngle), cy + textRadiusY * Math.sin(textAngle), agColor, 'center', 'bold 15px arial', ag.name + '=' + formatAngleValue(angleBetween) + '\u00b0')
 }
 
 function drawSectionalFunctions(sf) {
 	if (!sf.visibility) return
-	if (sf.id == activeElementID) {
-		sf.secFuncs.forEach(func => {
-			func.size = sf.size + 1
-		})
-	} else {
-		sf.secFuncs.forEach(func => {
-			func.size = sf.size
-		})
-	}
+	const lineWidth = sf.id == activeElementID ? sf.size + 1 : sf.size
 	sf.secFuncs.forEach(func => {
-		drawFunction(func)
+		drawFunction(func, false, lineWidth)
 	})
-}
-
-function bileskeProcess(funcs) {
-	return funcs.reduceRight((acc, f) => {
-		return f.replace(/x/g, `(${acc})`)
-	}, "x")
 }
 
 function isNumeric(str) {
@@ -3112,6 +2690,8 @@ function isObjectUsedByOther(target) {
 }
 
 function labelsCreator() {
+	syncCoordinates()
+	const bounds = coordinates.bounds
 	reprojectAllOnOther()
 	objectsContainer.innerHTML = ""
 	arrObjects.forEach(item => {
@@ -3294,7 +2874,7 @@ function labelsCreator() {
 			input.value = item.name + ' = Limit(' + item.func + ',' + item.approachVal + ')'
 		} else if (item.type == 'tangent') {
 			input.value = 'Teğet(' + item.func + ',' + item.approachVal + ')'
-			output.value = item.name + ': y = ' + item.tngLine.func
+			output.value = item.name + ': y = ' + normalizeLine(item.tngLine.m, item.tngLine.n)
 			labelB.hidden = true
 			sliderB.hidden = true
 		} else if (item.type == 'tangentHX') {
@@ -3332,7 +2912,7 @@ function labelsCreator() {
 			labelB.hidden = true
 			sliderB.hidden = true
 		} else if (item.type == 'derivative') {
-			input.value = item.name + ': y = ' + item.func.func.func
+			input.value = item.name + ': y = ' + item.func.func
 			output.value = item.derFunc.name + ': y = ' + item.derFunc.func
 			labelA.hidden = true
 			sliderA.hidden = true
@@ -3341,10 +2921,10 @@ function labelsCreator() {
 		} else {
 			console.log('labelsCreator: Type bulunamadı.')
 		}
-		sliderA.min = minX * unitY - 1
-		sliderA.max = (minX + Math.round(canvas.width / scaleY) + 1) * unitY
-		sliderB.max = -minY * unitX + 1
-		sliderB.min = (minY + Math.round(canvas.height / scaleX) + 1) * -unitX
+		sliderA.min = bounds.left - unitY
+		sliderA.max = bounds.right + unitY
+		sliderB.max = bounds.top + unitX
+		sliderB.min = bounds.bottom - unitX
 		if (item.type == 'point') {
 			sliderA.value = item.a
 			labelA.innerHTML = 'a = ' + formatDisplayNumber(item.a)
@@ -3355,7 +2935,7 @@ function labelsCreator() {
 			labelA.innerHTML = 'x = ' + formatDisplayNumber(item.x)
 		} else if (item.type == 'circleR') {
 			sliderA.min = 0
-			sliderA.max = (minX + Math.round(canvas.width / scaleY) + 1) * unitY
+			sliderA.max = Math.max(Number(item.r), bounds.right - bounds.left, bounds.top - bounds.bottom)
 			sliderA.value = item.r
 			labelA.innerHTML = 'r = ' + formatDisplayNumber(item.r)
 		} else if (item.type == 'arcMeasure') {
@@ -3374,8 +2954,8 @@ function labelsCreator() {
 		} else if (item.type == 'limit') {
 			let verticalMNumberRight = formatDisplayNumber(item.approachValRight * 1)
 			let verticalMNumberLeft = formatDisplayNumber(item.approachValLeft * 1)
-			let mostLeft = minX * unitY
-			let mostRight = (minX + Math.round(canvas.width / scaleY) + 1) * unitY
+			let mostLeft = bounds.left - unitY
+			let mostRight = bounds.right + unitY
 
 			sliderA.min = item.approachVal * 1
 			sliderA.max = mostRight
@@ -3387,16 +2967,16 @@ function labelsCreator() {
 			sliderB.value = verticalMNumberLeft
 			labelB.innerHTML = sliderB.max + '⁻ = ' + verticalMNumberLeft
 		} else if (item.type == 'tangent') {
-			let mostLeft = minX * unitY
-			let mostRight = (minX + Math.round(canvas.width / scaleY) + 1) * unitY
+			let mostLeft = bounds.left - unitY
+			let mostRight = bounds.right + unitY
 			sliderA.min = mostLeft
 			sliderA.max = mostRight
 			sliderA.step = "0.01"
 			sliderA.value = item.approachVal
 			labelA.innerHTML = 'x = ' + item.approachVal
 		} else if (item.type == 'tangentHX') {
-			let mostLeft = minX * unitY
-			let mostRight = (minX + Math.round(canvas.width / scaleY) + 1) * unitY
+			let mostLeft = bounds.left - unitY
+			let mostRight = bounds.right + unitY
 			sliderA.min = mostLeft
 			sliderA.max = mostRight
 			sliderA.step = "1"
@@ -3822,28 +3402,9 @@ function visibilityBtnClick(e) {
 }
 
 function getMousePos(evt) {
-	let rect = canvas.getBoundingClientRect()
-	let xx = (evt.clientX - rect.left + minX * scaleY) / scaleY
-	let yy = (evt.clientY - rect.top + minY * scaleX) / -scaleX
-
-	let intRoundXX = Math.round(xx)
-	let fixRoundXX = Number(xx).toFixed(2)
-
-	if (Math.abs(intRoundXX - fixRoundXX) < .1) {
-		xx = intRoundXX
-	} else {
-		xx = fixRoundXX
-	}
-
-	let intRoundYY = Math.round(yy)
-	let fixRoundYY = Number(yy).toFixed(2)
-	if (Math.abs(intRoundYY - fixRoundYY) < .1) {
-		yy = intRoundYY
-	} else {
-		yy = fixRoundYY
-	}
-
-	return { x: xx * unitY, y: yy * unitX }
+	syncCoordinates()
+	const pixel = getCanvasPixelPos(evt)
+	return { x: coordinates.pixelToX(pixel.x), y: coordinates.pixelToY(pixel.y) }
 }
 
 function crossSlider() {
@@ -3913,20 +3474,24 @@ function crossSlider() {
 			updateIntersectionPointRows()
 		} else if (item.type == 'tangent') {
 			input.value = 'Teğet(' + item.func + ',' + sliderA.value + ')'
-			item.approachVal = Number(sliderA.value)
-			output.value = item.name + ': y = ' + item.tngLine.func
+			try {
+				updateTangent(item, sliderA.value)
+			} catch {
+				sliderA.value = item.approachVal
+				showToast('Teğet', 'Bu konumda sonlu bir gerçek teğet hesaplanamıyor.')
+				return
+			}
+			output.value = item.name + ': y = ' + normalizeLine(item.tngLine.m, item.tngLine.n)
 			labelA.innerHTML = 'x = ' + sliderA.value
 		} else if (item.type == 'tangentHX') {
-			item.approachVal = Number(sliderA.value)
-			item.h = Number(sliderB.value)
-
-			let A = new mPoint(item.approachVal, math.evaluate(item.func, { x: item.approachVal }), true)
-			let B = item.haveH ? new mPoint(item.approachVal + item.h, math.evaluate(item.func, { x: item.approachVal + item.h }), true) : new mPoint(item.h, math.evaluate(item.func, { x: item.h }), true)
-			item.aodLine = new mLineWithPoints(A, B, true)
-
-			let m = math.evaluate(derivative(item.func), { x: item.approachVal })
-			let c = math.evaluate(item.func, { x: item.approachVal }) - m * item.approachVal
-			item.tngLine = new mLineWithEquation(m, c, true)
+			try {
+				updateTangentHX(item, sliderA.value, sliderB.value)
+			} catch {
+				sliderA.value = item.approachVal
+				sliderB.value = item.h
+				showToast('Teğet', 'Bu konumda sonlu gerçek noktalar hesaplanamıyor.')
+				return
+			}
 
 			labelA.innerHTML = 'x₀ = ' + item.approachVal
 			item.haveH ? labelB.innerHTML = 'h = ' + item.h : labelB.innerHTML = 'x = ' + item.h
@@ -3955,6 +3520,7 @@ function crossSlider() {
 		} else if (item.type == 'lineWithEquation') {
 			item.m = Number(sliderA.value)
 			item.n = Number(sliderB.value)
+			item.func = linearExpression(item.m, item.n)
 			labelA.innerHTML = 'm = ' + item.m
 			labelB.innerHTML = 'n = ' + item.n
 			input.value = 'y = ' + normalizeLine(Number(item.m), Number(item.n))
@@ -3974,18 +3540,6 @@ function crossSlider() {
 			labelB.innerHTML = sliderB.max + '⁻ = ' + sliderB.value
 			sliderB.innerHTML = item.approachVal + '⁻ = ' + formatDisplayNumber(sliderB.value)
 
-			let A = new mPoint(Number(sliderA.value), 0)
-			let B = new mPoint(Number(sliderA.value), math.evaluate(item.func, { x: A.a }))
-			let C = new mPoint(0, math.evaluate(item.func, { x: A.a }))
-			let vls = new mLineSegment(A, B)
-			let hls = new mLineSegment(B, C)
-			A.color = B.color = C.color = vls.color = hls.color = item.color
-			vls.lineDash = hls.lineDash = [2, 5]
-			drawLineSegment(vls)
-			drawLineSegment(hls)
-			drawPoint(A)
-			drawPoint(B)
-			drawPoint(C)
 		} else {
 			console.log('crossSlider: Type bulunamadı.')
 		}
@@ -4024,8 +3578,9 @@ function changeName(newName) {
 const canvas = document.getElementById('canvas')
 const ctx = canvas.getContext('2d')
 const objectsContainer = document.getElementById('objectsContainer')
-canvas.width = innerWidth
-canvas.height = innerHeight
+const surface = createCanvasSurface(canvas, ctx)
+surface.resize()
+surface.prepare()
 
 const clearSound = new Audio("sound/clear.mp3")
 let activeObject = 'select'
@@ -4060,6 +3615,22 @@ let tickX = 3
 let unitX = verticalUnits[tickX]
 let tickY = 3
 let unitY = horizontalUnits[tickY]
+
+let coordinateView = null
+let coordinates = null
+
+// Görünüm değişmedikçe bölme ve dönüşüm sabitleri yeniden hesaplanmaz.
+function syncCoordinates() {
+	if (coordinateView && coordinateView.width === surface.width && coordinateView.height === surface.height
+		&& coordinateView.minX === minX && coordinateView.minY === minY
+		&& coordinateView.scaleX === scaleX && coordinateView.scaleY === scaleY
+		&& coordinateView.unitX === unitX && coordinateView.unitY === unitY) return
+	coordinateView = { width: surface.width, height: surface.height, minX, minY, scaleX, scaleY, unitX, unitY }
+	coordinates = createCoordinateTransform(coordinateView)
+}
+
+function pixelX(value) { return coordinates.xToPixel(Number(value)) }
+function pixelY(value) { return coordinates.yToPixel(Number(value)) }
 
 let standartView = {
 	scaleX,
@@ -4231,11 +3802,12 @@ function getCanvasPixelPos(evt) {
 }
 
 function getAxisDragTarget(evt) {
+	syncCoordinates()
 	let pixelPos = getCanvasPixelPos(evt)
-	let xAxisY = -minY * scaleX
-	let yAxisX = -minX * scaleY
-	let nearXAxis = xAxisY >= 0 && xAxisY <= canvas.height && Math.abs(pixelPos.y - xAxisY) <= axisDragThreshold
-	let nearYAxis = yAxisX >= 0 && yAxisX <= canvas.width && Math.abs(pixelPos.x - yAxisX) <= axisDragThreshold
+	let xAxisY = coordinates.originY
+	let yAxisX = coordinates.originX
+	let nearXAxis = xAxisY >= 0 && xAxisY <= surface.height && Math.abs(pixelPos.y - xAxisY) <= axisDragThreshold
+	let nearYAxis = yAxisX >= 0 && yAxisX <= surface.width && Math.abs(pixelPos.x - yAxisX) <= axisDragThreshold
 
 	if (nearXAxis && nearYAxis) {
 		return Math.abs(pixelPos.y - xAxisY) <= Math.abs(pixelPos.x - yAxisX) ? 'xAxis' : 'yAxis'
@@ -4356,15 +3928,6 @@ function reprojectAllOnOther() {
 	});
 }
 
-function derivative(funcStr, variable = "x") {
-	try {
-		const df = math.derivative(funcStr, variable);
-		return df.toString().replaceAll(' ', '');
-	} catch (err) {
-		return "undefined";
-	}
-}
-
 function getRandomColor() {
 	var lum = -0.25
 	var hex = String('#' + Math.random().toString(16).slice(2, 8).toUpperCase()).replace(/[^0-9a-f]/gi, '')
@@ -4382,6 +3945,12 @@ function getRandomColor() {
 }
 
 function createName(type) {
+	if (type === 'verLine') {
+		let index = 1
+		const names = new Set(arrObjects.map(item => item.name))
+		while (names.has('denk' + index)) index++
+		return 'denk' + index
+	}
 	let nm
 	let iFound = false
 	let i = 0
@@ -5173,14 +4742,49 @@ function getHitObject(mousePos) {
 	return { hit: null, hitType: null }
 }
 
+function drawToolPreview(position) {
+	const cursor = () => new mPoint(position.x, position.y, true)
+	if (activeObject === 'line' && lineDrawing) {
+		drawLineWithPoints(new mLineWithPoints(lineA, cursor(), true))
+	} else if (activeObject === 'linesegment' && lineSegmentDrawing) {
+		drawLineSegment(new mLineSegment(lineSegmentA, cursor(), true))
+	} else if (activeObject === 'distancesegment' && distanceSegmentDrawing) {
+		drawDistanceSegment(new mDistanceSegment(distanceSegmentA, cursor(), true))
+	} else if (activeObject === 'reflectpoint' && reflectPointDrawing) {
+		const center = cursor()
+		const reflected = getReflectedPoint(reflectPointA, center)
+		drawPoint(center)
+		drawPoint(new mPoint(reflected.a, reflected.b, true))
+	} else if (activeObject === 'intersect' && intersectDrawing) {
+		const hovered = getHitObject(position).hit
+		if (isIntersectableObject(hovered) && hovered.id !== intersectLineA.id) {
+			const intersection = getObjectIntersection(intersectLineA, hovered)
+			intersection.points.forEach(point => drawPoint(new mPoint(point.a, point.b, true)))
+		}
+	} else if (activeObject === 'angle') {
+		if (!angleDrawing && angleA && !angleB) {
+			drawLineSegment(new mLineSegment(angleA, cursor(), true))
+		} else if (angleDrawing && angleA && angleB && !angleC) {
+			drawAngle(new mAngle(angleA, angleB, cursor(), true))
+		}
+	} else if (activeObject === 'circle2' && circleDrawing) {
+		drawCircle2(new mCircle2(circleA, cursor(), true))
+	} else if (activeObject === 'circle3') {
+		if (!circleDrawing && circleA && !circleB) {
+			drawLineSegment(new mLineSegment(circleA, cursor(), true))
+		} else if (circleDrawing && circleA && circleB && !circleC) {
+			drawCircle3(new mCircle3(circleA, circleB, cursor(), true))
+		}
+	}
+}
+
 function initializeLegacyApp() {
 
 	// document.addEventListener('contextmenu', event => event.preventDefault())
 
 	drawAll()
 	window.onresize = function () {
-		canvas.width = innerWidth
-		canvas.height = innerHeight
+		surface.resize()
 		updateToolWrapperRight()
 		drawAll()
 	}
@@ -5230,134 +4834,56 @@ function initializeLegacyApp() {
 		redoHistoryState()
 	}, false)
 
-	canvas.addEventListener("wheel", (e) => {
-		if (e.deltaY < 0) {
-			if (0 < tickY) {
-				scaleY *= 1.05
-				tickY--
-				unitY = horizontalUnits[tickY]
-				drawAll()
-			}
-			if (0 < tickX) {
-				scaleX *= 1.05
-				tickX--
-				unitX = verticalUnits[tickX]
-				drawAll()
-			}
+	canvas.addEventListener('wheel', event => {
+		event.preventDefault()
+		if (event.deltaY === 0) return
+		const zoomIn = event.deltaY < 0
+		let changed = false
+		if ((zoomIn && tickY > 0) || (!zoomIn && tickY < horizontalUnits.length - 1)) {
+			scaleY *= zoomIn ? 1.05 : 0.95
+			tickY += zoomIn ? -1 : 1
+			unitY = horizontalUnits[tickY]
+			changed = true
 		}
-		if (e.deltaY > 0) {
-			if (tickY < horizontalUnits.length - 1) {
-				scaleY *= .95
-				tickY++
-				unitY = horizontalUnits[tickY]
-				drawAll()
-			}
-			if (tickX < verticalUnits.length - 1) {
-				scaleX *= .95
-				tickX++
-				unitX = verticalUnits[tickX]
-				drawAll()
-			}
+		if ((zoomIn && tickX > 0) || (!zoomIn && tickX < verticalUnits.length - 1)) {
+			scaleX *= zoomIn ? 1.05 : 0.95
+			tickX += zoomIn ? -1 : 1
+			unitX = verticalUnits[tickX]
+			changed = true
 		}
-	})
-	canvas.addEventListener("mousemove", function (evt) {
-		let hoverHitObject = getHitObject(getMousePos(evt))
-		if (activeObject == 'select' && !grabbing && !hoverHitObject.hit) {
-			let axisTarget = getAxisDragTarget(evt)
-			if (axisTarget == 'xAxis') canvas.style.cursor = 'ew-resize'
-			if (axisTarget == 'yAxis') canvas.style.cursor = 'ns-resize'
-		}
-		if (activeObject === 'line') {
-			drawAll()
-			if (lineDrawing) {
-				let lineB = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
-				drawLineWithPoints(new mLineWithPoints(lineA, lineB, true))
-			}
-		}
-		if (activeObject === 'linesegment') {
-			drawAll()
-			if (lineSegmentDrawing) {
-				let lineSegmentB = new mPoint(getMousePos(evt).x, getMousePos(evt).y, true)
-				drawAll()
-				drawLineSegment(new mLineSegment(lineSegmentA, lineSegmentB, true))
-			}
-		}
-		if (activeObject === 'distancesegment') {
-			drawAll()
-			if (distanceSegmentDrawing) {
-				let distanceSegmentB = new mPoint(getMousePos(evt).x, getMousePos(evt).y, true)
-				drawDistanceSegment(new mDistanceSegment(distanceSegmentA, distanceSegmentB, true))
-			}
-		}
-		if (activeObject === 'reflectpoint') {
-			drawAll()
-			if (reflectPointDrawing) {
-				let reflectPointB = new mPoint(getMousePos(evt).x, getMousePos(evt).y, true)
-				let reflected = getReflectedPoint(reflectPointA, reflectPointB)
-				drawPoint(reflectPointB)
-				drawPoint(new mPoint(reflected.a, reflected.b, true))
-			}
-		}
-		if (activeObject === 'intersect') {
-			drawAll()
-			if (intersectDrawing) {
-				let hovered = getHitObject(getMousePos(evt)).hit
-				if (isIntersectableObject(hovered) && hovered.id != intersectLineA.id) {
-					let intersection = getObjectIntersection(intersectLineA, hovered)
-					intersection.points.forEach(point => drawPoint(new mPoint(point.a, point.b, true)))
-				}
-			}
-		}
-		if (activeObject === 'angle') {
-			drawAll()
-			if (!angleDrawing && angleA && !angleB) {
-				let angleB = new mPoint(getMousePos(evt).x, getMousePos(evt).y, true)
-				drawLineSegment(new mLineSegment(angleA, angleB, true))
-			} else if (angleDrawing && angleA && angleB && !angleC) {
-				let angleC = new mPoint(getMousePos(evt).x, getMousePos(evt).y, true)
-				drawAngle(new mAngle(angleA, angleB, angleC, true))
-			}
-		}
-		if (activeObject === 'circle2') {
-			drawAll()
-			if (circleDrawing) {
-				let circleB = new mPoint(getMousePos(evt).x, getMousePos(evt).y, true)
-				drawAll()
-				drawCircle2(new mCircle2(circleA, circleB, true))
-			}
-		}
-		if (activeObject === 'circle3') {
-			drawAll()
-			if (!circleDrawing && circleA && !circleB) {
-				let circleB = new mPoint(getMousePos(evt).x, getMousePos(evt).y, true)
-			} else if (circleDrawing && circleA && circleB && !circleC) {
-				let circleC = new mPoint(getMousePos(evt).x, getMousePos(evt).y, true)
-				drawCircle3(new mCircle3(circleA, circleB, circleC, true))
-			}
+		if (changed) drawAll()
+	}, { passive: false })
+
+	canvas.addEventListener('mousemove', event => {
+		const position = getMousePos(event)
+		const hoverHitObject = getHitObject(position)
+		if (activeObject === 'select' && !grabbing && !hoverHitObject.hit) {
+			const axisTarget = getAxisDragTarget(event)
+			if (axisTarget === 'xAxis') canvas.style.cursor = 'ew-resize'
+			if (axisTarget === 'yAxis') canvas.style.cursor = 'ns-resize'
 		}
 
-		if (grabbing && activeObject == 'select' && hitObject) {
+		if (grabbing && activeObject === 'select' && hitObject) {
 			canvas.style.cursor = 'grabbing'
 			if (axisUnitDrag) {
-				canvas.style.cursor = axisUnitDrag.axis == 'xAxis' ? 'ew-resize' : 'ns-resize'
-				updateAxisUnitDrag(evt)
+				canvas.style.cursor = axisUnitDrag.axis === 'xAxis' ? 'ew-resize' : 'ns-resize'
+				updateAxisUnitDrag(event)
 				drawAll()
-			} else if (hitObject.hitType == 'point') {
-				hitObject.hit.a = getMousePos(evt).x
-				hitObject.hit.b = getMousePos(evt).y
-				reprojectAllOnOther()
+			} else if (hitObject.hitType === 'point') {
+				hitObject.hit.a = position.x
+				hitObject.hit.b = position.y
 				drawAll()
 				labelsCreator()
 			} else if (!hitObject.hit && panStartMouse) {
-				let dx = evt.clientX - panStartMouse.x
-				let dy = evt.clientY - panStartMouse.y
-				minX = panStartMinX - dx / scaleY
-				minY = panStartMinY - dy / scaleX
+				minX = panStartMinX - (event.clientX - panStartMouse.x) / scaleY
+				minY = panStartMinY - (event.clientY - panStartMouse.y) / scaleX
 				drawAll()
 				labelsCreator()
 			}
+		} else if (['line', 'linesegment', 'distancesegment', 'reflectpoint',
+			'intersect', 'angle', 'circle2', 'circle3'].includes(activeObject)) {
+			drawAll(() => drawToolPreview(position))
 		}
-
 	}, false)
 
 	canvas.addEventListener("mousedown", function (evt) {
