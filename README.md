@@ -93,7 +93,8 @@ drAW2D/
 ├── src/
 │   ├── main.ts       # TypeScript giriş noktası
 │   ├── math.ts       # math.js yapılandırması
-│   ├── geometry/     # TypeScript temel geometri modelleri ve bağımlılık tipleri
+│   ├── geometry/     # TypeScript geometri/fonksiyon/analiz modelleri ve belge tipleri
+│   ├── math/         # Bileşke, türev, hassas doğru ifadeleri ve analiz değerlendirmesi
 │   ├── rendering/    # Ortak koordinat dönüşümü, kare/ızgara önbelleği ve fonksiyon çizimi
 │   ├── ui/           # TypeScript radyal araç çubuğu ve tipleri
 │   ├── legacy/       # Aşamalı taşınacak JavaScript geometri motoru
@@ -108,7 +109,7 @@ drAW2D/
 
 ## Teknoloji
 
-- TypeScript + Vite + Canvas; temel geometri modelleri TypeScript'tir, kalan motor aşamalı taşınır.
+- TypeScript + Vite + Canvas; 20 geometri/fonksiyon/analiz modeli TypeScript'tir, kalan motor aşamalı taşınır.
 - Electron + electron-builder ile Linux ve Windows paketleme.
 - [math.js](https://mathjs.org/) 15.2.0 — eski uygulamayla aynı sürüm ve logaritma davranışı.
 - Uygulama varlıkları ve matematik kütüphanesi çıktıya dahil edilir; çalışma sırasında CDN gerekmez.
@@ -119,7 +120,7 @@ drAW2D/
 
 ## Aşamalı geçiş
 
-Geliştirme, paketleme, temel çizim altyapısı ve 10 geometri modeli TypeScript'e taşındı.
+Geliştirme, paketleme, temel çizim altyapısı ve 20 geometri/fonksiyon/analiz modeli TypeScript'e taşındı.
 Geometri motorunun tamamı henüz TypeScript'e çevrilmemiştir. Her taşıma adımından
 sonra durulur; daha verimli veya kullanışlı tasarımlar için eski uygulama davranışı
 değiştirilebilir. Tamamlanan adımlar, sonraki modüller ve

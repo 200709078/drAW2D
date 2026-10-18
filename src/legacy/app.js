@@ -1,7 +1,18 @@
 import { math } from '../math'
 import { createGeometryModels } from '../geometry/models'
 import { createFunctionModels } from '../geometry/function-models'
-import { composeExpressions, differentiate, linearExpression } from '../math/function-algebra'
+import {
+	distanceAB, getReflectedPoint, getLineDescriptor, numericPoint,
+	getProjectionOnLine, getProjectionOnSegment, getProjectionOnAngle, getProjectionOnCircle,
+	getCircleDescriptor, calculateAngle, getAngleMeasure, normalizeDegree,
+	getPointAngleOnCircle, isPointAtCircleCenter, isPointOnCircleData, isAngleInCcwArc,
+	getPositiveArcMeasure, createLineEquation,
+} from '../geometry/primitives'
+import { getObjectIntersection } from '../geometry/intersections'
+import {
+	getCircleTangentLines, getProjectionOnCircleTangent, getCircleTangentTouchPoint,
+} from '../geometry/tangents'
+import { composeExpressions, linearExpression } from '../math/function-algebra'
 import { createGridRenderer } from '../rendering/coordinate-grid'
 import { createCanvasSurface } from '../rendering/canvas-surface'
 import { createFrameRenderer, createSceneOrder } from '../rendering/frame-renderer'
@@ -49,7 +60,7 @@ const {
 
 // Geometri ve fonksiyon modelleri TypeScript modüllerinden gelir; kalan motor aşamalı taşınır.
 
-function normalizeLine(m, n) {
+function normalizeLine(m, n, spacing = '') {
 	let displayM = formatDisplayNumber(m)
 	let displayN = formatDisplayNumber(n)
 	let numericM = Number(displayM)
@@ -73,22 +84,11 @@ function normalizeLine(m, n) {
 	}
 
 	if (numericN > 0) {
-		result += `+${displayN}`;
+		result += `${spacing}+${spacing}${displayN}`;
 	} else {
-		result += `${displayN}`;
+		result += `${spacing}-${spacing}${displayN.slice(1)}`;
 	}
 	return result;
-}
-
-function distanceAB(A, B) {
-	return Math.sqrt(Math.pow(B.b - A.b, 2) + Math.pow(B.a - A.a, 2))
-}
-
-function getReflectedPoint(source, center) {
-	return {
-		a: 2 * Number(center.a) - Number(source.a),
-		b: 2 * Number(center.b) - Number(source.b),
-	}
 }
 
 function createPrimePointName(sourceName) {
@@ -135,139 +135,9 @@ function isIntersectableObject(obj) {
 	return isIntersectableLine(obj) || isIntersectableCircle(obj)
 }
 
-function getLineDescriptor(line) {
-	if (!isIntersectableLine(line)) return { status: false }
-
-	if (line.type == 'verLine') {
-		return { status: true, limited: false, vertical: true, x: Number(line.x) }
-	}
-
-	if (line.type == 'lineWithEquation') {
-		return { status: true, limited: false, vertical: false, m: Number(line.m), c: Number(line.n) }
-	}
-
-	if (line.type == 'lineWithPoints' || line.type == 'lineSegment') {
-		let limited = line.type == 'lineSegment'
-		let A = { a: Number(line.A.a), b: Number(line.A.b) }
-		let B = { a: Number(line.B.a), b: Number(line.B.b) }
-
-		if (Number(line.A.a) == Number(line.B.a)) {
-			if (Number(line.A.b) == Number(line.B.b)) return { status: false }
-			return { status: true, limited: limited, vertical: true, x: Number(line.A.a), A: A, B: B }
-		}
-
-		let equation = createLineEquation(line.A, line.B)
-		return { status: true, limited: limited, vertical: false, m: Number(equation.m), c: Number(equation.c), A: A, B: B }
-	}
-
-	return { status: false }
-}
-
 function isPointAttachableLine(obj) {
 	if (!obj) return false
 	return obj.type == 'lineWithPoints' || obj.type == 'lineWithEquation' || obj.type == 'verLine' || obj.type == 'lineSegment'
-}
-
-function getProjectionOnCircleTangent(tangent, a, b, lineIndex = null) {
-	if (!tangent || tangent.type != 'circleTangent') return { status: false }
-	let tangentData = getCircleTangentLines(tangent.A, tangent.circle)
-	if (!tangentData.status || tangentData.lines.length == 0) return { status: false }
-
-	let projectLine = (line, index) => {
-		let projection = getProjectionOnLine(line, a, b)
-		if (!projection.status) return null
-		let distance = Math.sqrt((Number(a) - projection.a) ** 2 + (Number(b) - projection.b) ** 2)
-		return {
-			status: true,
-			a: projection.a,
-			b: projection.b,
-			lineIndex: index,
-			distance: distance,
-		}
-	}
-
-	if (lineIndex != null && tangentData.lines[lineIndex]) {
-		return projectLine(tangentData.lines[lineIndex], lineIndex) || { status: false }
-	}
-
-	let projections = tangentData.lines
-		.map((line, index) => projectLine(line, index))
-		.filter(projection => projection && projection.status)
-
-	if (projections.length == 0) return { status: false }
-	return projections.reduce((nearest, projection) => projection.distance < nearest.distance ? projection : nearest)
-}
-
-function getProjectionOnLine(line, a, b) {
-	let desc = getLineDescriptor(line)
-	if (!desc.status) return { status: false }
-
-	a = Number(a)
-	b = Number(b)
-	if (!Number.isFinite(a) || !Number.isFinite(b)) return { status: false }
-
-	if (desc.limited) {
-		let dx = desc.B.a - desc.A.a
-		let dy = desc.B.b - desc.A.b
-		let lengthSquared = dx * dx + dy * dy
-		if (lengthSquared == 0) return { status: false }
-
-		let t = ((a - desc.A.a) * dx + (b - desc.A.b) * dy) / lengthSquared
-		t = Math.max(0, Math.min(1, t))
-
-		return {
-			status: true,
-			a: desc.A.a + t * dx,
-			b: desc.A.b + t * dy,
-		}
-	}
-
-	if (desc.vertical) {
-		return { status: true, a: desc.x, b: b }
-	}
-
-	let denominator = desc.m * desc.m + 1
-	let projectedA = (a + desc.m * (b - desc.c)) / denominator
-	let projectedB = desc.m * projectedA + desc.c
-
-	return { status: true, a: projectedA, b: projectedB }
-}
-
-function getProjectionOnSegment(A, B, a, b) {
-	A = { a: Number(A.a), b: Number(A.b) }
-	B = { a: Number(B.a), b: Number(B.b) }
-	a = Number(a)
-	b = Number(b)
-
-	let dx = B.a - A.a
-	let dy = B.b - A.b
-	let lengthSquared = dx * dx + dy * dy
-	if (lengthSquared == 0 || !Number.isFinite(a) || !Number.isFinite(b)) return { status: false }
-
-	let t = ((a - A.a) * dx + (b - A.b) * dy) / lengthSquared
-	t = Math.max(0, Math.min(1, t))
-	let projectedA = A.a + t * dx
-	let projectedB = A.b + t * dy
-	let distance = Math.sqrt((a - projectedA) ** 2 + (b - projectedB) ** 2)
-
-	return {
-		status: true,
-		a: projectedA,
-		b: projectedB,
-		distance: distance,
-	}
-}
-
-function getProjectionOnAngle(angle, a, b) {
-	if (!angle || angle.type != 'angle') return { status: false }
-
-	let projectionAB = getProjectionOnSegment(angle.A, angle.B, a, b)
-	let projectionBC = getProjectionOnSegment(angle.B, angle.C, a, b)
-	if (!projectionAB.status && !projectionBC.status) return { status: false }
-	if (!projectionAB.status) return projectionBC
-	if (!projectionBC.status) return projectionAB
-
-	return projectionAB.distance <= projectionBC.distance ? projectionAB : projectionBC
 }
 
 function createPointFromHitOrMouse(hit, mousePos) {
@@ -276,26 +146,14 @@ function createPointFromHitOrMouse(hit, mousePos) {
 	}
 
 	if (isIntersectableCircle(hit.hit)) {
-		let circle = hit.hit
-		let circleData = getCircleDescriptor(circle)
-		if (circleData.status) {
-			let angle = Math.atan2(mousePos.y - circleData.n, mousePos.x - circleData.m)
-			let point = new mPoint(
-				Number(circleData.m + circleData.r * Math.cos(angle)).toFixed(2),
-				Number(circleData.n + circleData.r * Math.sin(angle)).toFixed(2)
-			)
-			point.onOther.push({
-				type: "onCircle",
-				circleId: circle.id
-			})
-			return { point: point, created: true }
-		}
+		const point = createPointOnCircle(hit.hit, mousePos)
+		if (point) return { point, created: true }
 	}
 
 	if (isPointAttachableLine(hit.hit)) {
 		let projection = getProjectionOnLine(hit.hit, mousePos.x, mousePos.y)
 		if (projection.status) {
-			let point = new mPoint(Number(projection.a).toFixed(2), Number(projection.b).toFixed(2))
+			let point = new mPoint(projection.a, projection.b)
 			point.onOther.push({
 				type: "onLine",
 				lineId: hit.hit.id
@@ -307,7 +165,7 @@ function createPointFromHitOrMouse(hit, mousePos) {
 	if (hit.hitType == 'circleTangent') {
 		let projection = getProjectionOnCircleTangent(hit.hit, mousePos.x, mousePos.y)
 		if (projection.status) {
-			let point = new mPoint(Number(projection.a).toFixed(2), Number(projection.b).toFixed(2))
+			let point = new mPoint(projection.a, projection.b)
 			point.onOther.push({
 				type: "onCircleTangent",
 				tangentId: hit.hit.id,
@@ -320,7 +178,7 @@ function createPointFromHitOrMouse(hit, mousePos) {
 	if (hit.hitType == 'angle') {
 		let projection = getProjectionOnAngle(hit.hit, mousePos.x, mousePos.y)
 		if (projection.status) {
-			let point = new mPoint(Number(projection.a).toFixed(2), Number(projection.b).toFixed(2))
+			let point = new mPoint(projection.a, projection.b)
 			point.onOther.push({
 				type: "onAngle",
 				angleId: hit.hit.id
@@ -332,347 +190,18 @@ function createPointFromHitOrMouse(hit, mousePos) {
 	return { point: new mPoint(mousePos.x, mousePos.y), created: true }
 }
 
-function getCircle3RA(circle) {
-	const D = 2 * (
-		circle.A.a * (circle.B.b - circle.C.b) +
-		circle.B.a * (circle.C.b - circle.A.b) +
-		circle.C.a * (circle.A.b - circle.B.b)
-	)
-
-	if (Math.abs(D) < 1e-10) return { status: false }
-
-	const a2 = circle.A.a * circle.A.a + circle.A.b * circle.A.b
-	const b2 = circle.B.a * circle.B.a + circle.B.b * circle.B.b
-	const c2 = circle.C.a * circle.C.a + circle.C.b * circle.C.b
-
-	const ux = (
-		a2 * (circle.B.b - circle.C.b) +
-		b2 * (circle.C.b - circle.A.b) +
-		c2 * (circle.A.b - circle.B.b)
-	) / D
-
-	const uy = (
-		a2 * (circle.C.a - circle.B.a) +
-		b2 * (circle.A.a - circle.C.a) +
-		c2 * (circle.B.a - circle.A.a)
-	) / D
-
-	const r = Math.sqrt((ux - circle.A.a) ** 2 + (uy - circle.A.b) ** 2)
-
-	return {
-		m: ux,
-		n: uy,
-		r: r,
-	}
-}
-
-function getCircleCenterRadius(circle) {
-	if (circle.type == 'circleR') {
-		return {
-			m: Number(circle.A.a),
-			n: Number(circle.A.b),
-			r: Number(circle.r),
-			status: true,
-		}
-	}
-	if (circle.type == 'circle2') {
-		return {
-			m: Number(circle.A.a),
-			n: Number(circle.A.b),
-			r: distanceAB(circle.A, circle.B),
-			status: true,
-		}
-	}
-	if (circle.type == 'circle3') {
-		let data = getCircle3RA(circle)
-		return {
-			m: Number(data.m),
-			n: Number(data.n),
-			r: Number(data.r),
-			status: data.status !== false,
-		}
-	}
-	return { status: false }
-}
-
-function getCircleTangentLines(point, circle) {
-	let circleData = getCircleCenterRadius(circle)
-	if (!circleData.status) return { status: false, reason: 'invalidCircle', lines: [] }
-
-	let px = Number(point.a)
-	let py = Number(point.b)
-	let cx = circleData.m
-	let cy = circleData.n
-	let r = circleData.r
-	let dx = px - cx
-	let dy = py - cy
-	let d = Math.sqrt(dx * dx + dy * dy)
-	let eps = 1e-7
-
-	if (d < r - eps) return { status: false, reason: 'inside', lines: [] }
-	if (d < eps) return { status: false, reason: 'inside', lines: [] }
-
-	if (Math.abs(d - r) <= eps) {
-		let touchPoint = new mPoint(px, py, true)
-		let tangentPoint = new mPoint(px - dy, py + dx, true)
-		return {
-			status: true,
-			tangentPoints: [touchPoint],
-			lines: [new mLineWithPoints(point, tangentPoint, true)],
-		}
-	}
-
-	let ex = dx / d
-	let ey = dy / d
-	let baseDistance = (r * r) / d
-	let height = (r * Math.sqrt(d * d - r * r)) / d
-	let baseX = cx + baseDistance * ex
-	let baseY = cy + baseDistance * ey
-	let perpX = -ey
-	let perpY = ex
-
-	let T1 = new mPoint(baseX + height * perpX, baseY + height * perpY, true)
-	let T2 = new mPoint(baseX - height * perpX, baseY - height * perpY, true)
-
-	return {
-		status: true,
-		tangentPoints: [T1, T2],
-		lines: [
-			new mLineWithPoints(point, T1, true),
-			new mLineWithPoints(point, T2, true),
-		],
-	}
-}
-
-function getCircleTangentTouchPoint(tangent, pointIndex = 0) {
-	if (!tangent || tangent.type != 'circleTangent') return null
-	let tangentData = getCircleTangentLines(tangent.A, tangent.circle)
-	if (!tangentData.status || !tangentData.tangentPoints) return null
-	return tangentData.tangentPoints[pointIndex] || null
-}
-
-function createCircleTangentTouchPoints(tangent) {
-	let tangentData = getCircleTangentLines(tangent.A, tangent.circle)
-	if (!tangentData.status || !tangentData.tangentPoints) return []
-
-	return tangentData.tangentPoints.map((touchPoint, index) => {
-		let point = new mPoint(touchPoint.a, touchPoint.b)
-		point.onOther.push({
-			type: 'circleTangentTouchPoint',
-			tangentId: tangent.id,
-			pointIndex: index,
-		})
-		return point
-	})
-}
-
 function addCircleTangentWithTouchPoints(point, circle) {
-	let tangent = new mCircleTangent(point, circle)
+	const tangent = new mCircleTangent(point, circle)
 	arrObjects.push(tangent)
-	createCircleTangentTouchPoints(tangent).forEach(touchPoint => arrObjects.push(touchPoint))
+	const data = getCircleTangentLines(point, circle)
+	if (data.status) {
+		data.tangentPoints.forEach((touch, pointIndex) => {
+			const touchPoint = new mPoint(touch.a, touch.b)
+			touchPoint.onOther.push({ type: 'circleTangentTouchPoint', tangentId: tangent.id, pointIndex })
+			arrObjects.push(touchPoint)
+		})
+	}
 	return tangent
-}
-
-function getCircleDescriptor(circle) {
-	if (!isIntersectableCircle(circle)) return { status: false }
-
-	if (circle.type == 'circleR') {
-		return {
-			status: true,
-			m: Number(circle.A.a),
-			n: Number(circle.A.b),
-			r: Number(circle.r),
-		}
-	}
-
-	if (circle.type == 'circle2') {
-		return {
-			status: true,
-			m: Number(circle.A.a),
-			n: Number(circle.A.b),
-			r: distanceAB(circle.A, circle.B),
-		}
-	}
-
-	let circleData = getCircle3RA(circle)
-	return {
-		status: true,
-		m: Number(circleData.m),
-		n: Number(circleData.n),
-		r: Number(circleData.r),
-	}
-}
-
-function isPointOnLimitedLine(desc, a, b, epsilon = 0.0000001) {
-	if (!desc.limited) return true
-
-	return a >= Math.min(desc.A.a, desc.B.a) - epsilon &&
-		a <= Math.max(desc.A.a, desc.B.a) + epsilon &&
-		b >= Math.min(desc.A.b, desc.B.b) - epsilon &&
-		b <= Math.max(desc.A.b, desc.B.b) + epsilon
-}
-
-function getCollinearIntersection(l1, l2, epsilon = 0.0000001) {
-	if (!l1.limited && !l2.limited) return { status: false, reason: 'infinite' }
-	if (l1.limited && !l2.limited) return { status: false, reason: 'infinite' }
-	if (!l1.limited && l2.limited) return { status: false, reason: 'infinite' }
-
-	let axis = Math.abs(l1.A.a - l1.B.a) >= Math.abs(l1.A.b - l1.B.b) ? 'a' : 'b'
-	let l1Start = Math.min(l1.A[axis], l1.B[axis])
-	let l1End = Math.max(l1.A[axis], l1.B[axis])
-	let l2Start = Math.min(l2.A[axis], l2.B[axis])
-	let l2End = Math.max(l2.A[axis], l2.B[axis])
-	let overlapStart = Math.max(l1Start, l2Start)
-	let overlapEnd = Math.min(l1End, l2End)
-
-	if (overlapEnd < overlapStart - epsilon) return { status: false, reason: 'empty' }
-	if (Math.abs(overlapEnd - overlapStart) < epsilon) {
-		let candidates = [l1.A, l1.B, l2.A, l2.B]
-		let point = candidates.find(p => Math.abs(p[axis] - overlapStart) < epsilon)
-		if (point) return { status: true, reason: 'point', a: point.a, b: point.b }
-	}
-	return { status: false, reason: 'infinite' }
-}
-
-function getLineIntersection(line1, line2) {
-	let l1 = getLineDescriptor(line1)
-	let l2 = getLineDescriptor(line2)
-	const epsilon = 0.0000001
-
-	if (!l1.status || !l2.status) return { status: false, reason: 'empty' }
-	if (l1.vertical && l2.vertical) {
-		if (Math.abs(l1.x - l2.x) < epsilon) return getCollinearIntersection(l1, l2, epsilon)
-		return { status: false, reason: 'empty' }
-	}
-
-	let a, b
-	if (l1.vertical) {
-		a = l1.x
-		b = l2.m * a + l2.c
-	} else if (l2.vertical) {
-		a = l2.x
-		b = l1.m * a + l1.c
-	} else {
-		if (Math.abs(l1.m - l2.m) < epsilon) {
-			if (Math.abs(l1.c - l2.c) < epsilon) return getCollinearIntersection(l1, l2, epsilon)
-			return { status: false, reason: 'empty' }
-		}
-		a = (l2.c - l1.c) / (l1.m - l2.m)
-		b = l1.m * a + l1.c
-	}
-
-	if (!Number.isFinite(a) || !Number.isFinite(b)) return { status: false, reason: 'empty' }
-	if (!isPointOnLimitedLine(l1, a, b, epsilon) || !isPointOnLimitedLine(l2, a, b, epsilon)) {
-		return { status: false, reason: 'empty' }
-	}
-	return { status: true, reason: 'point', a: a, b: b }
-}
-
-function dedupeIntersectionPoints(points, epsilon = 0.0000001) {
-	let uniquePoints = []
-	points.forEach(point => {
-		if (!Number.isFinite(point.a) || !Number.isFinite(point.b)) return
-		let exists = uniquePoints.some(item =>
-			Math.abs(item.a - point.a) < epsilon &&
-			Math.abs(item.b - point.b) < epsilon
-		)
-		if (!exists) uniquePoints.push(point)
-	})
-	return uniquePoints
-}
-
-function getLineCircleIntersection(lineObj, circleObj) {
-	let line = getLineDescriptor(lineObj)
-	let circle = getCircleDescriptor(circleObj)
-	const epsilon = 0.0000001
-
-	if (!line.status || !circle.status || circle.r < 0) return { status: false, reason: 'empty', points: [] }
-
-	let points = []
-	if (line.vertical) {
-		let dx = line.x - circle.m
-		let delta = circle.r * circle.r - dx * dx
-		if (delta < -epsilon) return { status: false, reason: 'empty', points: [] }
-		if (Math.abs(delta) < epsilon) {
-			points.push({ a: line.x, b: circle.n })
-		} else {
-			let root = Math.sqrt(delta)
-			points.push({ a: line.x, b: circle.n + root })
-			points.push({ a: line.x, b: circle.n - root })
-		}
-	} else {
-		let denominator = line.m * line.m + 1
-		let footX = (circle.m + line.m * (circle.n - line.c)) / denominator
-		let footY = line.m * footX + line.c
-		let distanceToLine = Math.abs(line.m * circle.m - circle.n + line.c) / Math.sqrt(denominator)
-		let delta = circle.r * circle.r - distanceToLine * distanceToLine
-		if (delta < -epsilon) return { status: false, reason: 'empty', points: [] }
-		if (Math.abs(delta) < epsilon) {
-			points.push({ a: footX, b: footY })
-		} else {
-			let offset = Math.sqrt(delta)
-			let dirLength = Math.sqrt(denominator)
-			let ux = 1 / dirLength
-			let uy = line.m / dirLength
-			points.push({ a: footX + ux * offset, b: footY + uy * offset })
-			points.push({ a: footX - ux * offset, b: footY - uy * offset })
-		}
-	}
-
-	points = dedupeIntersectionPoints(points).filter(point => isPointOnLimitedLine(line, point.a, point.b, epsilon))
-	return points.length > 0 ? { status: true, reason: 'points', points: points } : { status: false, reason: 'empty', points: [] }
-}
-
-function getCircleCircleIntersection(circleObj1, circleObj2) {
-	let c1 = getCircleDescriptor(circleObj1)
-	let c2 = getCircleDescriptor(circleObj2)
-	const epsilon = 0.0000001
-
-	if (!c1.status || !c2.status || c1.r < 0 || c2.r < 0) return { status: false, reason: 'empty', points: [] }
-
-	let dx = c2.m - c1.m
-	let dy = c2.n - c1.n
-	let d = Math.sqrt(dx * dx + dy * dy)
-
-	if (d < epsilon && Math.abs(c1.r - c2.r) < epsilon) return { status: false, reason: 'infinite', points: [] }
-	if (d < epsilon) return { status: false, reason: 'empty', points: [] }
-	if (d > c1.r + c2.r + epsilon) return { status: false, reason: 'empty', points: [] }
-	if (d < Math.abs(c1.r - c2.r) - epsilon) return { status: false, reason: 'empty', points: [] }
-
-	let a = (c1.r * c1.r - c2.r * c2.r + d * d) / (2 * d)
-	let hSquared = c1.r * c1.r - a * a
-	if (hSquared < -epsilon) return { status: false, reason: 'empty', points: [] }
-
-	let xm = c1.m + a * dx / d
-	let ym = c1.n + a * dy / d
-	if (Math.abs(hSquared) < epsilon) return { status: true, reason: 'points', points: [{ a: xm, b: ym }] }
-
-	let h = Math.sqrt(hSquared)
-	let rx = -dy * (h / d)
-	let ry = dx * (h / d)
-	return {
-		status: true,
-		reason: 'points',
-		points: dedupeIntersectionPoints([
-			{ a: xm + rx, b: ym + ry },
-			{ a: xm - rx, b: ym - ry },
-		]),
-	}
-}
-
-function getObjectIntersection(obj1, obj2) {
-	if (isIntersectableLine(obj1) && isIntersectableLine(obj2)) {
-		let lineIntersection = getLineIntersection(obj1, obj2)
-		return lineIntersection.status
-			? { status: true, reason: 'points', points: [{ a: lineIntersection.a, b: lineIntersection.b }] }
-			: { status: false, reason: lineIntersection.reason, points: [] }
-	}
-
-	if (isIntersectableLine(obj1) && isIntersectableCircle(obj2)) return getLineCircleIntersection(obj1, obj2)
-	if (isIntersectableCircle(obj1) && isIntersectableLine(obj2)) return getLineCircleIntersection(obj2, obj1)
-	if (isIntersectableCircle(obj1) && isIntersectableCircle(obj2)) return getCircleCircleIntersection(obj1, obj2)
-
-	return { status: false, reason: 'empty', points: [] }
 }
 
 function createReservedName(type, reservedNames = []) {
@@ -741,7 +270,7 @@ function getIntersectionOutput(point) {
 	})
 
 	let visiblePoints = relatedPoints.filter(item =>
-		Number.isFinite(Number(item.a)) &&
+		item.geometryValid !== false && Number.isFinite(Number(item.a)) &&
 		Number.isFinite(Number(item.b))
 	)
 
@@ -789,59 +318,6 @@ function formatCircleInput(circle) {
 	return ''
 }
 
-function calculateAngle(ag) {
-	let u = { x: ag.A.a - ag.B.a, y: ag.A.b - ag.B.b }
-	let v = { x: ag.C.a - ag.B.a, y: ag.C.b - ag.B.b }
-	let angleBA = Math.atan(u.y / u.x) * 180 / Math.PI
-	if (u.x > 0 && u.y >= 0) {
-		angleBA = angleBA
-	} else if (u.x < 0 && u.y > 0) {
-		angleBA = angleBA + 180
-	} else if (u.x < 0 && u.y <= 0) {
-		angleBA = angleBA + 180
-	} else if (u.x >= 0 && u.y <= 0) {
-		angleBA = angleBA + 360
-	}
-	let angleBC = Math.atan(v.y / v.x) * 180 / Math.PI
-	if (v.x > 0 && v.y >= 0) {
-		angleBC = angleBC
-	} else if (v.x < 0 && v.y > 0) {
-		angleBC = angleBC + 180
-	} else if (v.x < 0 && v.y <= 0) {
-		angleBC = angleBC + 180
-	} else if (v.x >= 0 && v.y <= 0) {
-		angleBC = angleBC + 360
-	}
-	return { angleBA, angleBC }
-}
-
-function getAngleMeasure(ag) {
-	let angles = calculateAngle(ag)
-	return angles.angleBC - angles.angleBA < 0 ? angles.angleBC - angles.angleBA + 360 : angles.angleBC - angles.angleBA
-}
-
-function normalizeDegree(deg) {
-	return ((deg % 360) + 360) % 360
-}
-
-function getPointAngleOnCircle(point, circleData) {
-	return normalizeDegree(Math.atan2(Number(point.b) - circleData.n, Number(point.a) - circleData.m) * 180 / Math.PI)
-}
-
-function isPointAtCircleCenter(point, circleData, epsilon = 0.0001) {
-	return Math.abs(Number(point.a) - circleData.m) < epsilon && Math.abs(Number(point.b) - circleData.n) < epsilon
-}
-
-function isPointOnCircleData(point, circleData, epsilon = 0.01) {
-	let distance = Math.sqrt((Number(point.a) - circleData.m) ** 2 + (Number(point.b) - circleData.n) ** 2)
-	return Math.abs(distance - circleData.r) < epsilon
-}
-
-function isAngleInCcwArc(angle, start, span, epsilon = 0.0001) {
-	let relative = normalizeDegree(angle - start)
-	return relative > epsilon && relative < span - epsilon
-}
-
 function getAngleArcInfo(ag, angleBetween) {
 	for (const circle of arrObjects) {
 		if (!isIntersectableCircle(circle)) continue
@@ -882,19 +358,6 @@ function getAngleArcInfo(ag, angleBetween) {
 	return null
 }
 
-function getPositiveArcMeasure(A, B, circle) {
-	let circleData = getCircleDescriptor(circle)
-	if (!circleData.status) return null
-
-	let angleA = getPointAngleOnCircle(A, circleData)
-	let angleB = getPointAngleOnCircle(B, circleData)
-	return {
-		circleData: circleData,
-		startAngle: angleA,
-		span: normalizeDegree(angleB - angleA),
-	}
-}
-
 function getPointCircleConstraint(point) {
 	if (!point || point.type != 'point') return null
 	return point.onOther.find(item => item.type == 'onCircle') || null
@@ -910,18 +373,10 @@ function getCirclesForPoint(point) {
 }
 
 function createPointOnCircle(circle, mousePos) {
-	let circleData = getCircleDescriptor(circle)
-	if (!circleData.status) return null
-
-	let angle = Math.atan2(mousePos.y - circleData.n, mousePos.x - circleData.m)
-	let point = new mPoint(
-		Number(circleData.m + circleData.r * Math.cos(angle)).toFixed(2),
-		Number(circleData.n + circleData.r * Math.sin(angle)).toFixed(2)
-	)
-	point.onOther.push({
-		type: 'onCircle',
-		circleId: circle.id,
-	})
+	const projection = getProjectionOnCircle(circle, mousePos.x, mousePos.y)
+	if (!projection.status) return null
+	const point = new mPoint(projection.a, projection.b)
+	point.onOther.push({ type: 'onCircle', circleId: circle.id })
 	return point
 }
 
@@ -1071,7 +526,7 @@ function paintScene() {
 }
 
 function drawPoint(point) {
-	if (!point.visibility) return
+	if (!point.visibility || point.geometryValid === false) return
 	if (!Number.isFinite(Number(point.a)) || !Number.isFinite(Number(point.b))) return
 	ctx.beginPath()
 
@@ -1095,7 +550,7 @@ function getCircleCanvasRadii(r) {
 }
 
 function drawCircleR(circle) {
-	if (!circle.visibility) return
+	if (!circle.visibility || !getCircleDescriptor(circle).status) return
 
 	let sp = new mPoint(Number(circle.A.a) + Number(circle.r), circle.A.b, true)
 	drawPoint(sp)
@@ -1119,8 +574,9 @@ function drawCircleR(circle) {
 
 function drawCircle2(circle) {
 	if (!circle.visibility) return
-
-	let r = math.sqrt(math.pow(circle.B.a - circle.A.a, 2) + math.pow(circle.B.b - circle.A.b, 2))
+	const data = getCircleDescriptor(circle)
+	if (!data.status) return
+	const r = data.r
 	let cSize
 	circle.id == activeElementID ? cSize = circle.size + 1 : cSize = circle.size
 	let cColor = circle.color
@@ -1138,7 +594,8 @@ function drawCircle2(circle) {
 function drawCircle3(circle) {
 	if (!circle.visibility) return
 
-	let mr = getCircle3RA(circle)
+	let mr = getCircleDescriptor(circle)
+	if (!mr.status) return
 	let cSize
 	circle.id == activeElementID ? cSize = circle.size + 1 : cSize = circle.size
 	let cColor = circle.color
@@ -1224,10 +681,9 @@ function drawCircleTangent(tangent) {
 	if (!tangentData.status) return
 
 	tangentData.lines.forEach(line => {
-		line.color = tangent.color
-		line.size = tangent.id == activeElementID ? tangent.size + 1 : tangent.size
-		line.visibility = tangent.visibility
-		drawLineWithPoints(line, true)
+		drawLineWithPoints({ ...line, color: tangent.color,
+			size: tangent.id == activeElementID ? tangent.size + 1 : tangent.size,
+			visibility: true, temp: true, id: tangent.id }, true)
 	})
 
 	if (!tangent.temp) {
@@ -1257,96 +713,68 @@ function drawFunction(func, temp = false, lineWidth = null) {
 
 function drawSequence(seq) {
 	if (!seq.visibility) return
+	const expression = seq.func.replace(/(?<![a-zA-Z0-9_])n(?![a-zA-Z0-9_])/g, 'x')
+	drawFunction({ ...seq, func: expression, type: 'function', startX: seq.start, endX: seq.end }, true)
 
-	let seqColor = seq.color
-	let seqSize
-	seq.id == activeElementID ? seqSize = seq.size + 1 : seqSize = seq.size
-
-	// draw Function
-	drawFunction(seq, true)
-
-	//draw Points
-	for (let n = seq.start; n <= seq.end; n++) {
+	// Görünür olmayan indisler hesaplanmaz; sıkışan noktalar ekran çözünürlüğüne göre seyreltilir.
+	const first = Math.max(seq.start, Math.ceil(coordinates.bounds.left))
+	const last = Math.min(seq.end, Math.floor(coordinates.bounds.right))
+	if (first > last) return
+	const budget = Math.max(1, Math.ceil(surface.width / 8))
+	const step = Math.max(1, Math.ceil((last - first + 1) / budget))
+	const count = Math.min(budget, Math.floor((last - first) / step) + 1)
+	const size = seq.id == activeElementID ? seq.size + 1 : seq.size
+	for (let index = 0; index < count; index++) {
+		const n = first + index * step
+		const y = functionEvaluator.evaluate(expression, n)
+		if (y === null) continue
+		const cx = pixelX(n)
+		const cy = pixelY(y)
+		if (!Number.isFinite(cy) || cy < -size || cy > surface.height + size) continue
 		ctx.beginPath()
 		ctx.strokeStyle = 'black'
-		ctx.fillStyle = seqColor
+		ctx.fillStyle = seq.color
 		ctx.lineWidth = 1
-		let y = math.evaluate(seq.func, { n: n })
-		ctx.arc(pixelX(n), pixelY(y), seqSize, 0, 2 * Math.PI)
-		text2canvas(pixelX(n) - 10, pixelY(y) - 5, seqColor, 'center', 'bold 15px arial', seq.name + n)
+		ctx.arc(cx, cy, size, 0, 2 * Math.PI)
+		text2canvas(cx - 10, cy - 5, seq.color, 'center', 'bold 15px arial', seq.name + n)
 		ctx.fill()
 		ctx.stroke()
 		ctx.closePath()
 	}
 }
 
+function drawFunctionGuides(expression, x, color, dashed = false) {
+	const A = new mPoint(x, 0, true)
+	drawPoint(A)
+	const y = functionEvaluator.evaluate(expression, Number(x))
+	if (y === null) return
+	const B = new mPoint(x, y, true)
+	const C = new mPoint(0, y, true)
+	const vertical = new mLineSegment(A, B, true)
+	const horizontal = new mLineSegment(B, C, true)
+	vertical.color = horizontal.color = color
+	vertical.lineDash = horizontal.lineDash = dashed ? [2, 5] : []
+	drawLineSegment(vertical)
+	drawLineSegment(horizontal)
+	drawPoint(B)
+	drawPoint(C)
+}
+
 function drawLimit(lim) {
 	if (!lim.visibility) return
 	drawFunction(lim)
-	// Limit (.)
-	let A = new mPoint(lim.approachVal, 0, true)
-	let B = new mPoint(lim.approachVal, math.evaluate(lim.func, { x: A.a }), true)
-	let C = new mPoint(0, math.evaluate(lim.func, { x: A.a }), true)
-	let vls = new mLineSegment(A, B, true)
-	let hls = new mLineSegment(B, C, true)
-	A.color = B.color = C.color = vls.color = hls.color = lim.color
-	drawLineSegment(vls)
-	drawLineSegment(hls)
-	drawPoint(A)
-	drawPoint(B)
-	drawPoint(C)
-
+	drawFunctionGuides(lim.func, lim.approachVal, lim.color)
 	if (lim.id == activeElementID) {
-		// Limit (+)
-		let A = new mPoint(lim.approachValRight, 0, true)
-		let B = new mPoint(lim.approachValRight, math.evaluate(lim.func, { x: A.a }), true)
-		let C = new mPoint(0, math.evaluate(lim.func, { x: A.a }), true)
-		let vls = new mLineSegment(A, B, true)
-		let hls = new mLineSegment(B, C, true)
-		A.color = B.color = C.color = vls.color = hls.color = lim.color
-		vls.lineDash = hls.lineDash = [2, 5]
-		drawLineSegment(vls)
-		drawLineSegment(hls)
-		drawPoint(A)
-		drawPoint(B)
-		drawPoint(C)
-
-		//limit (-)
-		A = new mPoint(lim.approachValLeft, 0, true)
-		B = new mPoint(lim.approachValLeft, math.evaluate(lim.func, { x: A.a }), true)
-		C = new mPoint(0, math.evaluate(lim.func, { x: A.a }), true)
-		vls = new mLineSegment(A, B, true)
-		hls = new mLineSegment(B, C, true)
-		A.color = B.color = C.color = vls.color = hls.color = lim.color
-		vls.lineDash = hls.lineDash = [2, 5]
-		drawLineSegment(vls)
-		drawLineSegment(hls)
-		drawPoint(A)
-		drawPoint(B)
-		drawPoint(C)
+		drawFunctionGuides(lim.func, lim.approachValRight, lim.color, true)
+		drawFunctionGuides(lim.func, lim.approachValLeft, lim.color, true)
 	}
 }
 
 function drawTangent(tur) {
 	if (!tur.visibility) return
 	drawFunction(tur)
-	// Türev (.)
-	let A = new mPoint(Number(tur.approachVal), 0, true)
-	let B = new mPoint(Number(tur.approachVal), math.evaluate(tur.func, { x: A.a }), true)
-	let C = new mPoint(0, math.evaluate(tur.func, { x: A.a }), true)
-	let vls = new mLineSegment(A, B, true)
-	let hls = new mLineSegment(B, C, true)
-	A.color = B.color = C.color = vls.color = hls.color = tur.color
-	vls.lineDash = hls.lineDash = [2, 5]
-	drawLineSegment(vls)
-	drawLineSegment(hls)
-	drawPoint(A)
-	drawPoint(B)
-	drawPoint(C)
-
-	//Teğet Doğrusu
+	drawFunctionGuides(tur.func, tur.approachVal, tur.color, true)
 	if (tur.id == activeElementID) drawLineWithEquation(tur.tngLine)
-
 }
 
 function drawTangentHX(turHX) {
@@ -1395,7 +823,7 @@ function drawFunctionComposition(funcComp) {
 }
 
 function drawLineSegment(ls) {
-	if (!ls.visibility) return
+	if (!ls.visibility || !numericPoint(ls.A) || !numericPoint(ls.B)) return
 	let lsSize
 	ls.id == activeElementID ? lsSize = ls.size + 1 : lsSize = ls.size
 	let lsColor = ls.color
@@ -1413,11 +841,11 @@ function drawLineSegment(ls) {
 }
 
 function formatDistanceValue(value) {
-	return formatDisplayNumber(value)
+	return Number.isFinite(value) ? formatDisplayNumber(value) : '∅'
 }
 
 function formatAngleValue(value) {
-	return formatDisplayNumber(value)
+	return Number.isFinite(value) ? formatDisplayNumber(value) : '∅'
 }
 
 function drawDistanceSegment(ds) {
@@ -1511,6 +939,7 @@ function drawAngle(ag) {
 	//Sembol ve Ölçü
 	let angles = calculateAngle(ag)
 	let angleBetween = getAngleMeasure(ag)
+	if (!Number.isFinite(angleBetween)) return
 	let cx = pixelX(ag.B.a)
 	let cy = pixelY(ag.B.b)
 	let startAngle = 360 - angles.angleBC
@@ -1982,8 +1411,8 @@ function isSequence(str) {
 
 	const start = Number(startStr);
 	const end = Number(endStr);
-	if (!Number.isInteger(start) || start < 1) return { status: false };
-	if (!Number.isInteger(end) || end < 1) return { status: false };
+	if (!Number.isSafeInteger(start) || start < 1) return { status: false };
+	if (!Number.isSafeInteger(end) || end < start) return { status: false };
 	const hasN = /(?<![a-zA-Z0-9_])n(?![a-zA-Z0-9_])/.test(funcStr);
 	const isConstant = !/[a-zA-Z]/.test(funcStr);
 
@@ -2195,101 +1624,48 @@ function isTangentHX(str) {
 	}
 }
 
-function isDerivative(input) {
-	if (typeof input !== 'string') return { status: false }
-	const str = input.trim()
-
-	// Türev(...) formatı
-	const match = str.match(/^Türev\s*\((.*)\)$/i)
-	if (!match) return { status: false }
-
-	const inner = match[1].trim()
-	if (!inner) return { status: false }
-
-	let fu
-	if (isFunction(inner) && !isFunctionCompositions(inner).status && !isFunctionOperations(inner).status) {
-		fu = new mFunction(inner, true)
-		return {
-			type: "derivative",
-			inner,
-			subType: 'function',
-			func: fu,
-			status: true
-		}
-	}
-
-	if (isFunctionCompositions(inner).status) {
-		let funcsFound = true
-		let names = arrObjects.map((item) => item.name)
-		isFunctionCompositions(inner).functions.forEach(f => {
-			if (!names.includes(f)) funcsFound = false
-		});
-		if (funcsFound) {
-			let newInner = inner
-			isFunctionCompositions(inner).functions.forEach(f => {
-				if (!f.includes('x') && !Number.isFinite(Number(f))) {
-					newInner = newInner.replaceAll(f, arrObjects.find(o => o.name === f).func)
-				}
-			})
-			fu = new mFunction(bileskeProcess(isFunctionCompositions(newInner).functions), true)
-		} else {
-			showToast('GİRİŞ', 'Hatalı giriş yaptınız. Fonksiyon bulunamadı.')
-		}
-		return {
-			type: "derivative",
-			inner,
-			subType: "functioncompositions",
-			func: fu,
-			status: true
-		}
-	}
-	if (isFunctionOperations(inner)) {
-		const hepsiVarMi = isFunctionOperations(inner).functions.every(name => arrObjects.some(f => f.name === name));
-		if (hepsiVarMi) {
-			let comeWithFuncs = inner
-			isFunctionOperations(inner).functions.forEach(f => {
-				comeWithFuncs = comeWithFuncs.replaceAll(f, '(' + arrObjects.find(o => o.name === f).func + ')')
-			});
-			fu = new mFunction(comeWithFuncs, true)
-		} else {
-			showToast('GİRİŞ', 'Hatalı giriş yaptınız. Fonksiyon bulunamadı.')
-		}
-		return {
-			type: "derivative",
-			inner,
-			subType: "functionoperations",
-			func: fu,
-			status: true
-		}
-	}
-	return { status: false }
+// Komut çözümleme sırasında model oluşturulmaz; yalnız gerçek simge başvuruları açılır.
+function getObjectExpression(object) {
+	if (!object) return null
+	if (object.type === 'derivative') return object.func.func
+	return typeof object.func === 'string' ? object.func : null
 }
 
-function isFunctionOperations(str) {
-	if (!/log|ln|sin|cos|tan|cot|sqrt/.test(str)) {
-		const funcOpRe = /([+-]?\d*)([fghpqr][0-9]*)\b/gi
-		const opMatches = [...str.matchAll(funcOpRe)]
-		if (opMatches.length > 0) {
-			const functions = []
-			const coefficients = []
-
-			for (let m of opMatches) {
-				let coeffStr = m[1]
-				let funcName = m[2]
-
-				if (coeffStr === "" || coeffStr === "+") coeffStr = "+1"
-				else if (coeffStr === "-") coeffStr = "-1"
-				else if (!coeffStr.startsWith("+") && !coeffStr.startsWith("-")) {
-					coeffStr = "+" + coeffStr
-				}
-
-				functions.push(funcName)
-				coefficients.push(coeffStr)
-			}
-			return { type: "functionOperations", functions, coefficients, status: true }
+function resolveFunctionExpression(input) {
+	if (typeof input !== 'string' || !input.trim()) return null
+	try {
+		const composition = isFunctionCompositions(input)
+		if (composition.status) {
+			const functions = composition.functions.map(resolveFunctionExpression)
+			if (functions.some(expression => expression === null)) return null
+			return composeExpressions(functions)
 		}
+		let replaced = false
+		const tree = math.parse(input).transform((node, path, parent) => {
+			if (!math.isSymbolNode(node) || node.name === 'x'
+				|| (parent && math.isFunctionNode(parent) && path === 'fn')) return node
+			const expression = getObjectExpression(arrObjects.find(item => item.name === node.name))
+			if (expression === null) {
+				if (/^[fghpqr][0-9]*$/i.test(node.name)) throw new Error('Fonksiyon bulunamadı.')
+				return node
+			}
+			replaced = true
+			return new math.ParenthesisNode(math.parse(expression))
+		})
+		const expression = replaced ? tree.toString({ implicit: 'show' }) : input.trim()
+		const result = isFunction(expression)
+		return result.status ? result.func : null
+	} catch {
+		return null
 	}
-	return { status: false }
+}
+
+function isDerivative(input) {
+	if (typeof input !== 'string') return { status: false }
+	const match = input.trim().match(/^Türev\s*\((.*)\)$/i)
+	if (!match) return { status: false }
+	const expression = resolveFunctionExpression(match[1])
+	return expression === null ? { status: false } : { type: 'derivative', func: expression, status: true }
 }
 
 function isFunctionCompositions(str) {
@@ -2297,7 +1673,8 @@ function isFunctionCompositions(str) {
 	const compMatch = str.match(funcCompRe)
 	if (compMatch) {
 		const inside = compMatch[1]
-		const functions = inside.split(/\s*,\s*/).map(p => p.trim())
+		const functions = splitTopLevelArgs(inside)
+		if (!functions.length || functions.some(part => !part) || inside.trim().endsWith(',')) return { status: false }
 		return {
 			type: "functionCompositions",
 			status: true,
@@ -2315,7 +1692,7 @@ function isSectionalFunctions(str) {
 		const ranges = [];
 
 		for (let seg of segments) {
-			const parts = seg.split(",").map(p => p.trim());
+			const parts = splitTopLevelArgs(seg);
 			if (parts.length !== 2) {
 				return { type: "unknown", reason: `Segment '${seg}' must be in 'func,range' format` };
 			}
@@ -2421,14 +1798,14 @@ function isFunction(input) {
 		const msg = err.message.toLowerCase();
 
 		// SADECE undefined variable ise reject
-		if (msg.includes('undefined symbol') || msg.includes('not defined')) {
+		if (msg.includes('undefined symbol') || msg.includes('undefined function') || msg.includes('not defined')) {
 			return { status: false };
 		}
 	}
 
 	return {
 		type: "function",
-		func: input.trim(),
+		func: expr,
 		status: true
 	};
 }
@@ -2826,12 +2203,7 @@ function labelsCreator() {
 			input.value = item.name + ': YayÖlçüsü(' + item.A.name + ',' + item.B.name + ')'
 			output.value = item.name + '=' + (arcInfo ? formatAngleValue(arcInfo.span) + '\u00b0' : '?')
 		} else if (item.type == 'lineWithEquation') {
-			let lineEquation = item.name + ': y = ' + formatDisplayNumber(item.m) + 'x + ' + formatDisplayNumber(item.n)
-			lineEquation = lineEquation.replace('+ -', '- ')
-			lineEquation = lineEquation.replace('1x', 'x')
-			lineEquation = lineEquation.replace('0x ', '')
-			lineEquation = lineEquation.replace(' + 0', '')
-			input.value = lineEquation
+			input.value = item.name + ': y = ' + normalizeLine(item.m, item.n, ' ')
 		} else if (item.type == 'lineWithPoints') {
 			labelA.hidden = true
 			sliderA.hidden = true
@@ -2921,6 +2293,8 @@ function labelsCreator() {
 		} else {
 			console.log('labelsCreator: Type bulunamadı.')
 		}
+		if (item.type === 'point' && item.geometryValid === false && !getIntersectionPointConstraint(item)) output.value = '∅'
+		if (isIntersectableCircle(item) && !getCircleDescriptor(item).status) output.value = '∅'
 		sliderA.min = bounds.left - unitY
 		sliderA.max = bounds.right + unitY
 		sliderB.max = bounds.top + unitX
@@ -3473,7 +2847,6 @@ function crossSlider() {
 			updateReflectPointRows()
 			updateIntersectionPointRows()
 		} else if (item.type == 'tangent') {
-			input.value = 'Teğet(' + item.func + ',' + sliderA.value + ')'
 			try {
 				updateTangent(item, sliderA.value)
 			} catch {
@@ -3481,6 +2854,7 @@ function crossSlider() {
 				showToast('Teğet', 'Bu konumda sonlu bir gerçek teğet hesaplanamıyor.')
 				return
 			}
+			input.value = 'Teğet(' + item.func + ',' + item.approachVal + ')'
 			output.value = item.name + ': y = ' + normalizeLine(item.tngLine.m, item.tngLine.n)
 			labelA.innerHTML = 'x = ' + sliderA.value
 		} else if (item.type == 'tangentHX') {
@@ -3839,93 +3213,65 @@ function updateAxisUnitDrag(evt) {
 	return true
 }
 
+// Bu katman belge başvurularını çözer; sayısal geometri hesapları saf modüllerdedir.
 function reprojectAllOnOther() {
-	arrObjects.forEach(obj => {
-		if (obj.type == 'point') {
-			if (obj.onOther.length > 0) {
-				obj.onOther.forEach(o => {
-					if (o.type == 'onCircle') {
-						let circle = arrObjects.find(item => item.id == o.circleId)
-						if (circle.type == 'circle2') {
-							let r = distanceAB(circle.A, circle.B)
-							let angle = Math.atan2(obj.b - circle.A.b, obj.a - circle.A.a)
-							obj.a = circle.A.a + r * Math.cos(angle)
-							obj.b = circle.A.b + r * Math.sin(angle)
-						} else if (circle.type == 'circle3') {
-							let r = getCircle3RA(circle).r
-							let angle = Math.atan2(obj.b - getCircle3RA(circle).n, obj.a - getCircle3RA(circle).m)
-							obj.a = getCircle3RA(circle).m + r * Math.cos(angle)
-							obj.b = getCircle3RA(circle).n + r * Math.sin(angle)
-						} else if (circle.type == 'circleR') {
-							let r = circle.r
-							let angle = Math.atan2(obj.b - circle.A.b, obj.a - circle.A.a)
-							obj.a = circle.A.a + r * Math.cos(angle)
-							obj.b = circle.A.b + r * Math.sin(angle)
-						} else {
-							console.log('reProjectAllOnOther: Type bulunamadı.')
-						}
-					} else if (o.type == 'onLine') {
-						let line = arrObjects.find(item => item.id == o.lineId)
-						let projection = getProjectionOnLine(line, obj.a, obj.b)
-						if (projection.status) {
-							obj.a = projection.a
-							obj.b = projection.b
-						}
-					} else if (o.type == 'onCircleTangent') {
-						let tangent = arrObjects.find(item => item.id == o.tangentId)
-						let projection = getProjectionOnCircleTangent(tangent, obj.a, obj.b, o.lineIndex)
-						if (projection.status) {
-							obj.a = projection.a
-							obj.b = projection.b
-						}
-					} else if (o.type == 'onAngle') {
-						let angle = arrObjects.find(item => item.id == o.angleId)
-						let projection = getProjectionOnAngle(angle, obj.a, obj.b)
-						if (projection.status) {
-							obj.a = projection.a
-							obj.b = projection.b
-						}
-					} else if (o.type == 'reflectPoint') {
-						let source = arrObjects.find(item => item.id == o.sourceId)
-						let center = arrObjects.find(item => item.id == o.centerId)
-						if (source && center) {
-							let reflected = getReflectedPoint(source, center)
-							obj.a = reflected.a
-							obj.b = reflected.b
-						}
-					} else if (o.type == 'intersectLines') {
-						let line1 = arrObjects.find(item => item.id == o.line1Id)
-						let line2 = arrObjects.find(item => item.id == o.line2Id)
-						let intersection = getObjectIntersection(line1, line2)
-						let point = intersection.points[o.pointIndex || 0]
-						if (point) {
-							obj.a = point.a
-							obj.b = point.b
-						} else {
-							obj.a = NaN
-							obj.b = NaN
-						}
-						obj.intersectionStatus = intersection.reason
-						if (obj.intersectionOwner) {
-							obj.intersectionPointIds = arrObjects
-								.filter(item => getIntersectionPointConstraint(item)?.ownerId == obj.id || item.id == obj.id)
-								.map(item => item.id)
-						}
-					} else if (o.type == 'circleTangentTouchPoint') {
-						let tangent = arrObjects.find(item => item.id == o.tangentId)
-						let touchPoint = getCircleTangentTouchPoint(tangent, o.pointIndex || 0)
-						if (touchPoint) {
-							obj.a = touchPoint.a
-							obj.b = touchPoint.b
-						} else {
-							obj.a = NaN
-							obj.b = NaN
-						}
-					}
-				})
+	const objectsById = new Map(arrObjects.map(object => [object.id, object]))
+	const circles = new Map()
+	const intersections = new Map()
+	const circleForProjection = circle => {
+		if (!circle) return null
+		if (!circles.has(circle.id)) {
+			const data = getCircleDescriptor(circle)
+			circles.set(circle.id, data.status ? { type: 'circleR', A: { a: data.m, b: data.n }, r: data.r } : null)
+		}
+		return circles.get(circle.id)
+	}
+	for (const point of arrObjects) {
+		if (point.type !== 'point') continue
+		for (const constraint of point.onOther) {
+			let result = { status: false }
+			if (constraint.type === 'onCircle') {
+				const circle = circleForProjection(objectsById.get(constraint.circleId))
+				if (circle) result = getProjectionOnCircle(circle, Number(point.a), Number(point.b))
+			} else if (constraint.type === 'onLine') {
+				const line = objectsById.get(constraint.lineId)
+				if (line) result = getProjectionOnLine(line, Number(point.a), Number(point.b))
+			} else if (constraint.type === 'onCircleTangent') {
+				const tangent = objectsById.get(constraint.tangentId)
+				if (tangent) result = getProjectionOnCircleTangent(tangent, Number(point.a), Number(point.b), constraint.lineIndex)
+			} else if (constraint.type === 'onAngle') {
+				const angle = objectsById.get(constraint.angleId)
+				if (angle) result = getProjectionOnAngle(angle, Number(point.a), Number(point.b))
+			} else if (constraint.type === 'reflectPoint') {
+				const source = objectsById.get(constraint.sourceId)
+				const center = objectsById.get(constraint.centerId)
+				if (source && center) {
+					const reflected = getReflectedPoint(source, center)
+					result = { status: Number.isFinite(reflected.a) && Number.isFinite(reflected.b), ...reflected }
+				}
+			} else if (constraint.type === 'intersectLines') {
+				const key = constraint.line1Id + ':' + constraint.line2Id
+				if (!intersections.has(key)) intersections.set(key,
+					getObjectIntersection(objectsById.get(constraint.line1Id), objectsById.get(constraint.line2Id)))
+				const intersection = intersections.get(key)
+				const location = intersection.points[constraint.pointIndex ?? 0]
+				if (location) result = { status: true, ...location }
+				point.intersectionStatus = intersection.reason
+			} else if (constraint.type === 'circleTangentTouchPoint') {
+				const tangent = objectsById.get(constraint.tangentId)
+				const location = tangent ? getCircleTangentTouchPoint(tangent, constraint.pointIndex ?? 0) : null
+				if (location) result = { status: true, ...location }
+			}
+			if (result.status) {
+				point.a = result.a
+				point.b = result.b
+				delete point.geometryValid
+			} else {
+				// Son konum korunur; üst nesne tekrar tanımlı olduğunda izdüşüm toparlanabilir.
+				point.geometryValid = false
 			}
 		}
-	});
+	}
 }
 
 function getRandomColor() {
@@ -4474,138 +3820,72 @@ function girisKeyDown(event) {
 					showToast('TeğetC', 'Bu çember için teğet çizilemedi.')
 				}
 			}
-		} else if (isLimit(str).status) {
-			let funcFound = true
-			let names = arrObjects.map((item) => item.name)
-
-			if (!isLimit(str).func.includes('x') && !Number.isFinite(Number(isLimit(str).func))) {
-				if (!names.includes(isLimit(str).func)) funcFound = false
-			}
-			if (funcFound) {
-				if (!isLimit(str).func.includes('x') && !Number.isFinite(Number(isLimit(str).func))) {
-					str = str.replaceAll(isLimit(str).func, arrObjects.find(o => o.name === isLimit(str).func).func)
+		} else if (isLimit(str).status || isTangent(str).status || isTangentHX(str).status) {
+			const data = isLimit(str).status ? isLimit(str) : isTangent(str).status ? isTangent(str) : isTangentHX(str)
+			const expression = resolveFunctionExpression(data.func)
+			if (expression === null) {
+				showToast('GİRİŞ', 'Hatalı giriş yaptınız. Fonksiyon bulunamadı veya ifade geçersiz.')
+			} else {
+				try {
+					const model = data.type === 'limit' ? new mLimit(expression, data.approachVal)
+						: data.type === 'tangent' ? new mTangent(expression, data.approachVal)
+						: new mTangentHX(expression, data.approachVal, data.haveH)
+					arrObjects.push(model)
+					activeElementID = model.id
+					commitHistoryState()
+				} catch {
+					showToast('GİRİŞ', 'Bu konumda sonlu gerçek bir analiz nesnesi oluşturulamıyor.')
 				}
-				let lim = new mLimit(isLimit(str).func, isLimit(str).approachVal)
-				arrObjects.push(lim)
-				activeElementID = lim.id
-				commitHistoryState()
+			}
+		} else if (/^\s*Türev\s*\(/i.test(str)) {
+			const data = isDerivative(str)
+			if (!data.status) {
+				showToast('GİRİŞ', 'Hatalı giriş yaptınız. Fonksiyon bulunamadı veya ifade geçersiz.')
 			} else {
-				showToast('GİRİŞ', 'Hatalı giriş yaptınız. Fonksiyon bulunamadı.')
-			}
-		} else if (isTangent(str).status) {
-			let funcFound = true
-			let names = arrObjects.map((item) => item.name)
-			if (!isTangent(str).func.includes('x') && !Number.isFinite(Number(isTangent(str).func))) {
-				if (!names.includes(isTangent(str).func)) funcFound = false
-			}
-			if (funcFound) {
-				if (!isTangent(str).func.includes('x') && !Number.isFinite(Number(isTangent(str).func))) {
-					str = str.replaceAll(isTangent(str).func, arrObjects.find(o => o.name === isTangent(str).func).func)
+				try {
+					const model = new mDerivative(data.func)
+					arrObjects.push(model)
+					activeElementID = model.id
+					commitHistoryState()
+				} catch {
+					showToast('GİRİŞ', 'Bu ifadenin türevi hesaplanamıyor.')
 				}
-				let tng = new mTangent(isTangent(str).func, isTangent(str).approachVal)
-				arrObjects.push(tng)
-				activeElementID = tng.id
-				commitHistoryState()
-			} else {
-				showToast('GİRİŞ', 'Hatalı giriş yaptınız. Fonksiyon bulunamadı.')
 			}
-
-		} else if (isTangentHX(str).status) {
-			let funcFound = true
-			let names = arrObjects.map((item) => item.name)
-			if (!isTangentHX(str).func.includes('x') && !Number.isFinite(Number(isTangentHX(str).func))) {
-				if (!names.includes(isTangentHX(str).func)) funcFound = false
-			}
-			if (funcFound) {
-				if (!isTangentHX(str).func.includes('x') && !Number.isFinite(Number(isTangentHX(str).func))) {
-					str = str.replaceAll(isTangentHX(str).func, arrObjects.find(o => o.name === isTangentHX(str).func).func)
-				}
-				let tngHX = new mTangentHX(isTangentHX(str).func, isTangentHX(str).approachVal, isTangentHX(str).haveH)
-				arrObjects.push(tngHX)
-				activeElementID = tngHX.id
-				commitHistoryState()
-			} else {
-				showToast('GİRİŞ', 'Hatalı giriş yaptınız. Fonksiyon bulunamadı.')
-			}
-
-		} else if (isDerivative(str).status) {
-			let funcFound = true
-			let names = arrObjects.map((item) => item.name)
-			if (funcFound) {
-				let func = new mFunction(isDerivative(str).func, true)
-				let derFunc = new mFunction(derivative(func.func.func), true)
-				let der = new mDerivative(func, derFunc)
-				func.id = func.func.id = derFunc.id = der.id
-				func.name = der.name
-				derFunc.name = der.name + "'"
-				arrObjects.push(der)
-				activeElementID = der.id
-				commitHistoryState()
-			} else {
-				showToast('GİRİŞ', 'Hatalı giriş yaptınız. Fonksiyon bulunamadı.')
-			}
-
 		} else if (isFunctionCompositions(str).status) {
-			let funcsFound = true
-			let names = arrObjects.map((item) => item.name)
-			isFunctionCompositions(str).functions.forEach(f => {
-				if (!f.includes('x') && !Number.isFinite(Number(f))) {
-					if (!names.includes(f)) funcsFound = false
-				}
-			});
-			if (funcsFound) {
-				isFunctionCompositions(str).functions.forEach(f => {
-					if (!f.includes('x') && !Number.isFinite(Number(f))) {
-						str = str.replaceAll(f, arrObjects.find(o => o.name === f).func)
-					}
-				})
-
-				let funcComps = new mFunctionComposions(isFunctionCompositions(str).functions)
-				arrObjects.push(funcComps)
-				activeElementID = funcComps.id
-				commitHistoryState()
+			const functions = isFunctionCompositions(str).functions.map(resolveFunctionExpression)
+			if (functions.some(expression => expression === null)) {
+				showToast('GİRİŞ', 'Hatalı giriş yaptınız. Fonksiyon bulunamadı veya ifade geçersiz.')
 			} else {
-				showToast('GİRİŞ', 'Hatalı giriş yaptınız. Fonksiyon bulunamadı.')
-			}
-		} else if (isFunctionOperations(str).status) {
-			const hepsiVarMi = isFunctionOperations(str).functions.every(name => arrObjects.some(f => f.name === name));
-			if (hepsiVarMi) {
-				let comeWithFuncs = str
-				isFunctionOperations(str).functions.forEach(f => {
-					comeWithFuncs = comeWithFuncs.replaceAll(f, '(' + arrObjects.find(o => o.name === f).func + ')')
-				});
-				let fo = new mFunction(comeWithFuncs)
-				arrObjects.push(fo)
-				activeElementID = fo.id
+				const model = new mFunctionComposition(functions)
+				arrObjects.push(model)
+				activeElementID = model.id
 				commitHistoryState()
-			} else {
-				showToast('GİRİŞ', 'Hatalı giriş yaptınız. Fonksiyon bulunamadı.')
 			}
-		} else if (isFunction(str).status) {
-			let f = new mFunction(isFunction(str).func)
-			arrObjects.push(f)
-			activeElementID = f.id
+		} else if (resolveFunctionExpression(str) !== null) {
+			const model = new mFunction(resolveFunctionExpression(str))
+			arrObjects.push(model)
+			activeElementID = model.id
 			commitHistoryState()
 		} else if (isSectionalFunctions(str).status) {
-			let allFuncsDrawable = true
-			if (allFuncsDrawable) {
-				let secFuncs = []
-				isSectionalFunctions(str).functions.forEach((func, i) => {
-					if (isLineWithEquation(func).status) {
-						let line = new mLineWithEquation(isLineWithEquation(func).m, isLineWithEquation(func).n, false, isSectionalFunctions(str).ranges[i].from, isSectionalFunctions(str).ranges[i].to)
-						secFuncs.push(line)
-					} else if (isFunction(func).status) {
-						let other = new mFunction(func, false, isSectionalFunctions(str).ranges[i].from, isSectionalFunctions(str).ranges[i].to)
-						secFuncs.push(other)
-					}
-				})
-				let sf = new mSectionalFunctions(str)
-				sf.secFuncs = secFuncs
-				arrObjects.push(sf)
-				activeElementID = sf.id
-				commitHistoryState()
+			const data = isSectionalFunctions(str)
+			const sections = []
+			for (const [index, expression] of data.functions.entries()) {
+				const range = data.ranges[index]
+				if ((range.from !== null && !Number.isFinite(range.from))
+					|| (range.to !== null && !Number.isFinite(range.to))) break
+				const line = isLineWithEquation(expression)
+				const curve = isFunction(expression)
+				if (line.status) sections.push(new mLineWithEquation(line.m, line.n, true, range.from, range.to))
+				else if (curve.status) sections.push(new mFunction(curve.func, true, range.from, range.to))
+				else break
+			}
+			if (sections.length !== data.functions.length) {
+				showToast('GİRİŞ', 'Hatalı giriş yaptınız. Parçalı fonksiyon bölümü geçersiz.')
 			} else {
-				showToast('GİRİŞ', 'Hatalı giriş yaptınız.')
+				const model = new mSectionalFunctions(str, sections)
+				arrObjects.push(model)
+				activeElementID = model.id
+				commitHistoryState()
 			}
 
 		} else {
@@ -4614,15 +3894,6 @@ function girisKeyDown(event) {
 		drawAll()
 		labelsCreator()
 		event.target.value = null
-	}
-}
-
-function createLineEquation(A, B) {
-	let m = (B.b - A.b) / (B.a - A.a)
-	let c = A.b - m * A.a
-	return {
-		m: m,
-		c: c
 	}
 }
 
@@ -4707,7 +3978,7 @@ function hitCircle(mousePos, obj, threshold) {
 		r = Math.sqrt((obj.B.a - obj.A.a) ** 2 + (obj.B.b - obj.A.b) ** 2)
 		distance = Math.sqrt((mousePos.x - obj.A.a) ** 2 + (mousePos.y - obj.A.b) ** 2)
 	} else if (obj.type === 'circle3') {
-		let data = getCircle3RA(obj)
+		let data = getCircleDescriptor(obj)
 		r = data.r
 		distance = Math.sqrt((mousePos.x - data.m) ** 2 + (mousePos.y - data.n) ** 2)
 	}
@@ -4928,69 +4199,14 @@ function initializeLegacyApp() {
 				hitObject = { hit: null, hitType: null }
 			}
 			if (activeObject === 'point') {
-				let ownObject = hitObject.hit
-				let point
-				if (!hitObject.hit) {
-					point = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
-				} else if (hitObject.hitType == 'circle2') {
-					let r = distanceAB(ownObject.A, ownObject.B)
-					let angle = Math.atan2(getMousePos(evt).y - ownObject.A.b, getMousePos(evt).x - ownObject.A.a)
-					let pointX = ownObject.A.a + r * Math.cos(angle);
-					let pointY = ownObject.A.b + r * Math.sin(angle);
-					point = new mPoint(pointX.toFixed(2), pointY.toFixed(2))
-					point.onOther.push({
-						type: "onCircle",
-						circleId: ownObject.id
-					})
-				} else if (hitObject.hitType == 'circle3') {
-					let r = getCircle3RA(ownObject).r
-					let angle = Math.atan2(getMousePos(evt).y - getCircle3RA(ownObject).n, getMousePos(evt).x - getCircle3RA(ownObject).m)
-					let pointX = getCircle3RA(ownObject).m + r * Math.cos(angle);
-					let pointY = getCircle3RA(ownObject).n + r * Math.sin(angle);
-					point = new mPoint(pointX.toFixed(2), pointY.toFixed(2))
-					point.onOther.push({
-						type: "onCircle",
-						circleId: ownObject.id
-					})
-				} else if (hitObject.hitType == 'circleR') {
-					let r = ownObject.r
-					let angle = Math.atan2(getMousePos(evt).y - ownObject.A.b, getMousePos(evt).x - ownObject.A.a)
-					let pointX = ownObject.A.a + r * Math.cos(angle);
-					let pointY = ownObject.A.b + r * Math.sin(angle);
-					point = new mPoint(pointX.toFixed(2), pointY.toFixed(2))
-					point.onOther.push({
-						type: "onCircle",
-						circleId: ownObject.id
-					})
-				} else if (isPointAttachableLine(ownObject)) {
-					let projection = getProjectionOnLine(ownObject, getMousePos(evt).x, getMousePos(evt).y)
-					if (projection.status) {
-						point = new mPoint(Number(projection.a).toFixed(2), Number(projection.b).toFixed(2))
-						point.onOther.push({
-							type: "onLine",
-							lineId: ownObject.id
-						})
-					}
-				} else if (hitObject.hitType == 'circleTangent') {
-					let projection = getProjectionOnCircleTangent(ownObject, getMousePos(evt).x, getMousePos(evt).y)
-					if (projection.status) {
-						point = new mPoint(Number(projection.a).toFixed(2), Number(projection.b).toFixed(2))
-						point.onOther.push({
-							type: "onCircleTangent",
-							tangentId: ownObject.id,
-							lineIndex: projection.lineIndex,
-						})
-					}
-				} else {
-					console.log('Mouse Down: Type bulunamadı.')
-				}
-
-				if (!point) return
-				arrObjects.push(point)
-				activeElementID = point.id
+				const result = createPointFromHitOrMouse(hitObject, getMousePos(evt))
+				if (!result.created) return
+				arrObjects.push(result.point)
+				activeElementID = result.point.id
 				commitHistoryState()
 				labelsCreator()
 			}
+
 			if (activeObject === 'line') {
 				if (lineDrawing == false) {
 					lineA

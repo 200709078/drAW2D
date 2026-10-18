@@ -44,7 +44,7 @@ async function canvasHash(page: Page): Promise<number> {
 }
 
 test('panel, radial tools, help examples and drawing remain usable', async ({ page }) => {
-  await expect(page).toHaveTitle('drAW2D');
+  await expect(page).toHaveTitle('drAW2D | mADEMatik');
   await expect(page.locator('#objectsContainer .expr-block')).toHaveCount(0);
 
   await page.locator('#btnCalc').click();

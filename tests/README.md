@@ -1,5 +1,17 @@
 # Geçiş regresyon kontrolleri
 
+`function-models.spec.ts` fonksiyon/analiz modellerinin klonlanabilir belge grafiğini,
+sayısal hassasiyetini, teğet/sekant güncellemelerinin mevcut nesneleri kullanmasını
+ve geçersiz girişte atomik kalmasını denetler. `function-algebra.spec.ts` AST
+bileşkeleri, iki parametreli logaritma türevleri ve tam hassasiyetli doğru ifadeleri
+için sayısal matematik kontrollerini içerir.
+
+`function-model-integration.spec.ts` ve `function-math-regressions.spec.ts` aynı
+davranışları arayüzden sınar: bileşke/türev/teğet örnekleri, iç içe virgüllü
+parçalar, doğru kartı katsayıları, eksik başvurular, büyük dizi aralıkları ve
+tanım dışı limit örneklerinden sonra çizim/giriş/geçmişin çalışması. Bileşke
+fixture'ındaki gereksiz parantezler yeni AST gösterimine göre güncellenmiştir.
+
 `geometry-models.spec.ts`, tarayıcı açmadan TypeScript modellerinin
 geçici nesne kimlik/adlandırma davranışını, paylaşılan başvurularla geri alma
 kopyalarını ve metin koordinatlarla kesişim bilgilerinin korunmasını denetler.

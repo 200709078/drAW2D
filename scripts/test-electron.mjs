@@ -17,7 +17,7 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   page.on('requestfailed', request => errors.push(`${request.url()}: ${request.failure()?.errorText}`))
   await page.waitForLoadState('load')
-  assert.equal(await page.title(), 'drAW2D')
+  assert.equal(await page.title(), 'drAW2D | mADEMatik')
   assert.ok(page.url().startsWith('file://'), 'Üretim çıktısı yerel dosyadan açılmalı')
 
   const preferences = await application.evaluate(({ BrowserWindow }) => {

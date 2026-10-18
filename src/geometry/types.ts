@@ -51,6 +51,8 @@ export type IntersectionStatus = 'points' | 'empty' | 'infinite'
 export interface GeometryPoint extends GeometryObject<'point'> {
   a: Coordinate
   b: Coordinate
+  /** A dependent construction can be undefined while retaining its last position. */
+  geometryValid?: boolean
   onOther: PointConstraint[]
   intersectionStatus?: IntersectionStatus
   intersectionOwner?: boolean
@@ -109,7 +111,7 @@ export interface CircleTangent extends GeometryObject<'circleTangent'> {
   circle: GeometryCircle
 }
 
-// Fonksiyon/analiz modelleri ve denklem doğruları sonraki adımda eklenecek.
+// Denklem ve analiz modelleriyle tam belge birleşimi function-types.ts içindedir.
 export type BasicGeometryObject =
   | GeometryPoint
   | GeometryCircle

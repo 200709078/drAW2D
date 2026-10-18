@@ -123,7 +123,8 @@ export const legacyCommandMatrix = [
     name: 'bileşke',
     steps: [{
       command: 'Bileşke(x-1,x^2-2)',
-      rows: [{ input: 'Bileşke(x-1,x^2-2)', output: 'f: y = ((x)^2-2)-1' }],
+      // AST substitution omits redundant parentheses while preserving the expression.
+      rows: [{ input: 'Bileşke(x-1,x^2-2)', output: 'f: y = x^2-2-1' }],
     }],
   },
   {

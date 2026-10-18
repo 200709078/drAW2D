@@ -91,20 +91,51 @@ görevinde art arda 10 zıt yönlü tekerlek olayı gönderildi. Önce 20 tam bo
 Olay işleme süresi aynı ortamda yaklaşık 403 ms'den 0,8 ms'ye düştü; bu tek
 senaryonun ölçümüdür, bütün uygulama için sabit bir hızlanma oranı değildir.
 
+## Adım 3: denklem, fonksiyon ve analiz modelleri
+
+`src/geometry/function-types.ts` ve `function-models.ts` kalan 10 model türünü
+strict TypeScript'e taşır: dik doğru, denklem doğrusu, dizi, limit, fonksiyon,
+bileşke, teğet, sekant, türev ve parçalı fonksiyon. Böylece 20 belge modeli tiplidir;
+`GeometryDocumentObject` tüm nesne türlerini birleştirir. Model fabrikaları DOM'a
+bağlı değildir; kimlik, ad, renk ve temel nokta/doğru oluşturma dışarıdan sağlanır.
+
+- Türev modeli tek kaynak eğri ve türev eğrisi taşır; `func.func.func` katmanı
+  kaldırılmıştır. Türev ve parçalı fonksiyon alt nesneleri üst nesnenin kimliğini
+  paylaşır; geçici fonksiyon modelleri kalıcı ad/kimlik tüketmez.
+- `src/math/function-algebra.ts` bileşkeyi metin değiştirme yerine ifade ağacında
+  yalnız `x` değişkenini yerine koyarak kurar. `exp`/`max` adları ve iç içe
+  fonksiyon parametreleri korunur. Türev hesabı iç içe iki parametreli logaritmaları
+  `log(taban, değer)` sözleşmesine göre dönüştürür.
+- Doğru ifadeleri tam sayısal hassasiyette tutulur. Küçük katsayılar hesap sırasında
+  sıfırlanmaz; kartlar ayrıca biçimlendirilir. Katsayı metnindeki `1x` gibi alt
+  dizileri silen eski gösterim yöntemi kaldırılmıştır.
+- Teğet modelleri türev ifadesini saklar; kaydırıcı güncellemeleri önbellekli
+  değerlendirme kullanır. Mevcut nokta ve doğrular güncellenir; renk veya kimlik
+  üretilmez. Geçersiz bir konum modeli kısmen değiştirmez.
+- Komut tanıma model oluşturmaz; eksik fonksiyon başvuruları belge/geçmişe
+  eklenmeden reddedilir. Bileşke ve parçalı fonksiyon parametreleri iç içe
+  virgüller dikkate alınarak ayrılır.
+- Dizilerde yalnız görünür tam sayı indisleri hesaplanır; yoğun görünümde nokta
+  sayısı ekran genişliğine göre sınırlandırılır. Tanım dışı limit örnekleri çizim
+  karesini kesmez. Bu, sembolik limit hesabı eklendiği anlamına gelmez.
+
+Komut yorumlayıcının tamamı, geometri algoritmaları, belge yönetimi ve araç
+denetleyicileri hâlâ JavaScript'tedir. Yeni araçlar ve mobil etkileşim sonraki
+adımlardadır. Bu adım doğrulandıktan sonra yine durulur.
+
 ## Kalan taşıma sırası
 
 Her adımda mevcut maliyet veya sorun belirlenir; yeni yapı webde ve Electron'da
 doğrulanır. Eski sürüm örnekleri karşılaştırmaya yardımcı olur; iyileştirmeleri
 engelleyen değişmez kurallar sayılmaz.
 
-1. Denklem doğruları ile fonksiyon/analiz modellerini TypeScript'e ayırma; kalan nesne tiplerini tamamlama.
-2. Saf geometri hesaplamaları: kesişim, uzaklık, yansıtma ve teğetler.
-3. Komut yorumlayıcı, fonksiyon çözümleme ve matematik işlemleri.
-4. Belge durumu ve geri al/yinele geçmişi.
-5. Kalan nesne çizicilerini TypeScript'e ayırma.
-6. Araç durumu/controller, giriş olayları ve arayüz bağları; motorun kalan JavaScript kodunun kaldırılması.
-7. Dokunma/kalem desteği, çoklu dokunmayla yakınlaştırma ve mobil ekran düzeni.
-8. Mobil paketleme ihtiyacı netleştiğinde Android/iOS katmanı.
+1. Saf geometri hesaplamaları: kesişim, uzaklık, yansıtma ve teğetler.
+2. Komut yorumlayıcı, fonksiyon çözümleme ve kalan matematik işlemleri.
+3. Belge durumu ve geri al/yinele geçmişi.
+4. Kalan nesne çizicilerini TypeScript'e ayırma.
+5. Araç durumu/controller, giriş olayları ve arayüz bağları; motorun kalan JavaScript kodunun kaldırılması.
+6. Dokunma/kalem desteği, çoklu dokunmayla yakınlaştırma ve mobil ekran düzeni.
+7. Mobil paketleme ihtiyacı netleştiğinde Android/iOS katmanı.
 
 Sadece uzantı değiştirerek veya `@ts-nocheck` ekleyerek taşımak yerine her modülün
 gerçek veri ve olay tipleri tanımlanır. Yeni özellikler `src/` altındaki ortak
