@@ -33,11 +33,15 @@ const functions: Readonly<Record<string, readonly [number, number]>> = {
   log2: [1, 1], nthRoot: [1, 2], round: [1, 2], sec: [1, 1], sech: [1, 1],
   sign: [1, 1], sin: [1, 1], sinh: [1, 1], sqrt: [1, 1], tan: [1, 1],
   tanh: [1, 1], factorial: [1, 1], gamma: [1, 1], lgamma: [1, 1],
-  erf: [1, 1], combinations: [2, 2], permutations: [1, 2],
+  erf: [1, 1],
   gcd: [2, maxNodes], lcm: [2, maxNodes], max: [1, maxNodes], min: [1, maxNodes],
   hypot: [1, maxNodes], pow: [2, 2], mod: [2, 2],
-  fraction: [1, 2], bignumber: [1, 1], number: [1, 1],
+  number: [1, 1],
 }
+
+// Combinatorics and exact-number constructors need bounded implementations before
+// use here: mathjs can loop indefinitely for large operands in these functions
+// or perform costly fraction factorization. AST size alone does not bound that work.
 
 function sourceText(source: string): string {
   if (typeof source !== 'string' || source.trim() === '') {

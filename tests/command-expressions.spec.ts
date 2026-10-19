@@ -22,8 +22,8 @@ test('sabit matematik ifadeleri log(taban,değer) ve gerçek sayısal türleri d
   expect(parseNumericExpression('log(2, 8)')).toBe(3)
   expect(parseNumericExpression('ln(E)+PI-pi')).toBe(1)
   expect(parseNumericExpression('tau / 2')).toBe(Math.PI)
-  expect(parseNumericExpression('fraction(1, 3)')).toBe(1 / 3)
-  expect(parseNumericExpression('bignumber(1.25)')).toBe(1.25)
+  expect(parseNumericExpression('1 / 3')).toBe(1 / 3)
+  expect(parseNumericExpression('1.25')).toBe(1.25)
   expect(parseNumericExpression('max(2,3)+5!')).toBe(123)
   expect(parseNumericExpression('1 < 2 ? 3 : 4')).toBe(3)
 })
@@ -37,7 +37,7 @@ test('sayısal girişler sonlu gerçek sonuç gerektirir ve değişkenleri redde
 
 test('fonksiyon yapısı örnek bir x noktasının tanım alanına bağlı değildir', () => {
   for (const expression of ['sqrt(x-1000)', 'log(-x-10)', '1/(x-1)', 'tan(x)',
-    'log(2,x)', 'cot(x)', 'min(x, 2*x)', 'abs(x)', 'fraction(1,2)*x', '2 x']) {
+    'log(2,x)', 'cot(x)', 'min(x, 2*x)', 'abs(x)', '(1/2)*x', '2 x']) {
     expect(parseFunctionExpression(expression)).toBe(expression)
   }
   expect(value(parseFunctionExpression('ln(x)'), Math.E)).toBe(1)
@@ -71,6 +71,18 @@ test('boşluklar belirteç sınırlarını korur, farklı simgeler sessizce birl
   expect(() => parseFunctionExpression('s in(x)')).toThrow()
   expect(() => parseFunctionExpression('p i')).toThrow()
   expect(value(parseFunctionExpression('x mod 3'), 5)).toBe(2)
+})
+
+test('iş miktarı sınırlanmayan özel sayısal çağrılar değerlendirilmeden reddedilir', () => {
+  for (const expression of ['combinations(1e20,0)', 'permutations(1e20,1e20)',
+    'factorial(bignumber(1e20))', 'gamma(bignumber(1e20))', 'bignumber(1e20)!',
+    '(fraction(2)^fraction(61)-fraction(1))^fraction(1,2)']) {
+    expect(() => parseNumericExpression(expression), expression).toThrow(/Bilinmeyen fonksiyon/)
+    expect(() => parseFunctionExpression(expression), expression).toThrow(/Bilinmeyen fonksiyon/)
+  }
+  for (const expression of ['combinations(x,0)', 'permutations(x,x)', 'factorial(bignumber(x))', 'fraction(x)^fraction(1,2)']) {
+    expect(() => parseFunctionExpression(expression), expression).toThrow(/Bilinmeyen fonksiyon/)
+  }
 })
 
 test('adlandırılmış fonksiyonlar tam simge ve çağrı başvurularıyla çözülür', () => {

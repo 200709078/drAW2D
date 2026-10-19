@@ -182,7 +182,7 @@ export const legacyCommandMatrix = [
     name: 'doğal logaritma',
     steps: [{
       command: 'log(E,4-x^2)',
-      rows: [{ input: 'f: y = log(E,4-x^2)', output: '' }],
+      rows: [{ input: 'f: y = log(e, 4 - x ^ 2)', output: '' }],
     }],
   },
   {

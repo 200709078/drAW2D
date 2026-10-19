@@ -21,6 +21,9 @@ import { createFrameRenderer, createSceneOrder } from '../rendering/frame-render
 import { createFunctionEvaluator } from '../rendering/function-evaluator'
 import { createCoordinateTransform } from '../rendering/coordinate-transform'
 import { drawFunctionPlot } from '../rendering/function-plotter'
+import { GeometryDocument } from '../document/geometry-document'
+
+const geometryDocument = new GeometryDocument()
 
 const {
 	mPoint,
@@ -87,7 +90,7 @@ function createPrimePointName(sourceName) {
 	let baseName = sourceName + "'"
 	let name = baseName
 	let i = 1
-	let names = arrObjects.map(item => item.name)
+	let names = geometryDocument.objects.map(item => item.name)
 
 	while (names.includes(name)) {
 		name = baseName + i
@@ -184,20 +187,20 @@ function createPointFromHitOrMouse(hit, mousePos) {
 
 function addCircleTangentWithTouchPoints(point, circle) {
 	const tangent = new mCircleTangent(point, circle)
-	arrObjects.push(tangent)
+	geometryDocument.append(tangent)
 	const data = getCircleTangentLines(point, circle)
 	if (data.status) {
 		data.tangentPoints.forEach((touch, pointIndex) => {
 			const touchPoint = new mPoint(touch.a, touch.b)
 			touchPoint.onOther.push({ type: 'circleTangentTouchPoint', tangentId: tangent.id, pointIndex })
-			arrObjects.push(touchPoint)
+			geometryDocument.append(touchPoint)
 		})
 	}
 	return tangent
 }
 
 function createReservedName(type, reservedNames = []) {
-	return createObjectName(type, [...arrObjects.map(item => item.name), ...reservedNames])
+	return createObjectName(type, [...geometryDocument.objects.map(item => item.name), ...reservedNames])
 }
 
 function createIntersectionPoints(obj1, obj2) {
@@ -248,7 +251,7 @@ function getCircleTangentTouchPointConstraint(point) {
 }
 
 function getIntersectionOutput(point) {
-	let relatedPoints = arrObjects.filter(item => {
+	let relatedPoints = geometryDocument.objects.filter(item => {
 		if (item.id == point.id) return true
 		let constraint = getIntersectionPointConstraint(item)
 		return constraint && constraint.ownerId == point.id
@@ -304,7 +307,7 @@ function formatCircleInput(circle) {
 }
 
 function getAngleArcInfo(ag, angleBetween) {
-	for (const circle of arrObjects) {
+	for (const circle of geometryDocument.objects) {
 		if (!isIntersectableCircle(circle)) continue
 
 		let circleData = getCircleDescriptor(circle)
@@ -350,7 +353,7 @@ function getPointCircleConstraint(point) {
 
 function getCirclesForPoint(point) {
 	if (!point || point.type != 'point') return []
-	return arrObjects.filter(item => {
+	return geometryDocument.objects.filter(item => {
 		if (!isIntersectableCircle(item)) return false
 		let circleData = getCircleDescriptor(item)
 		return circleData.status && isPointOnCircleData(point, circleData)
@@ -376,7 +379,7 @@ function getArcMeasurePointFromHit(hit, mousePos, expectedCircle = null) {
 		}
 
 		let constraint = getPointCircleConstraint(point)
-		let constrainedCircle = constraint ? arrObjects.find(item => item.id == constraint.circleId) : null
+		let constrainedCircle = constraint ? geometryDocument.objects.find(item => item.id == constraint.circleId) : null
 		let circle = constrainedCircle || circles[0]
 		if (!circle) return { status: false, reason: 'notOnCircle' }
 		return { status: true, point: point, circle: circle, created: false }
@@ -395,7 +398,7 @@ function getArcMeasurePointFromHit(hit, mousePos, expectedCircle = null) {
 }
 
 function updateReflectPointRows() {
-	arrObjects.forEach(item => {
+	geometryDocument.objects.forEach(item => {
 		let reflectConstraint = getReflectPointConstraint(item)
 		if (!reflectConstraint) return
 
@@ -403,15 +406,15 @@ function updateReflectPointRows() {
 		let output = document.getElementById(item.id + '-output')
 		if (!input || !output) return
 
-		let source = arrObjects.find(obj => obj.id == reflectConstraint.sourceId)
-		let center = arrObjects.find(obj => obj.id == reflectConstraint.centerId)
+		let source = geometryDocument.objects.find(obj => obj.id == reflectConstraint.sourceId)
+		let center = geometryDocument.objects.find(obj => obj.id == reflectConstraint.centerId)
 		input.value = 'YansıtNokta(' + (source ? source.name : '?') + ',' + (center ? center.name : '?') + ')'
 		output.value = item.geometryValid === false ? '∅' : item.name + '=(' + getPointDisplayCoordinate(item.a) + ',' + getPointDisplayCoordinate(item.b) + ')'
 	})
 }
 
 function updateIntersectionPointRows() {
-	arrObjects.forEach(item => {
+	geometryDocument.objects.forEach(item => {
 		let intersectionConstraint = getIntersectionPointConstraint(item)
 		if (!intersectionConstraint) return
 
@@ -419,8 +422,8 @@ function updateIntersectionPointRows() {
 		let output = document.getElementById(item.id + '-output')
 		if (!input || !output) return
 
-		let line1 = arrObjects.find(obj => obj.id == intersectionConstraint.line1Id)
-		let line2 = arrObjects.find(obj => obj.id == intersectionConstraint.line2Id)
+		let line1 = geometryDocument.objects.find(obj => obj.id == intersectionConstraint.line1Id)
+		let line2 = geometryDocument.objects.find(obj => obj.id == intersectionConstraint.line2Id)
 		input.value = item.name + '=Kesiştir(' + (line1 ? line1.name : '?') + ',' + (line2 ? line2.name : '?') + ')'
 		output.innerHTML = getIntersectionOutput(item)
 	})
@@ -464,7 +467,7 @@ function paintScene() {
 	}, surface.pixelRatio)
 	if (angleA && angleB) drawLineSegment(new mLineSegment(angleA, angleB, true))
 
-	for (const item of sceneOrder.get(arrObjects)) {
+	for (const item of sceneOrder.get(geometryDocument.objects)) {
 		if (item.type === 'point') {
 			drawPoint(item)
 		} else if (item.type === 'verLine') {
@@ -516,7 +519,7 @@ function drawPoint(point) {
 	ctx.beginPath()
 
 	let pSize
-	point.id == activeElementID ? pSize = point.size + 2 : pSize = point.size
+	point.id == geometryDocument.activeId ? pSize = point.size + 2 : pSize = point.size
 	let pColor = point.color
 	if (point.temp) pColor = '#000000'
 
@@ -543,7 +546,7 @@ function drawCircleR(circle) {
 	drawLineSegment(sls)
 
 	let cSize
-	circle.id == activeElementID ? cSize = circle.size + 1 : cSize = circle.size
+	circle.id == geometryDocument.activeId ? cSize = circle.size + 1 : cSize = circle.size
 	let cColor = circle.color
 	if (circle.temp) cColor = '#000000'
 	let canvasR = getCircleCanvasRadii(circle.r)
@@ -563,7 +566,7 @@ function drawCircle2(circle) {
 	if (!data.status) return
 	const r = data.r
 	let cSize
-	circle.id == activeElementID ? cSize = circle.size + 1 : cSize = circle.size
+	circle.id == geometryDocument.activeId ? cSize = circle.size + 1 : cSize = circle.size
 	let cColor = circle.color
 	if (circle.temp) cColor = '#000000'
 	let canvasR = getCircleCanvasRadii(r)
@@ -582,7 +585,7 @@ function drawCircle3(circle) {
 	let mr = getCircleDescriptor(circle)
 	if (!mr.status) return
 	let cSize
-	circle.id == activeElementID ? cSize = circle.size + 1 : cSize = circle.size
+	circle.id == geometryDocument.activeId ? cSize = circle.size + 1 : cSize = circle.size
 	let cColor = circle.color
 	if (circle.temp) cColor = '#000000'
 	let canvasR = getCircleCanvasRadii(mr.r)
@@ -600,7 +603,7 @@ function drawVerLine(vline) {
 	ctx.beginPath()
 
 	let vlSize
-	vline.id == activeElementID ? vlSize = vline.size + 1 : vlSize = vline.size
+	vline.id == geometryDocument.activeId ? vlSize = vline.size + 1 : vlSize = vline.size
 	let vlColor = vline.color
 
 	ctx.strokeStyle = ctx.fillStyle = vlColor
@@ -632,7 +635,7 @@ function drawLineWithEquation(line) {
 	}
 	if (!Number.isFinite(startX) || !Number.isFinite(endX) || startX > endX) return
 
-	const size = line.id == activeElementID ? line.size + 1 : line.size
+	const size = line.id == geometryDocument.activeId ? line.size + 1 : line.size
 	const color = line.temp && !line.useOwnColorForTemp ? '#000000' : line.color
 	ctx.beginPath()
 	ctx.strokeStyle = color
@@ -667,7 +670,7 @@ function drawCircleTangent(tangent) {
 
 	tangentData.lines.forEach(line => {
 		drawLineWithPoints({ ...line, color: tangent.color,
-			size: tangent.id == activeElementID ? tangent.size + 1 : tangent.size,
+			size: tangent.id == geometryDocument.activeId ? tangent.size + 1 : tangent.size,
 			visibility: true, temp: true, id: tangent.id }, true)
 	})
 
@@ -689,7 +692,7 @@ function drawFunction(func, temp = false, lineWidth = null) {
 		width: surface.width,
 		height: surface.height,
 		color: func.color,
-		lineWidth: lineWidth ?? (func.id == activeElementID ? func.size + 1 : func.size),
+		lineWidth: lineWidth ?? (func.id == geometryDocument.activeId ? func.size + 1 : func.size),
 		startX: func.startX == null ? null : Number(func.startX),
 		endX: func.endX == null ? null : Number(func.endX),
 		startInclusive: func.startInclusive,
@@ -710,7 +713,7 @@ function drawSequence(seq) {
 	const budget = Math.max(1, Math.ceil(surface.width / 8))
 	const step = Math.max(1, Math.ceil((last - first + 1) / budget))
 	const count = Math.min(budget, Math.floor((last - first) / step) + 1)
-	const size = seq.id == activeElementID ? seq.size + 1 : seq.size
+	const size = seq.id == geometryDocument.activeId ? seq.size + 1 : seq.size
 	for (let index = 0; index < count; index++) {
 		const n = first + index * step
 		const y = functionEvaluator.evaluate(expression, n)
@@ -751,7 +754,7 @@ function drawLimit(lim) {
 	if (!lim.visibility) return
 	drawFunction(lim)
 	drawFunctionGuides(lim.func, lim.approachVal, lim.color)
-	if (lim.id == activeElementID) {
+	if (lim.id == geometryDocument.activeId) {
 		drawFunctionGuides(lim.func, lim.approachValRight, lim.color, true)
 		drawFunctionGuides(lim.func, lim.approachValLeft, lim.color, true)
 	}
@@ -761,7 +764,7 @@ function drawTangent(tur) {
 	if (!tur.visibility) return
 	drawFunction(tur)
 	drawFunctionGuides(tur.func, tur.approachVal, tur.color, true)
-	if (tur.id == activeElementID) drawLineWithEquation(tur.tngLine)
+	if (tur.id == geometryDocument.activeId) drawLineWithEquation(tur.tngLine)
 }
 
 function drawTangentHX(turHX) {
@@ -802,7 +805,7 @@ function drawTangentHX(turHX) {
 function drawDerivative(der) {
 	if (!der.visibility) return
 	drawFunction(der.derFunc)
-	if (activeElementID == der.id) drawFunction(der.func, true)
+	if (geometryDocument.activeId == der.id) drawFunction(der.func, true)
 }
 function drawFunctionComposition(funcComp) {
 	if (!funcComp.visibility) return
@@ -812,7 +815,7 @@ function drawFunctionComposition(funcComp) {
 function drawLineSegment(ls) {
 	if (!ls.visibility || !numericPoint(ls.A) || !numericPoint(ls.B)) return
 	let lsSize
-	ls.id == activeElementID ? lsSize = ls.size + 1 : lsSize = ls.size
+	ls.id == geometryDocument.activeId ? lsSize = ls.size + 1 : lsSize = ls.size
 	let lsColor = ls.color
 	if (ls.temp) lsColor = '#000000'
 	ctx.beginPath()
@@ -910,7 +913,7 @@ function drawScaledAngleArc(cx, cy, startAngle, span, radius, color, lineWidth) 
 function drawAngle(ag) {
 	if (!ag.visibility || !numericPoint(ag.A) || !numericPoint(ag.B) || !numericPoint(ag.C)) return
 	let agSize
-	ag.id == activeElementID ? agSize = ag.size + 1 : agSize = ag.size
+	ag.id == geometryDocument.activeId ? agSize = ag.size + 1 : agSize = ag.size
 	let agColor = ag.color
 	if (ag.temp) agColor = '#000000'
 	// Açı
@@ -940,7 +943,7 @@ function drawAngle(ag) {
 
 function drawSectionalFunctions(sf) {
 	if (!sf.visibility) return
-	const lineWidth = sf.id == activeElementID ? sf.size + 1 : sf.size
+	const lineWidth = sf.id == geometryDocument.activeId ? sf.size + 1 : sf.size
 	const markers = []
 	for (const section of sf.secFuncs) {
 		drawFunction(section, false, lineWidth)
@@ -969,7 +972,7 @@ function drawSectionalFunctions(sf) {
 function isObjectUsedByOther(target) {
 	if (target.onOther && target.onOther.length > 0) return true
 
-	return arrObjects.some(obj => {
+	return geometryDocument.objects.some(obj => {
 		if (obj.id === target.id) return false
 		if (obj.A?.id === target.id) return true
 		if (obj.B?.id === target.id) return true
@@ -995,7 +998,7 @@ function labelsCreator() {
 	const bounds = coordinates.bounds
 	reprojectAllOnOther()
 	objectsContainer.innerHTML = ""
-	arrObjects.forEach(item => {
+	geometryDocument.objects.forEach(item => {
 		if (item.hideInLabels) return
 		let emptyDiv = document.createElement('div')
 		let exprDiv = document.createElement('div')
@@ -1063,8 +1066,8 @@ function labelsCreator() {
 			let intersectionConstraint = getIntersectionPointConstraint(item)
 			let circleTangentTouchPointConstraint = getCircleTangentTouchPointConstraint(item)
 			if (reflectConstraint) {
-				let source = arrObjects.find(obj => obj.id == reflectConstraint.sourceId)
-				let center = arrObjects.find(obj => obj.id == reflectConstraint.centerId)
+				let source = geometryDocument.objects.find(obj => obj.id == reflectConstraint.sourceId)
+				let center = geometryDocument.objects.find(obj => obj.id == reflectConstraint.centerId)
 				labelA.hidden = true
 				sliderA.hidden = true
 				labelB.hidden = true
@@ -1072,8 +1075,8 @@ function labelsCreator() {
 				input.value = 'YansıtNokta(' + (source ? source.name : '?') + ',' + (center ? center.name : '?') + ')'
 				output.value = item.geometryValid === false ? '∅' : item.name + '=(' + getPointDisplayCoordinate(item.a) + ',' + getPointDisplayCoordinate(item.b) + ')'
 			} else if (intersectionConstraint) {
-				let line1 = arrObjects.find(obj => obj.id == intersectionConstraint.line1Id)
-				let line2 = arrObjects.find(obj => obj.id == intersectionConstraint.line2Id)
+				let line1 = geometryDocument.objects.find(obj => obj.id == intersectionConstraint.line1Id)
+				let line2 = geometryDocument.objects.find(obj => obj.id == intersectionConstraint.line2Id)
 				labelA.hidden = true
 				sliderA.hidden = true
 				labelB.hidden = true
@@ -1081,7 +1084,7 @@ function labelsCreator() {
 				input.value = item.name + '=Kesiştir(' + (line1 ? line1.name : '?') + ',' + (line2 ? line2.name : '?') + ')'
 				output.innerHTML = getIntersectionOutput(item)
 			} else if (circleTangentTouchPointConstraint) {
-				let tangent = arrObjects.find(obj => obj.id == circleTangentTouchPointConstraint.tangentId)
+				let tangent = geometryDocument.objects.find(obj => obj.id == circleTangentTouchPointConstraint.tangentId)
 				labelA.hidden = true
 				sliderA.hidden = true
 				labelB.hidden = true
@@ -1287,7 +1290,7 @@ function labelsCreator() {
 			item.haveH ? labelB.innerHTML = 'h = ' + item.h : labelB.innerHTML = 'x = ' + item.h
 		}
 
-		if (item.id != activeElementID) {
+		if (item.id != geometryDocument.activeId) {
 			labelA.hidden = true
 			sliderA.hidden = true
 			labelB.hidden = true
@@ -1310,6 +1313,7 @@ function labelsCreator() {
 		emptyDiv.appendChild(document.createElement('hr'))
 		objectsContainer.prepend(emptyDiv)
 	})
+	updateHistoryControlsState()
 }
 
 function toggleCalcIcon(imgEl) {
@@ -1588,8 +1592,11 @@ if (helpMenuButton) {
 
 function changeActiveElement(id) {
 	let clickedid = Number(id.substring(0, id.indexOf("-")))
-	if (activeElementID != null) document.getElementById(activeElementID + '-input').style.background = '#ffffff'
-	if (activeElementID != null) document.getElementById(activeElementID + '-output').style.background = '#fbfcff'
+	commitSliderHistory()
+	if (activeObject !== 'select' || geometryDocument.hasDraft) cancelActiveToolAndReturnSelect()
+	if (!geometryDocument.objects.some(object => object.id === clickedid)) return
+	if (geometryDocument.activeId != null) document.getElementById(geometryDocument.activeId + '-input').style.background = '#ffffff'
+	if (geometryDocument.activeId != null) document.getElementById(geometryDocument.activeId + '-output').style.background = '#fbfcff'
 
 	let sliders = document.querySelectorAll("input[type='range']");
 	sliders.forEach(slider => {
@@ -1599,25 +1606,25 @@ function changeActiveElement(id) {
 	labels.forEach(label => {
 		label.hidden = true
 	})
-	activeElementID = clickedid
-	document.getElementById(activeElementID + '-input').style.background = '#eaf3ff'
-	document.getElementById(activeElementID + '-output').style.background = '#f2f7ff'
-	let activeitem = arrObjects.find(item => item.id == activeElementID)
+	geometryDocument.activeId = clickedid
+	document.getElementById(geometryDocument.activeId + '-input').style.background = '#eaf3ff'
+	document.getElementById(geometryDocument.activeId + '-output').style.background = '#f2f7ff'
+	let activeitem = geometryDocument.objects.find(item => item.id == geometryDocument.activeId)
 
-	document.getElementById(activeElementID + '-labelA').hidden = false
-	document.getElementById(activeElementID + '-sliderA').hidden = false
-	document.getElementById(activeElementID + '-labelB').hidden = false
-	document.getElementById(activeElementID + '-sliderB').hidden = false
+	document.getElementById(geometryDocument.activeId + '-labelA').hidden = false
+	document.getElementById(geometryDocument.activeId + '-sliderA').hidden = false
+	document.getElementById(geometryDocument.activeId + '-labelB').hidden = false
+	document.getElementById(geometryDocument.activeId + '-sliderB').hidden = false
 
 	if (activeitem.type == 'tangent' || activeitem.type == "verLine" || activeitem.type == 'circleR') {
-		document.getElementById(activeElementID + '-labelB').hidden = true
-		document.getElementById(activeElementID + '-sliderB').hidden = true
+		document.getElementById(geometryDocument.activeId + '-labelB').hidden = true
+		document.getElementById(geometryDocument.activeId + '-sliderB').hidden = true
 	}
 	if (getReflectPointConstraint(activeitem) || getIntersectionPointConstraint(activeitem) || getCircleTangentTouchPointConstraint(activeitem) || activeitem.type == 'sequence' || activeitem.type == 'lineSegment' || activeitem.type == 'distanceSegment' || activeitem.type == 'circleTangent' || activeitem.type == 'lineWithPoints' || activeitem.type == 'sectionalFunctions' || activeitem.type == 'function' || activeitem.type == 'circle2' || activeitem.type == 'circle3' || activeitem.type == 'angle' || activeitem.type == 'arcMeasure' || activeitem.type == 'functioncomposition' || activeitem.type == 'derivative') {
-		document.getElementById(activeElementID + '-labelA').hidden = true
-		document.getElementById(activeElementID + '-sliderA').hidden = true
-		document.getElementById(activeElementID + '-labelB').hidden = true
-		document.getElementById(activeElementID + '-sliderB').hidden = true
+		document.getElementById(geometryDocument.activeId + '-labelA').hidden = true
+		document.getElementById(geometryDocument.activeId + '-sliderA').hidden = true
+		document.getElementById(geometryDocument.activeId + '-labelB').hidden = true
+		document.getElementById(geometryDocument.activeId + '-sliderB').hidden = true
 	}
 	drawAll()
 }
@@ -1673,11 +1680,13 @@ function handleParanthesis(e) {
 function delBtnClick(e) {
 	let elementid = e.target.closest("div").children[0].id
 	let delid = elementid.substring(0, elementid.indexOf("-"))
+	commitSliderHistory()
+	cancelActiveToolAndReturnSelect()
 
-	arrObjects = arrObjects.filter(item => item.id !== Number(delid));
+	geometryDocument.remove(Number(delid))
 	commitHistoryState()
 
-	activeElementID = null
+	geometryDocument.activeId = null
 	activeObject = 'select'
 
 	drawAll()
@@ -1687,7 +1696,8 @@ function delBtnClick(e) {
 function visibilityBtnClick(e) {
 	let elementid = e.target.closest("div").children[0].id
 	changeActiveElement(elementid)
-	let activeitem = arrObjects.find(item => item.id == activeElementID)
+	let activeitem = geometryDocument.objects.find(item => item.id == geometryDocument.activeId)
+	if (!activeitem) return
 	if (activeitem.visibility == true) {
 		activeitem.visibility = false
 		e.target.style.background = 'transparent'
@@ -1696,7 +1706,16 @@ function visibilityBtnClick(e) {
 		e.target.style.background = activeitem.color
 	}
 	commitHistoryState()
+	labelsCreator()
 	drawAll()
+}
+
+function moveDraggedPoint(position) {
+	if (!pointDragStart || !firstMousePos || !hitObject?.hit) return
+	const dx = position.x - firstMousePos.x
+	const dy = position.y - firstMousePos.y
+	hitObject.hit.a = pointDragStart.a + dx
+	hitObject.hit.b = pointDragStart.b + dy
 }
 
 function getMousePos(evt) {
@@ -1706,14 +1725,15 @@ function getMousePos(evt) {
 }
 
 function crossSlider() {
-	if (activeElementID != null) {
-		let sliderA = document.getElementById(activeElementID + '-sliderA')
-		let sliderB = document.getElementById(activeElementID + '-sliderB')
-		let labelA = document.getElementById(activeElementID + '-labelA')
-		let labelB = document.getElementById(activeElementID + '-labelB')
-		let input = document.getElementById(activeElementID + '-input')
-		let output = document.getElementById(activeElementID + '-output')
-		let item = arrObjects.find(item => item.id == activeElementID)
+	if (geometryDocument.activeId != null) {
+		beginSliderHistory()
+		let sliderA = document.getElementById(geometryDocument.activeId + '-sliderA')
+		let sliderB = document.getElementById(geometryDocument.activeId + '-sliderB')
+		let labelA = document.getElementById(geometryDocument.activeId + '-labelA')
+		let labelB = document.getElementById(geometryDocument.activeId + '-labelB')
+		let input = document.getElementById(geometryDocument.activeId + '-input')
+		let output = document.getElementById(geometryDocument.activeId + '-output')
+		let item = geometryDocument.objects.find(item => item.id == geometryDocument.activeId)
 
 		if (getReflectPointConstraint(item) || getIntersectionPointConstraint(item)) {
 			labelsCreator()
@@ -1728,7 +1748,7 @@ function crossSlider() {
 			labelB.innerHTML = 'b = ' + formatDisplayNumber(item.b)
 			input.value = item.name + '=' + formatPointPair(item)
 
-			let ownerS = arrObjects.filter(obj => {
+			let ownerS = geometryDocument.objects.filter(obj => {
 				const validTypes = ['lineSegment', 'distanceSegment', 'lineWithPoints', 'circle', 'circle2', 'circle3', 'angle', 'arcMeasure'];
 				if (!validTypes.includes(obj.type)) return false;
 				return ["A", "B", "C"].some(key => obj[key]?.name === item.name);
@@ -1848,31 +1868,6 @@ function crossSlider() {
 	drawAll()
 }
 
-function changeName(newName) {
-	let hasNameid
-	let found = arrObjects.find(item => item.name === newName)
-	hasNameid = found ? found.id : null
-
-	if (hasNameid != null && arrObjects[hasNameid] != newName) {
-		let i = 1
-		let names
-		if (arrObjects[hasNameid].type === 'point') names = arrObjects.filter(item => item.type === "point").map(item => item.name)
-		if (arrObjects[hasNameid].type === 'sequence') names = arrObjects.filter(item => item.type === "sequence").map(item => item.name)
-		if (arrObjects[hasNameid].type === 'limit') names = arrObjects.filter(item => item.type === "limit").map(item => item.name)
-		if (arrObjects[hasNameid].type === 'other' || arrObjects[hasNameid].type === 'line') names = arrObjects.filter(item => item.type === "line" || item.type === "other").map(item => item.name)
-		let foundName
-		while (true) {
-			if (!(names).includes(arrObjects[hasNameid].name + i)) {
-				foundName = arrObjects[hasNameid].name + i
-				break
-			}
-			i++
-		}
-		arrObjects[hasNameid].name = foundName
-	}
-	arrObjects[activeElementID].name = newName
-}
-
 const canvas = document.getElementById('canvas')
 const ctx = canvas.getContext('2d')
 const objectsContainer = document.getElementById('objectsContainer')
@@ -1882,7 +1877,6 @@ surface.prepare()
 
 const clearSound = new Audio("sound/clear.mp3")
 let activeObject = 'select'
-let activeElementID = null
 let lineDrawing = false
 let lineA, lineB
 let lineSegmentDrawing = false
@@ -1940,16 +1934,11 @@ let standartView = {
 }
 
 let firstMousePos, lastMousePos, findPointPos = null
-let arrObjects = []
-let undoStack = []
-let redoStack = []
-let lastHistoryKey = null
-let transientObjectIds = []
-let sliderHistoryStartKey = null
 let sliders = document.getElementById('sliders')
 
 let grabbing = false
 let hitObject = null
+let pointDragStart = null
 let panStartMouse = null
 let panStartMinX = 0
 let panStartMinY = 0
@@ -1957,14 +1946,8 @@ let axisUnitDrag = null
 const axisDragThreshold = 8
 const axisDragStep = 35
 
-let idCount = -1
 function idCounter() {
-	idCount++
-	return idCount
-}
-
-function cloneHistoryState(state = arrObjects) {
-	return structuredClone(state)
+	return geometryDocument.allocateId()
 }
 
 function resetTransientDrawingState() {
@@ -1990,101 +1973,80 @@ function resetTransientDrawingState() {
 }
 
 function trackTransientObject(obj) {
-	if (!obj || obj.id == null) return
-	if (!transientObjectIds.includes(obj.id)) transientObjectIds.push(obj.id)
-}
-
-function clearTransientObjectIds() {
-	transientObjectIds = []
+	if (obj?.id != null) geometryDocument.trackDraft(obj.id)
 }
 
 function removeTransientObjects() {
-	if (transientObjectIds.length == 0) return false
-	arrObjects = arrObjects.filter(item => !transientObjectIds.includes(item.id))
-	clearTransientObjectIds()
-	return true
+	return geometryDocument.cancelDraft()
 }
 
 function commitDrawingHistoryState() {
-	clearTransientObjectIds()
+	geometryDocument.finishDraft()
 	commitHistoryState()
 }
 
 function beginSliderHistory() {
-	if (sliderHistoryStartKey != null) return
-	sliderHistoryStartKey = JSON.stringify(arrObjects)
+	geometryDocument.beginEdit()
 }
 
 function commitSliderHistory() {
-	if (sliderHistoryStartKey == null) return
-	let sliderHistoryEndKey = JSON.stringify(arrObjects)
-	if (sliderHistoryStartKey !== sliderHistoryEndKey) {
-		commitHistoryState()
-	}
-	sliderHistoryStartKey = null
+	if (!geometryDocument.isEditing) return
+	reprojectAllOnOther()
+	geometryDocument.commitEdit()
+	updateHistoryControlsState()
 }
 
-function cancelActiveToolAndReturnSelect() {
-	removeTransientObjects()
+function resetInteractionState() {
 	resetTransientDrawingState()
 	grabbing = false
 	hitObject = null
+	pointDragStart = null
 	firstMousePos = lastMousePos = panStartMouse = axisUnitDrag = null
-	activeElementID = null
+	geometryDocument.activeId = null
 	activeObject = 'select'
-
 	if (window.drAW2DRadialToolbar?.selectToolByAction) {
-		window.drAW2DRadialToolbar.selectToolByAction('select', {
-			showToast: false
-		})
+		window.drAW2DRadialToolbar.selectToolByAction('select', { showToast: false })
 	}
+}
 
+function cancelActiveToolAndReturnSelect() {
+	geometryDocument.cancelEdit()
+	removeTransientObjects()
+	resetInteractionState()
 	drawAll()
 	labelsCreator()
 }
 
 function commitHistoryState() {
-	let historyKey = JSON.stringify(arrObjects)
-	if (historyKey === lastHistoryKey) return
-	undoStack.push(cloneHistoryState())
-	lastHistoryKey = historyKey
-	redoStack = []
+	reprojectAllOnOther()
+	geometryDocument.commit()
 	updateHistoryControlsState()
 }
 
-function restoreHistoryState(state) {
-	arrObjects = cloneHistoryState(state)
-	lastHistoryKey = JSON.stringify(arrObjects)
-	activeElementID = null
-	activeObject = 'select'
-	resetTransientDrawingState()
+function refreshRestoredDocument() {
+	resetInteractionState()
 	drawAll()
 	labelsCreator()
-	updateHistoryControlsState()
 }
 
 function undoHistoryState() {
-	if (undoStack.length <= 1) return
-	redoStack.push(undoStack.pop())
-	restoreHistoryState(undoStack[undoStack.length - 1])
+	geometryDocument.undo()
+	refreshRestoredDocument()
 }
 
 function redoHistoryState() {
-	if (redoStack.length == 0) return
-	let nextState = redoStack.pop()
-	undoStack.push(cloneHistoryState(nextState))
-	restoreHistoryState(nextState)
+	geometryDocument.redo()
+	refreshRestoredDocument()
 }
 
 function updateHistoryControlsState() {
-	let undoButton = document.getElementById('undo')
-	let redoButton = document.getElementById('redo')
-	let clearButton = document.getElementById('clear')
+	const undoButton = document.getElementById('undo')
+	const redoButton = document.getElementById('redo')
+	const clearButton = document.getElementById('clear')
 	if (!undoButton || !redoButton || !clearButton) return
-
-	undoButton.disabled = undoStack.length <= 1
-	redoButton.disabled = redoStack.length == 0
-	clearButton.disabled = arrObjects.length == 0
+	undoButton.disabled = !geometryDocument.canUndo
+	redoButton.disabled = !geometryDocument.canRedo
+	clearButton.disabled = geometryDocument.objects.length === 0
 }
 
 function getCanvasPixelPos(evt) {
@@ -2135,7 +2097,7 @@ function updateAxisUnitDrag(evt) {
 
 // Bu katman belge başvurularını çözer; sayısal geometri hesapları saf modüllerdedir.
 function reprojectAllOnOther() {
-	const objectsById = new Map(arrObjects.map(object => [object.id, object]))
+	const objectsById = new Map(geometryDocument.objects.map(object => [object.id, object]))
 	const circles = new Map()
 	const intersections = new Map()
 	const circleForProjection = circle => {
@@ -2146,7 +2108,7 @@ function reprojectAllOnOther() {
 		}
 		return circles.get(circle.id)
 	}
-	for (const point of arrObjects) {
+	for (const point of geometryDocument.objects) {
 		if (point.type !== 'point') continue
 		for (const constraint of point.onOther) {
 			let result = { status: false }
@@ -2211,15 +2173,19 @@ function getRandomColor() {
 }
 
 function createName(type) {
-	return createObjectName(type, arrObjects.map(item => item.name))
+	return createObjectName(type, geometryDocument.objects.map(item => item.name))
 }
 
 function activateToolFromAction(action) {
-	if (!action) return
+	if (!action || action === activeObject) return
 	if (action !== activeObject) {
+		commitSliderHistory()
+		grabbing = false
+		pointDragStart = null
+		firstMousePos = lastMousePos = panStartMouse = axisUnitDrag = null
 		let removedTransientObjects = removeTransientObjects()
 		resetTransientDrawingState()
-		activeElementID = null
+		geometryDocument.activeId = null
 		if (removedTransientObjects) labelsCreator()
 	}
 
@@ -2389,7 +2355,8 @@ function connectRadialToolbar() {
 
 
 document.getElementById('btnCalc').addEventListener('click', function () {
-	activeObject = 'select'
+	commitSliderHistory()
+	cancelActiveToolAndReturnSelect()
 
 	toggleCalcIcon(document.getElementById('btnimgCalc'))
 
@@ -2426,7 +2393,7 @@ function handleCircleTangentMouseDown(evt) {
 	if (!circleTangentCircle) {
 		if (hitObject.hitType == 'circleR' || hitObject.hitType == 'circle2' || hitObject.hitType == 'circle3') {
 			circleTangentCircle = hitObject.hit
-			activeElementID = circleTangentCircle.id
+			geometryDocument.activeId = circleTangentCircle.id
 			showToast('Teğet', 'Şimdi teğet çizilecek noktayı seçiniz.')
 		} else {
 			showToast('Teğet', 'Önce teğet çizilecek çemberi seçiniz.')
@@ -2435,26 +2402,17 @@ function handleCircleTangentMouseDown(evt) {
 	}
 
 	if (hitObject.hitType == 'point' || !hitObject.hit) {
-		let circleTangentPoint
-		if (hitObject.hitType == 'point') {
-			circleTangentPoint = hitObject.hit
-		} else {
-			circleTangentPoint = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
-			arrObjects.push(circleTangentPoint)
-			trackTransientObject(circleTangentPoint)
-			labelsCreator()
-			drawAll()
-		}
-
-		let tangentData = getCircleTangentLines(circleTangentPoint, circleTangentCircle)
+		const position = getMousePos(evt)
+		const candidate = hitObject.hitType === 'point' ? hitObject.hit : { a: position.x, b: position.y }
+		const tangentData = getCircleTangentLines(candidate, circleTangentCircle)
 		if (tangentData.status) {
-			let tangent = addCircleTangentWithTouchPoints(circleTangentPoint, circleTangentCircle)
-			activeElementID = tangent.id
+			const point = hitObject.hitType === 'point' ? hitObject.hit : new mPoint(position.x, position.y)
+			if (!hitObject.hit) geometryDocument.append(point)
+			const tangent = addCircleTangentWithTouchPoints(point, circleTangentCircle)
+			geometryDocument.activeId = tangent.id
 			commitDrawingHistoryState()
 			circleTangentCircle = null
-
 			finishToolAndReturnSelect()
-
 			labelsCreator()
 			drawAll()
 		} else if (tangentData.reason == 'inside') {
@@ -2483,12 +2441,12 @@ function handleArcMeasureMouseDown(evt) {
 		arcMeasureA = selected.point
 		arcMeasureCircle = selected.circle
 		if (selected.created) {
-			arrObjects.push(arcMeasureA)
+			geometryDocument.append(arcMeasureA)
 			trackTransientObject(arcMeasureA)
 		}
 		arcMeasureCreatedA = selected.created
 		arcMeasureDrawing = true
-		activeElementID = arcMeasureA.id
+		geometryDocument.activeId = arcMeasureA.id
 		showToast('Yay Ölçüsü', 'Aynı çember üzerinde ikinci noktayı seçin.')
 		labelsCreator()
 		drawAll()
@@ -2501,13 +2459,13 @@ function handleArcMeasureMouseDown(evt) {
 		return
 	}
 	if (selected.created) {
-		arrObjects.push(arcMeasureB)
+		geometryDocument.append(arcMeasureB)
 		trackTransientObject(arcMeasureB)
 	}
 
 	let arcMeasure = new mArcMeasure(arcMeasureA, arcMeasureB, arcMeasureCircle)
-	arrObjects.push(arcMeasure)
-	activeElementID = arcMeasure.id
+	geometryDocument.append(arcMeasure)
+	geometryDocument.activeId = arcMeasure.id
 	commitDrawingHistoryState()
 	arcMeasureDrawing = false
 	arcMeasureA = arcMeasureB = arcMeasureCircle = null
@@ -2547,14 +2505,15 @@ function girisKeyDown(event) {
 	event.preventDefault()
 	const input = event.target
 	if (!input.value.trim()) return
+	commitSliderHistory()
+	cancelActiveToolAndReturnSelect()
 	const parsed = parseCommand(input.value)
-	const prepared = parsed.ok ? prepareCommand(parsed.command, arrObjects, {
-		nextId: idCount + 1, randomColor: getRandomColor,
+	const prepared = parsed.ok ? prepareCommand(parsed.command, geometryDocument.objects, {
+		nextId: geometryDocument.nextId, randomColor: getRandomColor,
 	}) : parsed
 	if (prepared.ok) {
-		arrObjects.push(...prepared.objects)
-		idCount = prepared.nextId - 1
-		activeElementID = prepared.activeId
+		geometryDocument.append(...prepared.objects)
+		geometryDocument.activeId = prepared.activeId
 		reprojectAllOnOther()
 		commitHistoryState()
 		drawAll()
@@ -2575,7 +2534,7 @@ function isMobile() {
 }
 
 function hitPoint(mousePos, threshold) {
-	for (const obj of arrObjects) {
+	for (const obj of geometryDocument.objects) {
 		if (obj.type === 'point') {
 			if (!obj.visibility || obj.geometryValid === false) continue
 			if (!Number.isFinite(Number(obj.a)) || !Number.isFinite(Number(obj.b))) continue
@@ -2629,7 +2588,7 @@ function getHitObject(mousePos) {
 		return { hit: point, hitType: point.type }
 	}
 
-	for (const obj of arrObjects) {
+	for (const obj of geometryDocument.objects) {
 		if (obj.type === 'point' || !obj.visibility || obj.geometryValid === false) continue
 		if (hitLine(mousePos, obj, threshold) || hitCircle(mousePos, obj, threshold) || hitAngle(mousePos, obj, threshold)) {
 			canvas.style.cursor = 'pointer'
@@ -2706,26 +2665,13 @@ function initializeLegacyApp() {
 		undoHistoryState()
 	}, false)
 
-	document.getElementById('clear').addEventListener('click', function (evt) {
-		if (arrObjects.length != 0) {
-			arrObjects = []
+	document.getElementById('clear').addEventListener('click', function () {
+		cancelActiveToolAndReturnSelect()
+		if (geometryDocument.clear()) {
 			commitHistoryState()
-			activeElementID = null
 			clearSound.play()
-			activeObject = 'select'
-			lineDrawing = false
-			distanceSegmentDrawing = false
-			reflectPointDrawing = false
-			intersectDrawing = false
-			arcMeasureDrawing = false
-			reflectPointA = reflectPointB = null
-			intersectLineA = intersectLineB = null
-			reflectPointCreatedA = false
-			arcMeasureA = arcMeasureB = arcMeasureCircle = null
-			arcMeasureCreatedA = false
-			circleTangentCircle = null
 			drawAll()
-			objectsContainer.innerHTML = ''
+			labelsCreator()
 		}
 	}, false)
 
@@ -2769,8 +2715,7 @@ function initializeLegacyApp() {
 				updateAxisUnitDrag(event)
 				drawAll()
 			} else if (hitObject.hitType === 'point') {
-				hitObject.hit.a = position.x
-				hitObject.hit.b = position.y
+				moveDraggedPoint(position)
 				drawAll()
 				labelsCreator()
 			} else if (!hitObject.hit && panStartMouse) {
@@ -2786,6 +2731,9 @@ function initializeLegacyApp() {
 	}, false)
 
 	canvas.addEventListener("mousedown", function (evt) {
+		if (evt.button !== 0) return
+		commitSliderHistory()
+		const toolAtStart = activeObject
 		hitObject = getHitObject(getMousePos(evt))
 		if (evt.button == 0) {
 			if (activeObject === 'circletangent') {
@@ -2811,8 +2759,8 @@ function initializeLegacyApp() {
 					if (isIntersectableObject(hitObject.hit) && hitObject.hit.id != intersectLineA.id) {
 						intersectLineB = hitObject.hit
 						let points = createIntersectionPoints(intersectLineA, intersectLineB)
-						points.forEach(point => arrObjects.push(point))
-						activeElementID = points[0].id
+						points.forEach(point => geometryDocument.append(point))
+						geometryDocument.activeId = points[0].id
 						commitDrawingHistoryState()
 						intersectDrawing = false
 						intersectLineA = intersectLineB = null
@@ -2829,8 +2777,8 @@ function initializeLegacyApp() {
 			if (activeObject === 'point') {
 				const result = createPointFromHitOrMouse(hitObject, getMousePos(evt))
 				if (!result.created) return
-				arrObjects.push(result.point)
-				activeElementID = result.point.id
+				geometryDocument.append(result.point)
+				geometryDocument.activeId = result.point.id
 				commitHistoryState()
 				labelsCreator()
 			}
@@ -2840,7 +2788,7 @@ function initializeLegacyApp() {
 					lineA
 					hitObject.hitType == 'point' ? lineA = hitObject.hit : lineA = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
 					if (hitObject.hitType != 'point') {
-						arrObjects.push(lineA)
+						geometryDocument.append(lineA)
 						trackTransientObject(lineA)
 					}
 					lineDrawing = true
@@ -2848,12 +2796,12 @@ function initializeLegacyApp() {
 					lineB
 					hitObject.hitType == 'point' ? lineB = hitObject.hit : lineB = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
 					if (hitObject.hitType != 'point') {
-						arrObjects.push(lineB)
+						geometryDocument.append(lineB)
 						trackTransientObject(lineB)
 					}
 					let lwp = new mLineWithPoints(lineA, lineB)
-					arrObjects.push(lwp)
-					activeElementID = lwp.id
+					geometryDocument.append(lwp)
+					geometryDocument.activeId = lwp.id
 					commitDrawingHistoryState()
 					lineDrawing = false
 					lineA = lineB = null
@@ -2868,7 +2816,7 @@ function initializeLegacyApp() {
 					let pointResult = createPointFromHitOrMouse(hitObject, mousePos)
 					lineSegmentA = pointResult.point
 					if (pointResult.created) {
-						arrObjects.push(lineSegmentA)
+						geometryDocument.append(lineSegmentA)
 						trackTransientObject(lineSegmentA)
 					}
 					lineSegmentDrawing = true
@@ -2876,12 +2824,12 @@ function initializeLegacyApp() {
 					let pointResult = createPointFromHitOrMouse(hitObject, mousePos)
 					lineSegmentB = pointResult.point
 					if (pointResult.created) {
-						arrObjects.push(lineSegmentB)
+						geometryDocument.append(lineSegmentB)
 						trackTransientObject(lineSegmentB)
 					}
 					let ls = new mLineSegment(lineSegmentA, lineSegmentB)
-					arrObjects.push(ls)
-					activeElementID = ls.id
+					geometryDocument.append(ls)
+					geometryDocument.activeId = ls.id
 					commitDrawingHistoryState()
 					lineSegmentDrawing = false
 					lineSegmentA = lineSegmentB = null
@@ -2895,7 +2843,7 @@ function initializeLegacyApp() {
 					distanceSegmentA
 					hitObject.hitType == 'point' ? distanceSegmentA = hitObject.hit : distanceSegmentA = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
 					if (hitObject.hitType != 'point') {
-						arrObjects.push(distanceSegmentA)
+						geometryDocument.append(distanceSegmentA)
 						trackTransientObject(distanceSegmentA)
 					}
 					distanceSegmentDrawing = true
@@ -2903,12 +2851,12 @@ function initializeLegacyApp() {
 					distanceSegmentB
 					hitObject.hitType == 'point' ? distanceSegmentB = hitObject.hit : distanceSegmentB = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
 					if (hitObject.hitType != 'point') {
-						arrObjects.push(distanceSegmentB)
+						geometryDocument.append(distanceSegmentB)
 						trackTransientObject(distanceSegmentB)
 					}
 					let ds = new mDistanceSegment(distanceSegmentA, distanceSegmentB)
-					arrObjects.push(ds)
-					activeElementID = ds.id
+					geometryDocument.append(ds)
+					geometryDocument.activeId = ds.id
 					commitDrawingHistoryState()
 					distanceSegmentDrawing = false
 					distanceSegmentA = distanceSegmentB = null
@@ -2925,7 +2873,7 @@ function initializeLegacyApp() {
 						reflectPointCreatedA = false
 					} else {
 						reflectPointA = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
-						arrObjects.push(reflectPointA)
+						geometryDocument.append(reflectPointA)
 						trackTransientObject(reflectPointA)
 						reflectPointCreatedA = true
 					}
@@ -2935,13 +2883,13 @@ function initializeLegacyApp() {
 						reflectPointB = hitObject.hit
 					} else {
 						reflectPointB = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
-						arrObjects.push(reflectPointB)
+						geometryDocument.append(reflectPointB)
 						trackTransientObject(reflectPointB)
 					}
 
 					let reflectedPoint = createReflectedPoint(reflectPointA, reflectPointB)
-					arrObjects.push(reflectedPoint)
-					activeElementID = reflectedPoint.id
+					geometryDocument.append(reflectedPoint)
+					geometryDocument.activeId = reflectedPoint.id
 					commitDrawingHistoryState()
 					reflectPointDrawing = false
 					reflectPointA = reflectPointB = null
@@ -2957,7 +2905,7 @@ function initializeLegacyApp() {
 					circleA
 					hitObject.hitType == 'point' ? circleA = hitObject.hit : circleA = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
 					if (hitObject.hitType != 'point') {
-						arrObjects.push(circleA)
+						geometryDocument.append(circleA)
 						trackTransientObject(circleA)
 					}
 					circleDrawing = true
@@ -2965,12 +2913,12 @@ function initializeLegacyApp() {
 					circleB
 					hitObject.hitType == 'point' ? circleB = hitObject.hit : circleB = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
 					if (hitObject.hitType != 'point') {
-						arrObjects.push(circleB)
+						geometryDocument.append(circleB)
 						trackTransientObject(circleB)
 					}
 					let c2 = new mCircle2(circleA, circleB)
-					arrObjects.push(c2)
-					activeElementID = c2.id
+					geometryDocument.append(c2)
+					geometryDocument.activeId = c2.id
 					commitDrawingHistoryState()
 					circleDrawing = false
 					circleA = circleB = null
@@ -2984,14 +2932,14 @@ function initializeLegacyApp() {
 						circleA
 						hitObject.hitType == 'point' ? circleA = hitObject.hit : circleA = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
 						if (hitObject.hitType != 'point') {
-							arrObjects.push(circleA)
+							geometryDocument.append(circleA)
 							trackTransientObject(circleA)
 						}
 					} else {
 						circleB
 						hitObject.hitType == 'point' ? circleB = hitObject.hit : circleB = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
 						if (hitObject.hitType != 'point') {
-							arrObjects.push(circleB)
+							geometryDocument.append(circleB)
 							trackTransientObject(circleB)
 						}
 						circleDrawing = true
@@ -3000,12 +2948,12 @@ function initializeLegacyApp() {
 					circleC
 					hitObject.hitType == 'point' ? circleC = hitObject.hit : circleC = new mPoint(getMousePos(evt).x, getMousePos(evt).y)
 					if (hitObject.hitType != 'point') {
-						arrObjects.push(circleC)
+						geometryDocument.append(circleC)
 						trackTransientObject(circleC)
 					}
 					let c3 = new mCircle3(circleA, circleB, circleC)
-					arrObjects.push(c3)
-					activeElementID = c3.id
+					geometryDocument.append(c3)
+					geometryDocument.activeId = c3.id
 					commitDrawingHistoryState()
 					circleDrawing = false
 					circleA = circleB = circleC = null
@@ -3020,14 +2968,14 @@ function initializeLegacyApp() {
 						let pointResult = createPointFromHitOrMouse(hitObject, mousePos)
 						angleA = pointResult.point
 						if (pointResult.created) {
-							arrObjects.push(angleA)
+							geometryDocument.append(angleA)
 							trackTransientObject(angleA)
 						}
 					} else {
 						let pointResult = createPointFromHitOrMouse(hitObject, mousePos)
 						angleB = pointResult.point
 						if (pointResult.created) {
-							arrObjects.push(angleB)
+							geometryDocument.append(angleB)
 							trackTransientObject(angleB)
 						}
 						angleDrawing = true
@@ -3036,12 +2984,12 @@ function initializeLegacyApp() {
 					let pointResult = createPointFromHitOrMouse(hitObject, mousePos)
 					angleC = pointResult.point
 					if (pointResult.created) {
-						arrObjects.push(angleC)
+						geometryDocument.append(angleC)
 						trackTransientObject(angleC)
 					}
 					let a = new mAngle(angleA, angleB, angleC)
-					arrObjects.push(a)
-					activeElementID = a.id
+					geometryDocument.append(a)
+					geometryDocument.activeId = a.id
 					commitDrawingHistoryState()
 					angleDrawing = false
 					angleA = angleB = angleC = null
@@ -3050,15 +2998,19 @@ function initializeLegacyApp() {
 				}
 			}
 			if (hitObject.hit) {
-				activeElementID = hitObject.hit.id
+				geometryDocument.activeId = hitObject.hit.id
 				drawAll()
 			}
 		}
 
-		if (activeObject == 'select') {
+		if (toolAtStart === 'select' && activeObject === 'select') {
 			grabbing = true
 			canvas.style.cursor = 'grabbing'
 			firstMousePos = getMousePos(evt)
+			if (hitObject.hitType === 'point') {
+				pointDragStart = numericPoint(hitObject.hit)
+				geometryDocument.beginEdit()
+			}
 			if (!hitObject.hit) {
 				let axisTarget = getAxisDragTarget(evt)
 				if (axisTarget) {
@@ -3081,28 +3033,22 @@ function initializeLegacyApp() {
 		labelsCreator()
 	}, false)
 
-	canvas.addEventListener("mouseup", function (evt) {
+	// Complete an existing mouse gesture even when release occurs outside the canvas.
+	window.addEventListener('mouseup', function (evt) {
+		if (!grabbing || evt.button !== 0) return
 		canvas.style.cursor = 'default'
-		lastMousePos = getMousePos(evt)
-
-		if (grabbing && activeObject == 'select') {
-
-			if (hitObject.hitType == 'point') {
-				hitObject.hit.a = lastMousePos.x
-				hitObject.hit.b = lastMousePos.y
-				reprojectAllOnOther()
-				commitHistoryState()
-			}
-
-			grabbing = false
-			panStartMouse = null
-			axisUnitDrag = null
-			lastMousePos = null
-			drawAll()
-			labelsCreator()
+		if (activeObject === 'select' && hitObject?.hitType === 'point') {
+			moveDraggedPoint(getMousePos(evt))
+			reprojectAllOnOther()
+			geometryDocument.commitEdit()
 		}
+		grabbing = false
+		pointDragStart = null
 		firstMousePos = lastMousePos = panStartMouse = axisUnitDrag = null
+		drawAll()
+		labelsCreator()
 	}, false)
+
 
 	document.addEventListener("keydown", function (evt) {
 		if (evt.key == 'Escape') {

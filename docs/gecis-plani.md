@@ -9,10 +9,10 @@ kullanıcının isteği doğrultusunda geçici kopya kaldırıldı. Geçiş önc
 alanında bulunan `css/styles.css` değişikliği yeni uygulamanın
 `src/styles/styles.css` dosyasında korunmuştur.
 
-Yeni uygulamanın giriş noktası `src/main.ts`, web derleyicisi Vite'dır. Araç çubuğu,
-temel geometri modelleri ve matematik kütüphanesi yapılandırması TypeScript'tir.
-Kalan geometri ve komut yorumlama kodu `src/legacy/app.js` içinde ES modülü olarak
-çalışır. `allowJs: true`
+Yeni uygulamanın giriş noktası `src/main.ts`, web derleyicisi Vite'dır. İlk aşamada
+araç çubuğu, temel geometri modelleri ve matematik kütüphanesi yapılandırması
+TypeScript'e taşındı. Kalan geometri ve komut yorumlama kodu `src/legacy/app.js`
+içinde ES modülü olarak bırakıldı. Sonraki taşıma adımları aşağıda açıklanır. `allowJs: true`
 mevcut JavaScript ile yeni TypeScript modüllerini birlikte kullanmamızı sağlar.
 TypeScript dosyaları `strict` denetiminden geçer; JavaScript motorunun henüz bu
 denetimden geçtiği iddia edilmez.
@@ -159,10 +159,78 @@ veridir; belge başvuruları ve görünüm JavaScript katmanında yönetilir.
   adları alınır. Temas noktaları bağımlılıklarını ve geri al/yinele davranışını
   korur.
 
-Komut çözümleme ve kalan matematik girişleri, belge/geçmiş yönetimi, nesne
-çizicileri ile giriş/arayüz akışı hâlâ JavaScript'tedir. Bu adım yeni araç,
-Pointer Events, dokunma/kalem veya mobil düzen eklemez. Sıradaki taşıma komut
-yorumlayıcı ve kalan matematik girişleridir; bu adım doğrulandıktan sonra durulur.
+Bu adımın sonunda komut çözümleme ve kalan matematik girişleri, belge/geçmiş
+yönetimi, nesne çizicileri ile giriş/arayüz akışı hâlâ JavaScript'teydi. Bu adım
+yeni araç, Pointer Events, dokunma/kalem veya mobil düzen eklemez. Sonraki taşıma
+komut yorumlayıcı ve kalan matematik girişleridir; her adım doğrulandıktan sonra durulur.
+
+## Adım 5: komutlar ve matematik girişleri
+
+`src/commands/` komut dilini ve nesne hazırlamayı strict TypeScript'e ayırır.
+`types.ts` komut verilerini, `parser.ts` dengeli parantezleri, iç içe argümanları,
+komut adlarını ve parçalı fonksiyon aralıklarını tanımlar. `expressions.ts`
+matematik ifadelerini AST üzerinden doğrular ve çözer. `prepare.ts` komutun bütün
+nesnelerini geçici olarak hazırlar; `names.ts` belge ve hazırlanmış nesnelerden ad
+üretir. Bu modüller DOM'a veya global uygulama durumuna bağlı değildir.
+
+- Komut ancak bütünüyle başarılı olduktan sonra belgeye ve geçmişe eklenir.
+  Eksik başvuru, geçersiz geometri veya sonraki parçada bulunan hatalı ifade;
+  belgeye yetim nokta eklemez, ad/kimlik tüketmez ve yineleme dalını silmez.
+  Adlandırma için geçici olarak global belge dizisini değiştirme kaldırılmıştır.
+- Koordinat, yarıçap ve sayısal komut parametreleri `sqrt(4)`, `sin(pi/2)` veya
+  `log(2,8)` gibi ifadeleri kabul eder; sonuç sonlu gerçek sayı olmalıdır.
+  İç içe fonksiyon virgülleri komut parametrelerini yanlışlıkla bölmez.
+- Fonksiyonlar bilinmeyen sembollere ve skaler olmayan yapılara karşı doğrulanır;
+  atama, blok, erişim, dizi ve nesne ifadeleri kabul edilmez. Uzunluk, düğüm ve
+  derinlik sınırları vardır. Tanım kontrolü tek bir örnek noktaya bağlı değildir;
+  `sqrt(x-1000)` ve `1/x` gibi kısmi tanımlı eğriler kabul edilir.
+  Çok büyük argümanlarda mathjs içinde sınırsız döngüye girebilen `combinations`,
+  `permutations`, `bignumber` ve `fraction` çağrıları değerlendirilmeden reddedilir.
+- Adlı fonksiyonlar tam sembol adıyla çözülür; `f(x+1)` argümanı ifade ağacında
+  yerine konur. İç içe `Bileşke` analiz komutlarında da kullanılabilir. Türev
+  nesnesinin `f` başvurusu kaynak eğriyi belirtir. İfadenin doğru oluşturup
+  oluşturmadığı örnek noktalarla tahmin edilmez; afin katsayılar cebirsel olarak
+  hesaplanır, hesap hassasiyeti kart biçimlendirmesinden ayrı kalır.
+- Parçalı fonksiyonlarda `<`/`<=` ve `>`/`>=` ayrımı modele ve çizime taşınır.
+  Açık/kapalı uç işaretleri ile `x=c` biçimindeki tek noktalı parçalar çizilir;
+  aynı yerdeki kapalı nokta açık işaret tarafından örtülmez.
+- Giriş alanındaki eski tuş izin listesi kaldırılmıştır. Ctrl/Cmd kısayolları
+  kullanılabilir; IME bileşimi sırasında Enter komut göndermez.
+
+Bu adımın sonunda `src/legacy/app.js` hazırlanan komutları belgeye uygulayıp
+geçmişe kaydediyordu; belge/geçmiş, bağımlılık eşleme, kalan çiziciler ve giriş
+olayları JavaScript'teydi. Belge ve geçmiş sonraki adımda ayrıldı.
+
+## Adım 6: belge durumu ve geri al/yinele
+
+`src/document/geometry-document.ts` nesne üyeliğini, seçimi, kimlik üretimini,
+yarım çizimleri ve düzenleme geçmişini strict TypeScript'e taşır. Legacy
+denetleyiciler belgeyi bu modül üzerinden değiştirir; DOM ve görünüm modüle bağlı
+değildir.
+
+- Sınırsız iki yığın yerine sınırlı durum kopyaları ve bir imleç kullanılır.
+  Varsayılan son 100 işlem geri alınabilir; `historyLimit` ile değiştirilebilir.
+  Sınır aşılınca en eski tutulan durum yeni taban olur. Gezinmede bütün grafik
+  bir kez klonlanır; doğru/çemberlerin aynı noktalara başvuruları korunur.
+- `graph-equality.ts` JSON dönüştürmeden alanları ve ortak başvuruları karşılaştırır.
+  `NaN`, sonsuzluklar ve işaretli sıfır ayırt edilir. Değişmeyen işlem kopya
+  üretmez ve yineleme dalını silmez. Seçim geçmişe dahil değildir.
+- Kimlikler oturum boyunca artar; geri alma, temizleme veya taslak iptali sonrası
+  yeniden kullanılmaz. Hatalı komut hazırlığı ve reddedilen teğet adayı kimlik
+  ayırmaz. Adlandırma mevcut nesnelerden yapılır; boşalan ad yeniden kullanılabilir.
+- Taslak noktalar tamamlanmadan geçmiş kaydı engellenir; komut uygulamadan veya
+  araç değiştirmeden önce yarım çizim iptal edilir. Kaydırıcı ve nokta sürükleme
+  güncellemeleri tek işlemde kaydedilir. Escape düzenlemeyi geri çevirir; temizleme
+  ve geçmiş gezinmesi de bütün araç/sürükleme durumunu sıfırlar.
+- Çember içindeki geçersiz teğet adayı belgeye eklenmez. Tamamlanan araç aynı
+  fare olayıyla nokta sürüklemeye geçmez. Nokta ilk tıklamada imlece sıçramaz;
+  sürükleme başlangıç uzaklığını korur. Canvas dışında bırakılan fare işlemi
+  `window` üzerindeki `mouseup` ile tamamlanır.
+
+Araç denetleyicileri, bağımlılık eşleme, kalan nesne çizicileri ve giriş/arayüz
+akışı hâlâ JavaScript'tedir. Sıradaki adım kalan çizicileri TypeScript'e ayırmaktır.
+Bu adım Pointer Events veya mobil paket eklemez; doğrulamadan sonra kullanıcı
+devam etmemizi isteyene kadar durulur.
 
 ## Kalan taşıma sırası
 
@@ -170,12 +238,10 @@ Her adımda mevcut maliyet veya sorun belirlenir; yeni yapı webde ve Electron'd
 doğrulanır. Eski sürüm örnekleri karşılaştırmaya yardımcı olur; iyileştirmeleri
 engelleyen değişmez kurallar sayılmaz.
 
-1. Komut yorumlayıcı, fonksiyon çözümleme ve kalan matematik işlemleri.
-2. Belge durumu ve geri al/yinele geçmişi.
-3. Kalan nesne çizicilerini TypeScript'e ayırma.
-4. Araç durumu/controller, giriş olayları ve arayüz bağları; motorun kalan JavaScript kodunun kaldırılması.
-5. Dokunma/kalem desteği, çoklu dokunmayla yakınlaştırma ve mobil ekran düzeni.
-6. Mobil paketleme ihtiyacı netleştiğinde Android/iOS katmanı.
+1. Kalan nesne çizicilerini TypeScript'e ayırma.
+2. Araç durumu/controller, bağımlılık eşleme, giriş olayları ve arayüz bağları; motorun kalan JavaScript kodunun kaldırılması.
+3. Dokunma/kalem desteği, çoklu dokunmayla yakınlaştırma ve mobil ekran düzeni.
+4. Mobil paketleme ihtiyacı netleştiğinde Android/iOS katmanı.
 
 Sadece uzantı değiştirerek veya `@ts-nocheck` ekleyerek taşımak yerine her modülün
 gerçek veri ve olay tipleri tanımlanır. Yeni özellikler `src/` altındaki ortak

@@ -124,6 +124,9 @@ test('geçersiz başvurular ve yarım komutlar geri alınmış belgenin yineleme
     'Bileşke(x^2,)',
     'x^2,x<0; missing(x),x>=0',
     'Türev(Bileşke(f,g))',
+    '(combinations(1e20,0),0)',
+    'gamma(bignumber(1e20))',
+    '(fraction(2)^fraction(61)-fraction(1))^fraction(1,2)',
   ]
   for (const command of invalidCommands) {
     await test.step(command, async () => {

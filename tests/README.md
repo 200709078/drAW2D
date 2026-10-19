@@ -1,5 +1,40 @@
 # Geçiş regresyon kontrolleri
 
+Komut ayrıştırıcısı `E`/`PI` sabitlerini `e`/`pi` biçimine dönüştürür. Doğal
+logaritma fixture'ındaki kart metni bu ortak AST gösterimine göre güncellenmiştir;
+`log(taban, değer)` sırası ve sayısal sonuç korunur. İş miktarı sınırlandırılmamış
+`combinations`, `permutations`, `bignumber` ve `fraction` çağrıları girişte reddedilir;
+çok büyük argümanların değerlendirme döngüsünü kilitlememesi ayrıca sınanır.
+
+`command-parser.spec.ts` iç içe argümanları, sayısal parametreleri, komut
+çeşitlerini ve parçalı fonksiyon koşullarını tarayıcı açmadan denetler.
+`command-expressions.spec.ts` skaler AST doğrulamasını, kısmi tanım alanlarını,
+adlı fonksiyon başvurularını/çağrılarını, bileşke karmaşıklık sınırlarını ve
+afin katsayıların cebirsel hesabını sınar.
+
+`command-prepare.spec.ts` komutun mevcut belgeyi değiştirmeden bütün olarak
+hazırlanmasını, paylaşılan nokta başvurularını, benzersiz adları ve parçalı
+fonksiyon uç bilgisini denetler. Hatalı komutta hazırlanmış noktalar ve kimlikler
+kalıcılaşmaz. `command-integration.spec.ts` aynı davranışı arayüzde sınar:
+sayısal ifadeli koordinatlar, doğru katsayıları, `f(x+1)` başvurusu, hatadan sonra
+geri al/yinele dalının ve kimlik sırasının korunması, Ctrl+A ile metin seçimi, IME
+Enter davranışı ve tek noktalı parçalı fonksiyonun çizilmesi.
+
+`geometry-document.spec.ts` belge/geçmiş modülünü tarayıcı açmadan sınar:
+kopyaların canlı modellerden ayrılması, ortak başvuru yapısı, `NaN`/sonsuzluk/işaretli
+sıfır ayrımı, değişmeyen düzenlemede yinelemenin korunması, yapılandırılabilir
+geçmiş sınırı ve en eski taban, oturum boyunca artan kimlikler, taslak kayıt engeli,
+geçersiz ekleme grubunun atomik reddi ve düzenlemeyi tek işlemde kaydetme/iptal.
+Seçim geçmişe girmez; kimlikler geri alma, temizleme veya taslak iptaliyle yeniden
+kullanılmaz.
+
+`document-integration.spec.ts` aynı sınırları arayüzde denetler: yeni geçmiş dalı,
+temizleme sonrası ortak bağımlılıkların çalışması, sürüklemeyi tek adımda geri
+alma, değişmeyen harekette yinelemeyi koruma, yarım çizimin iptali, reddedilen
+teğet noktasının belgeye sızmaması ve mevcut noktalarla aracı tamamlamanın
+noktaları yanlışlıkla sürüklememesi. Fare olaylarındaki bu kontroller Pointer
+Events veya dokunma/kalem doğrulaması değildir.
+
 `function-models.spec.ts` fonksiyon/analiz modellerinin klonlanabilir belge grafiğini,
 sayısal hassasiyetini, teğet/sekant güncellemelerinin mevcut nesneleri kullanmasını
 ve geçersiz girişte atomik kalmasını denetler. `function-algebra.spec.ts` AST

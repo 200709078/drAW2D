@@ -109,6 +109,30 @@ test('görünür matematik alanı örneklenir; uzak pan ve dar tanım aralıklar
   expect(samples).toHaveLength(0)
 })
 
+test('açık tanım aralığı uçları değerlendirilmez; ekran kenarları açık uç sayılmaz', () => {
+  const { evaluator, samples } = countingEvaluator()
+  const openDomain = new RecordingContext()
+  drawFunctionPlot(openDomain, plotOptions({
+    startX: -2, endX: 2, startInclusive: false, endInclusive: false,
+  }), evaluator)
+  expect(samples).toEqual([-1, 0, 1])
+  expect(openDomain.segments.length).toBeGreaterThan(0)
+
+  samples.length = 0
+  drawFunctionPlot(new RecordingContext(), plotOptions({ startX: -2, endX: 2 }), evaluator)
+  expect(samples).toEqual([-2, -1, 0, 1, 2])
+
+  samples.length = 0
+  const clippedDomain = new RecordingContext()
+  drawFunctionPlot(clippedDomain, plotOptions({
+    startX: -10, endX: 10, startInclusive: false, endInclusive: false,
+  }), evaluator)
+  expect(samples[0]).toBe(-5)
+  expect(samples.at(-1)).toBe(5)
+  expect(clippedDomain.segments[0]?.start.x).toBe(0)
+  expect(clippedDomain.segments.at(-1)?.end.x).toBe(10)
+})
+
 test('domain boşlukları ve piksel arasındaki asimptot karşı dalları birleştirmez', () => {
   const evaluator = createFunctionEvaluator()
   const domain = new RecordingContext()

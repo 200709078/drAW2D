@@ -12,7 +12,7 @@ made by **mADEMatik Solutions** — [madematik.com](https://www.madematik.com/dr
 - **İşlemler**: kesiştir, yansıt (nokta), uzaklık ölç
 - **Fonksiyon çizimi**: trigonometrik (`sin`, `cos`, `tan`, `cot`), üstel, logaritmik, parçalı fonksiyonlar
 - **Analiz komutları**: `Türev`, `Limit`, `Bileşke`, `Teğet` / `TeğetH` / `TeğetX` / `TeğetC`, `Dizi`
-- **İfade birleştirme**: daha önce çizilmiş fonksiyonlarla işlem (`2f/(1-3x)`, `3f-4g`, ...)
+- **İfade birleştirme**: daha önce çizilmiş fonksiyonlarla işlem (`2f/(1-3x)`, `3f-4g`, `f(x+1)`, ...)
 - **Geri al / yinele**, temizleme, standart görünüm
 - **Radyal (dairesel) araç çubuğu** ve katlanır sağ panel
 - **Yardım penceresi**: uygulama içi komut referansı
@@ -25,6 +25,7 @@ made by **mADEMatik Solutions** — [madematik.com](https://www.madematik.com/dr
 x=2                          # dik doğru
 Doğru((-1,0),(1,1))          # iki noktadan doğru
 Çember((0,0),(0,-2),(-2,0))  # üç noktadan çember
+Çember((sin(pi/2),0),sqrt(4)) # ifadelerle merkez ve yarıçap
 Uzaklık((-2,1),(-1,2))       # iki nokta arası uzaklık
 YansıtNokta((1,2),(0,0))     # yansıtma
 Kesiştir(f,g)                # iki nesnenin kesişimi
@@ -93,11 +94,13 @@ drAW2D/
 ├── src/
 │   ├── main.ts       # TypeScript giriş noktası
 │   ├── math.ts       # math.js yapılandırması
+│   ├── commands/     # Komut/ifade çözümleme, adlandırma ve atomik nesne hazırlama
+│   ├── document/     # Belge, seçim, kimlikler, taslaklar ve sınırlı geri al/yinele geçmişi
 │   ├── geometry/     # TypeScript modelleri, belge tipleri ve saf geometri hesapları
 │   ├── math/         # Bileşke, türev, hassas doğru ifadeleri ve analiz değerlendirmesi
 │   ├── rendering/    # Ortak koordinat dönüşümü, kare/ızgara önbelleği ve fonksiyon çizimi
 │   ├── ui/           # TypeScript radyal araç çubuğu ve tipleri
-│   ├── legacy/       # Kalan komut, belge, nesne çizimi ve giriş/arayüz akışı
+│   ├── legacy/       # Komut uygulama, araç denetleyicileri, bağımlılıklar ve kalan çiziciler
 │   └── styles/       # Mevcut stiller
 ├── public/           # SVG simgeler, uygulama simgesi ve ses
 ├── electron/         # TypeScript masaüstü uygulama kabuğu
@@ -111,28 +114,34 @@ drAW2D/
 
 - TypeScript + Vite + Canvas; 20 geometri/fonksiyon/analiz modeli TypeScript'tir, kalan motor aşamalı taşınır.
 - Uzaklık, yansıma, açı/yay, izdüşüm, kesişim ve çember teğeti hesapları saf TypeScript modüllerindedir. Aynı geometri hesabı nokta bağımlılıkları ve nesne seçimi için kullanılır; hesaplar DOM'a veya ad/kimlik üretimine bağlı değildir.
+- Komutlar ve matematik girdileri strict TypeScript modüllerinde çözümlenir. İç içe argümanlar, sayısal ifadeler ve adlı fonksiyon çağrıları AST ile doğrulanır; doğru katsayıları cebirsel olarak bulunur. Hatalı komut belgeyi, kimlik sayacını veya geri al/yinele geçmişini değiştirmez.
+- Belge ve geçmiş strict TypeScript modülündedir. Varsayılan son 100 işlem geri alınabilir; sınır yapılandırılabilir. Değişmeyen etkileşim geçmiş adımı oluşturmaz. Kaydırıcı ve nokta sürüklemesi tek işlem olarak kaydedilir; Escape devam eden düzenlemeyi geri çevirir. Yarım çizimler tamamlanmış belgeye sızmaz.
 - Electron + electron-builder ile Linux ve Windows paketleme.
 - [math.js](https://mathjs.org/) 15.2.0 — eski uygulamayla aynı sürüm ve logaritma davranışı.
 - Uygulama varlıkları ve matematik kütüphanesi çıktıya dahil edilir; çalışma sırasında CDN gerekmez.
 - Çizim talepleri ekran karelerinde birleştirilir; eksen/ızgara ve derlenmiş fonksiyon ifadeleri önbelleğe alınır. Yüksek yoğunluklu ekranlar desteklenir.
 - Çizim ve işaretçi girişi aynı matematik/CSS piksel dönüşümünü kullanır; görünüm değişene kadar dönüşüm önbellekten kullanılır. Dönüşüm koordinatları yuvarlamaz veya ızgaraya yakalamaz; metin gösterimi ayrıca biçimlendirilir.
 - Fonksiyon çizicisi görünür x aralığını ve tanım aralığını sınırlı örneklemeyle çizer; tanımsız bölgelerde ve tespit edilen asimptot sıçramalarında eğriyi keser.
+- Parçalı fonksiyonların açık/kapalı uçları ve tek noktadan oluşan parçaları çizimde gösterilir. Giriş alanı Ctrl/Cmd kısayollarını destekler; IME bileşimi sırasında Enter komut göndermez.
 - Android/iOS paketleri henüz eklenmedi. Ortak web çekirdeği ileride mobil paketlemeye temel olur.
 
 ## Aşamalı geçiş
 
-Geliştirme, paketleme, temel çizim altyapısı, 20 geometri/fonksiyon/analiz modeli ve
-saf geometri hesapları TypeScript'e taşındı. Bağımlı noktaların hesap koordinatları
-yuvarlanmaz; tanımsız yapılar son konumları korunarak gizlenir ve yeniden geçerli
-olduklarında toparlanır. Çember teğetinin iki temas noktası farklı adlar alır.
+Geliştirme, paketleme, temel çizim altyapısı, 20 geometri/fonksiyon/analiz modeli,
+saf geometri hesapları, komut/matematik çözümleme ve belge/geçmiş yönetimi
+TypeScript'e taşındı.
+Bağımlı noktaların hesap koordinatları yuvarlanmaz; tanımsız yapılar son konumları
+korunarak gizlenir ve yeniden geçerli olduklarında toparlanır. Çember teğetinin
+iki temas noktası farklı adlar alır.
 Geometri motorunun tamamı henüz TypeScript'e çevrilmemiştir. Her taşıma adımından
 sonra durulur; daha verimli veya kullanışlı tasarımlar için eski uygulama davranışı
 değiştirilebilir. Tamamlanan adımlar, sonraki modüller ve
 doğrulama sırası [geçiş planında](docs/gecis-plani.md) açıklanır.
 
 GeoGebra benzeri araçları ileride genişletmek için araç durumu/controller,
-geometri/bağımlılık hesapları ve çizicileri ayırma hedeflenir. Komut yorumlama,
-belge yönetimi, kalan nesne çizicileri ve giriş akışı hâlâ JavaScript'tedir.
+geometri/bağımlılık hesapları ve çizicileri ayırma hedeflenir. Sıradaki adım kalan
+nesne çizicilerini TypeScript'e taşımaktır. Araç denetleyicileri, bağımlılık
+eşleme, komutların belgeye uygulanması ve giriş/arayüz akışı hâlâ JavaScript'tedir.
 Bu adım yeni araç veya Pointer Events eklemez; dokunma/kalem ve mobil düzen ileriki
 adımlardadır.
 
