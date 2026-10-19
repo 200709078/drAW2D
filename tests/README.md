@@ -32,7 +32,9 @@ kullanılmaz.
 temizleme sonrası ortak bağımlılıkların çalışması, sürüklemeyi tek adımda geri
 alma, değişmeyen harekette yinelemeyi koruma, yarım çizimin iptali, reddedilen
 teğet noktasının belgeye sızmaması ve mevcut noktalarla aracı tamamlamanın
-noktaları yanlışlıkla sürüklememesi. Fare olaylarındaki bu kontroller Pointer
+noktaları yanlışlıkla sürüklememesi. Escape ile süren sürüklemenin geri çevrilmesi,
+panel üzerinde fare bırakmanın işlemi tamamlaması ve taslak kartındaki gizle
+düğmesinin güvenli iptali de sınanır. Fare olaylarındaki bu kontroller Pointer
 Events veya dokunma/kalem doğrulaması değildir.
 
 `function-models.spec.ts` fonksiyon/analiz modellerinin klonlanabilir belge grafiğini,

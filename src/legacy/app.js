@@ -1681,7 +1681,7 @@ function delBtnClick(e) {
 	let elementid = e.target.closest("div").children[0].id
 	let delid = elementid.substring(0, elementid.indexOf("-"))
 	commitSliderHistory()
-	cancelActiveToolAndReturnSelect()
+	cancelActiveToolAndReturnSelect(false)
 
 	geometryDocument.remove(Number(delid))
 	commitHistoryState()
@@ -2009,12 +2009,14 @@ function resetInteractionState() {
 	}
 }
 
-function cancelActiveToolAndReturnSelect() {
+function cancelActiveToolAndReturnSelect(refresh = true) {
 	geometryDocument.cancelEdit()
 	removeTransientObjects()
 	resetInteractionState()
-	drawAll()
-	labelsCreator()
+	if (refresh) {
+		drawAll()
+		labelsCreator()
+	}
 }
 
 function commitHistoryState() {
@@ -2506,7 +2508,7 @@ function girisKeyDown(event) {
 	const input = event.target
 	if (!input.value.trim()) return
 	commitSliderHistory()
-	cancelActiveToolAndReturnSelect()
+	cancelActiveToolAndReturnSelect(false)
 	const parsed = parseCommand(input.value)
 	const prepared = parsed.ok ? prepareCommand(parsed.command, geometryDocument.objects, {
 		nextId: geometryDocument.nextId, randomColor: getRandomColor,
@@ -2514,12 +2516,13 @@ function girisKeyDown(event) {
 	if (prepared.ok) {
 		geometryDocument.append(...prepared.objects)
 		geometryDocument.activeId = prepared.activeId
-		reprojectAllOnOther()
 		commitHistoryState()
 		drawAll()
 		labelsCreator()
 	} else {
 		showToast('GİRİŞ', prepared.error)
+		drawAll()
+		labelsCreator()
 	}
 	input.value = ''
 }
@@ -2666,13 +2669,13 @@ function initializeLegacyApp() {
 	}, false)
 
 	document.getElementById('clear').addEventListener('click', function () {
-		cancelActiveToolAndReturnSelect()
+		cancelActiveToolAndReturnSelect(false)
 		if (geometryDocument.clear()) {
 			commitHistoryState()
 			clearSound.play()
-			drawAll()
-			labelsCreator()
 		}
+		drawAll()
+		labelsCreator()
 	}, false)
 
 	document.getElementById('redo').addEventListener('click', function (evt) {
