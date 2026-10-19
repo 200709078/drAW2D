@@ -301,6 +301,7 @@ export function getProjectionOnCircle(circle: CircleLike, a: number, b: number):
 }
 
 export function getProjectionOnAngle(angle: AngleLike, a: number, b: number): Projection {
+  if (!numericPoint(angle.A) || !numericPoint(angle.B) || !numericPoint(angle.C)) return { status: false }
   const AB = getProjectionOnSegment(angle.A, angle.B, a, b)
   const BC = getProjectionOnSegment(angle.B, angle.C, a, b)
   if (!AB.status) return BC

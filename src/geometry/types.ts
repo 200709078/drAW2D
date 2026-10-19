@@ -1,7 +1,7 @@
 import type { MathNumericType } from 'mathjs'
 
-// İzdüşümler toFixed() metni, analiz çağrıları mathjs sayısal türlerini taşıyabilir.
-// Constructor'lar bunları dönüştürmez; hesap sınırları ayrıca taşınacaktır.
+// Eski belge verileri metin, analiz çağrıları mathjs sayısal türlerini taşıyabilir.
+// Saf geometri hesapları sınırda sonlu gerçek sayıya dönüştürür; modeller girdiyi saklar.
 export type Coordinate = MathNumericType | string
 export type ObjectId = number
 export type ObjectReference = ObjectId | null

@@ -93,11 +93,11 @@ drAW2D/
 ├── src/
 │   ├── main.ts       # TypeScript giriş noktası
 │   ├── math.ts       # math.js yapılandırması
-│   ├── geometry/     # TypeScript geometri/fonksiyon/analiz modelleri ve belge tipleri
+│   ├── geometry/     # TypeScript modelleri, belge tipleri ve saf geometri hesapları
 │   ├── math/         # Bileşke, türev, hassas doğru ifadeleri ve analiz değerlendirmesi
 │   ├── rendering/    # Ortak koordinat dönüşümü, kare/ızgara önbelleği ve fonksiyon çizimi
 │   ├── ui/           # TypeScript radyal araç çubuğu ve tipleri
-│   ├── legacy/       # Aşamalı taşınacak JavaScript geometri motoru
+│   ├── legacy/       # Kalan komut, belge, nesne çizimi ve giriş/arayüz akışı
 │   └── styles/       # Mevcut stiller
 ├── public/           # SVG simgeler, uygulama simgesi ve ses
 ├── electron/         # TypeScript masaüstü uygulama kabuğu
@@ -110,6 +110,7 @@ drAW2D/
 ## Teknoloji
 
 - TypeScript + Vite + Canvas; 20 geometri/fonksiyon/analiz modeli TypeScript'tir, kalan motor aşamalı taşınır.
+- Uzaklık, yansıma, açı/yay, izdüşüm, kesişim ve çember teğeti hesapları saf TypeScript modüllerindedir. Aynı geometri hesabı nokta bağımlılıkları ve nesne seçimi için kullanılır; hesaplar DOM'a veya ad/kimlik üretimine bağlı değildir.
 - Electron + electron-builder ile Linux ve Windows paketleme.
 - [math.js](https://mathjs.org/) 15.2.0 — eski uygulamayla aynı sürüm ve logaritma davranışı.
 - Uygulama varlıkları ve matematik kütüphanesi çıktıya dahil edilir; çalışma sırasında CDN gerekmez.
@@ -120,15 +121,20 @@ drAW2D/
 
 ## Aşamalı geçiş
 
-Geliştirme, paketleme, temel çizim altyapısı ve 20 geometri/fonksiyon/analiz modeli TypeScript'e taşındı.
+Geliştirme, paketleme, temel çizim altyapısı, 20 geometri/fonksiyon/analiz modeli ve
+saf geometri hesapları TypeScript'e taşındı. Bağımlı noktaların hesap koordinatları
+yuvarlanmaz; tanımsız yapılar son konumları korunarak gizlenir ve yeniden geçerli
+olduklarında toparlanır. Çember teğetinin iki temas noktası farklı adlar alır.
 Geometri motorunun tamamı henüz TypeScript'e çevrilmemiştir. Her taşıma adımından
 sonra durulur; daha verimli veya kullanışlı tasarımlar için eski uygulama davranışı
 değiştirilebilir. Tamamlanan adımlar, sonraki modüller ve
 doğrulama sırası [geçiş planında](docs/gecis-plani.md) açıklanır.
 
 GeoGebra benzeri araçları ileride genişletmek için araç durumu/controller,
-geometri/bağımlılık hesapları ve çizicileri ayırma hedeflenir. Mevcut çizim adımı
-yeni araçlar veya mobil etkileşim eklemez; dokunma/kalem desteği ileriki adımlardadır.
+geometri/bağımlılık hesapları ve çizicileri ayırma hedeflenir. Komut yorumlama,
+belge yönetimi, kalan nesne çizicileri ve giriş akışı hâlâ JavaScript'tedir.
+Bu adım yeni araç veya Pointer Events eklemez; dokunma/kalem ve mobil düzen ileriki
+adımlardadır.
 
 Geçiş sırasında oluşturulan eski uygulama kopyası karşılaştırmalar tamamlandıktan
 sonra kaldırıldı. Eski davranışlardan ölçülen beklenen çıktılar regresyon testlerinde,

@@ -29,6 +29,8 @@ export interface FunctionModelContext {
 export interface FunctionDomain {
   startX: number | null
   endX: number | null
+  startInclusive?: boolean
+  endInclusive?: boolean
 }
 
 export interface VerticalLine extends GeometryObject<'verLine'> {

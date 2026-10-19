@@ -1,6 +1,6 @@
 // Measured in the previous application at 1440 × 900. Each scenario starts with an
 // empty page; rows are complete user-visible card contents, newest first.
-// TeğetC deliberately preserves the old UI's duplicate C point labels.
+// TeğetC now reserves distinct names for its two touch points.
 export const legacyCommandMatrix = [
   {
     name: 'dik doğru',
@@ -161,7 +161,7 @@ export const legacyCommandMatrix = [
       {
         command: 'TeğetC(a,(3,2))',
         rows: [
-          { input: 'C=TeğetNokta(f,2)', output: 'C=(1.85,-0.77)' },
+          { input: 'D=TeğetNokta(f,2)', output: 'D=(1.85,-0.77)' },
           { input: 'C=TeğetNokta(f,1)', output: 'C=(0,2)' },
           { input: 'f: Teğet(B,a)', output: '' },
           { input: 'B=(3,2)', output: '' },

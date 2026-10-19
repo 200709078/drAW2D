@@ -74,6 +74,8 @@ export function createFunctionModels(context: FunctionModelContext) {
   }
 
   class mLineWithEquation extends FunctionModel<'lineWithEquation'> implements EquationLine {
+    declare startInclusive?: boolean
+    declare endInclusive?: boolean
     m: number
     n: number
     func: string
@@ -132,6 +134,8 @@ export function createFunctionModels(context: FunctionModelContext) {
   }
 
   class mFunction extends FunctionModel<'function'> implements FunctionCurve {
+    declare startInclusive?: boolean
+    declare endInclusive?: boolean
     func: string
     startX: number | null
     endX: number | null

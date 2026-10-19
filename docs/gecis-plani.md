@@ -119,9 +119,50 @@ bağlı değildir; kimlik, ad, renk ve temel nokta/doğru oluşturma dışarıda
   sayısı ekran genişliğine göre sınırlandırılır. Tanım dışı limit örnekleri çizim
   karesini kesmez. Bu, sembolik limit hesabı eklendiği anlamına gelmez.
 
-Komut yorumlayıcının tamamı, geometri algoritmaları, belge yönetimi ve araç
-denetleyicileri hâlâ JavaScript'tedir. Yeni araçlar ve mobil etkileşim sonraki
-adımlardadır. Bu adım doğrulandıktan sonra yine durulur.
+Bu adımda komut yorumlayıcının tamamı, geometri algoritmaları, belge yönetimi ve
+araç denetleyicileri henüz JavaScript'teydi. Yeni araçlar ve mobil etkileşim sonraki
+adımlardadır. Her adım doğrulandıktan sonra yine durulur.
+
+## Adım 4: saf geometri hesapları
+
+`src/geometry/primitives.ts`, `intersections.ts` ve `tangents.ts` uzaklık, nokta
+yansıması, açı/yay, doğru/çember izdüşümü, kesişim ve çember teğeti hesaplarını
+strict TypeScript'e taşır. Modüller DOM'a veya uygulama durumuna bağlı değildir;
+hesaplama için model, ad, kimlik ya da rastgele renk üretmez. Sonuçlar saf sayısal
+veridir; belge başvuruları ve görünüm JavaScript katmanında yönetilir.
+
+- Doğrular eğim bölmesi yerine normalize yön vektörü, orijin ve varsa sınırlı
+  parametre aralığıyla hesaplanır. Doğru parçaları ve denklem tanım aralıkları
+  kesişim/izdüşümde uygulanır; sıfır uzunluklu parça tek nokta kabul edilirken
+  aynı iki noktadan sonsuz doğru tanımlanmaz.
+- Uzaklıkta `Math.hypot`, açılarda `Math.atan2` kullanılır. Üç noktalı çemberin
+  merkezi dünya koordinatlarının kareleri yerine yerel ve ölçeklenmiş
+  koordinatlarda bulunur; doğrusal üçlü tanımsız sonuç verir. Kesişim ve teğet
+  hesapları da uzunlukları ölçekleyerek ara çarpımların taşmasını azaltır.
+- Sabit dünya birimi toleransı yerine sayısal büyüklüğe göre yuvarlama toleransı
+  kullanılır. Küçük çemberler ve yakın eğimli farklı doğrular korunur; teğet,
+  birbirine yakın iki kesişim, ayrık/örtüşen parçalar ve sıfır yarıçap durumları
+  ayrı ele alınır. Bu, kayan noktalı sayıların hassasiyet sınırını kaldırmaz.
+- Nokta bağımlılıkları, önizlemeler ve nesne seçimi aynı geometri modüllerini
+  kullanır. İzdüşüm sonucu iki ondalığa yuvarlanmaz; kartlar hesabı değiştirmeden
+  biçimlendirilir. Çiziciler tanımsız geometriyi boyamaz, seçim hesabı onu seçmez.
+- Bağımlı noktanın isteğe bağlı `geometryValid: false` durumu son koordinatları
+  saklar. Üst yapı tanımsız olduğunda nokta ve ona bağlı tanımsız nesneler
+  gizlenir; yapı yeniden geçerli olduğunda sonuçlar toparlanır. Örneğin üç
+  noktalı çemberin noktaları aynı doğruya gelip sonra ayrılabilir.
+- `reprojectAllOnOther` her geçişte nesneleri kimlik haritasından bulur;
+  çember tanımlarını ve aynı nesne çiftinin kesişimini geçiş boyunca önbellekler.
+  Bu düzen tam bir bağımlılık grafiği motoru değildir; belge ve bağımlılık
+  yönetiminin ayrılması ileriki adımlardadır.
+- Çember teğetleri çizilirken geçici belge modeli oluşturulmaz. Kalıcı temas
+  noktaları belgeye sırayla eklenir; eski örnekteki iki `C` yerine `C` ve `D`
+  adları alınır. Temas noktaları bağımlılıklarını ve geri al/yinele davranışını
+  korur.
+
+Komut çözümleme ve kalan matematik girişleri, belge/geçmiş yönetimi, nesne
+çizicileri ile giriş/arayüz akışı hâlâ JavaScript'tedir. Bu adım yeni araç,
+Pointer Events, dokunma/kalem veya mobil düzen eklemez. Sıradaki taşıma komut
+yorumlayıcı ve kalan matematik girişleridir; bu adım doğrulandıktan sonra durulur.
 
 ## Kalan taşıma sırası
 
@@ -129,13 +170,12 @@ Her adımda mevcut maliyet veya sorun belirlenir; yeni yapı webde ve Electron'd
 doğrulanır. Eski sürüm örnekleri karşılaştırmaya yardımcı olur; iyileştirmeleri
 engelleyen değişmez kurallar sayılmaz.
 
-1. Saf geometri hesaplamaları: kesişim, uzaklık, yansıtma ve teğetler.
-2. Komut yorumlayıcı, fonksiyon çözümleme ve kalan matematik işlemleri.
-3. Belge durumu ve geri al/yinele geçmişi.
-4. Kalan nesne çizicilerini TypeScript'e ayırma.
-5. Araç durumu/controller, giriş olayları ve arayüz bağları; motorun kalan JavaScript kodunun kaldırılması.
-6. Dokunma/kalem desteği, çoklu dokunmayla yakınlaştırma ve mobil ekran düzeni.
-7. Mobil paketleme ihtiyacı netleştiğinde Android/iOS katmanı.
+1. Komut yorumlayıcı, fonksiyon çözümleme ve kalan matematik işlemleri.
+2. Belge durumu ve geri al/yinele geçmişi.
+3. Kalan nesne çizicilerini TypeScript'e ayırma.
+4. Araç durumu/controller, giriş olayları ve arayüz bağları; motorun kalan JavaScript kodunun kaldırılması.
+5. Dokunma/kalem desteği, çoklu dokunmayla yakınlaştırma ve mobil ekran düzeni.
+6. Mobil paketleme ihtiyacı netleştiğinde Android/iOS katmanı.
 
 Sadece uzantı değiştirerek veya `@ts-nocheck` ekleyerek taşımak yerine her modülün
 gerçek veri ve olay tipleri tanımlanır. Yeni özellikler `src/` altındaki ortak

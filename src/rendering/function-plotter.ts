@@ -10,6 +10,8 @@ export interface FunctionPlotOptions {
   lineWidth: number
   startX?: number | null
   endX?: number | null
+  startInclusive?: boolean
+  endInclusive?: boolean
   dashed?: boolean
 }
 
@@ -52,6 +54,8 @@ export function drawFunctionPlot(ctx: PlotContext, options: FunctionPlotOptions,
   if (!Number.isFinite(firstPixel) || !Number.isFinite(lastPixel) || firstPixel > lastPixel) return
 
   function pointAt(pixel: number): PlotPoint | null {
+    if (options.startInclusive === false && lower === options.startX && pixel === firstPixel) return null
+    if (options.endInclusive === false && upper === options.endX && pixel === lastPixel) return null
     const x = Math.min(upper, Math.max(lower, transform.pixelToX(pixel)))
     const value = evaluator.evaluate(expression, x)
     if (value === null) return null

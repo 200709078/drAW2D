@@ -16,17 +16,36 @@ fixture'ındaki gereksiz parantezler yeni AST gösterimine göre güncellenmişt
 geçici nesne kimlik/adlandırma davranışını, paylaşılan başvurularla geri alma
 kopyalarını ve metin koordinatlarla kesişim bilgilerinin korunmasını denetler.
 
+`geometry-primitives.spec.ts`, `geometry-intersections.spec.ts` ve
+`geometry-tangents.spec.ts` DOM veya belge modeli oluşturmadan saf hesapları sınar:
+sonlu gerçek koordinatlar, normalize doğru tanımları, sınırlı izdüşümler,
+`hypot`/`atan2` ile uzaklık ve açılar, ötelenmiş üç noktalı çemberler, küçük/büyük
+ölçeklerde kesişimler, yakın eğimler, teğete yakın kökler ve dejenere durumlar.
+Teğetlerin yarıçapa dikliği, dal sırası ve seçilmiş dala izdüşüm de denetlenir.
+
+`geometry-integration.spec.ts`, aynı hesapların arayüzdeki kullanımını denetler:
+yakın eğimli doğruların kesişmesi, doğrusal duruma gelen çemberin yeniden
+toparlanması, bağlı noktanın yuvarlanmadan izdüşürülmesi, iki ayrı teğet temas
+adı ve geri al/yinele, kesişimin iki nokta/teğet/boş küme arasında güncellenmesi.
+Bağımlı geometri tanımsızken son koordinatlar korunur; `geometryValid: false`
+durumuyla gizlenir ve yeniden geçerli olduğunda hesaplara döner. Dik eğimli
+doğru seçimi gerçek dik uzaklıkla sınanır; seçim eşiği hâlâ matematik
+koordinatlarında `0.1` birimdir, CSS pikseli eşiğine taşınmamıştır.
+
 İki temel Chromium testi arayüzü, Canvas çizimini ve geçmişi kontrol eder.
 Ek komut matrisi; doğru, doğru parçası, çember, açı, uzaklık, yansıtma, kesişim,
 limit, bileşke, teğet çeşitleri, dizi ve logaritma komutlarını bağımsız sayfalarda
-çalıştırır. Beklenen kart metinleri değiştirilmemiş önceki uygulama sürümünden
-ölçüldü. Rastgele nesne renkleri nedeniyle sabit ekran görüntüsü kullanılmaz;
+çalıştırır. İlk beklenen kart metinleri geçiş öncesindeki uygulama sürümünden
+ölçüldü; doğrulanmış iyileştirmelerde ilgili beklentiler güncellenir. Rastgele
+nesne renkleri nedeniyle sabit ekran görüntüsü kullanılmaz;
 Canvas içeriğinin çizimle değişmesi ve temizlemeyle başlangıca dönmesi denetlenir.
 
-Matris ilk geçişte kaydedilen örnekleri denetler. Örneğin eski sürümde `TeğetC(a,(3,2))` iki teğet
-noktasına aynı `C` adını verir; fixture bu mevcut adlandırmayı aynen kaydeder.
-Bu eski davranışlar zorunlu hedef değildir; doğruluk veya kullanım iyileştirmelerinde
-beklentiler gerekçesiyle güncellenebilir.
+Matris ilk geçişte kaydedilen örneklerden başlar; eski hataları koruma zorunluluğu
+getirmez. Eski sürümde `TeğetC(a,(3,2))` iki temas noktasına aynı `C` adını
+veriyordu. Saf geometri geçişinde noktalar sırayla belgeye eklenerek `C` ve `D`
+adlarını alır; fixture ve arayüz kontrolleri bu iyileştirmeye göre güncellenmiştir.
+Diğer doğruluk veya kullanım iyileştirmelerinde de beklentiler gerekçesiyle
+güncellenebilir.
 
 Çizim testleri ayrıca kare taleplerinin birleşmesini, ızgara/derleme önbelleğini,
 görünür eksen etiketlerini, dpr=2 ekranda tıklama/sürükleme/resize doğruluğunu ve

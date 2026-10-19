@@ -167,7 +167,7 @@ test('çember doğru kesişimi teğet, iki nokta ve boş küme arasında bağım
   await expect(rows.first().locator('output')).toHaveText('B=(0,2)')
 
   await rows.nth(1).locator('input[readonly]').click()
-  const intercept = rows.nth(1).locator('.sliders input[type="range"]').nth(1)
+  const intercept = rows.nth(1).locator('..').locator('.sliders input[type="range"]').nth(1)
   const setIntercept = async (value: string) => {
     await intercept.evaluate((element: HTMLInputElement, value) => {
       element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
@@ -187,4 +187,34 @@ test('çember doğru kesişimi teğet, iki nokta ve boş küme arasında bağım
   await setIntercept('3')
   await expect(rows.first().locator('output')).toHaveText('∅')
   await expect(rows).toHaveCount(4)
+})
+
+
+test('dik eğimli doğrunun seçimi dik uzaklık kullanır ve nokta doğruya bağlanır', async ({ page }) => {
+  await enterCommand(page, '10x')
+  await selectTool(page, 'point')
+  await page.locator('#canvas').click({ position: { x: 526, y: 300 } })
+  await expect(page.locator('#objectsContainer .expr-block input[readonly]').first()).toHaveValue('A=(0.20,2.01)')
+  const point = (await paintProbe(page)).points.find(point => Math.abs(point.x - 520) < 1)
+  expect(point).toBeDefined()
+  const a = (point!.x - 500) / 100
+  const b = (500 - point!.y) / 100
+  expect(b).toBeCloseTo(10 * a, 12)
+})
+
+test('tanımsız çemberin bağlı noktası kaybolur ve çember düzelince aynı konuma döner', async ({ page }) => {
+  await enterCommand(page, 'Çember((0,0),(1,1),(2,0))')
+  await selectTool(page, 'point')
+  await page.locator('#canvas').click({ position: { x: 600, y: 600 } })
+  await expect(page.locator('#objectsContainer .expr-block input[readonly]').first()).toHaveValue('D=(1,-1)')
+  const hasAttachedPoint = async () => (await paintProbe(page)).points.some(point =>
+    Math.abs(point.x - 600) < 1e-8 && Math.abs(point.y - 600) < 1e-8)
+  expect(await hasAttachedPoint()).toBe(true)
+  await selectTool(page, 'select')
+  await drag(page, { x: 600, y: 400 }, { x: 600, y: 500 })
+  await expect(page.locator('#objectsContainer .expr-block').first().locator('output')).toHaveText('∅')
+  expect(await hasAttachedPoint()).toBe(false)
+  await drag(page, { x: 600, y: 500 }, { x: 600, y: 400 })
+  await expect(page.locator('#objectsContainer .expr-block').first().locator('output')).toHaveText('')
+  expect(await hasAttachedPoint()).toBe(true)
 })

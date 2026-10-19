@@ -28,6 +28,7 @@ export function createGeometryModels(context: GeometryModelContext) {
     declare id: ObjectReference
     declare a: Coordinate
     declare b: Coordinate
+    declare geometryValid?: boolean
     declare color: string
     declare visibility: boolean
     declare size: number
