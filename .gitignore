@@ -26,3 +26,6 @@ release/
 test-results/
 playwright-report/
 *.tsbuildinfo
+
+# Local AI / coding-agent instruction files
+[Aa][Gg][Ee][Nn][Tt][Ss]*.md
