@@ -48,6 +48,7 @@ export interface VisibleLine {
 export interface DrawingPrimitives {
   point(point: PointLike, style: MarkerStyle): void
   line(line: LineLike, style: StrokeStyle): VisibleLine | null
+  circle(center: NumericPoint, radius: number, style: StrokeStyle): boolean
   text(point: NumericPoint, text: string, style: TextStyle): void
   textPixel(x: number, y: number, text: string, style: TextStyle): void
   /** Mathematical angles, counterclockwise, in degrees. */

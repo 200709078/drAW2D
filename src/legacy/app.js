@@ -12,6 +12,7 @@ import {
 	getCircleTangentLines, getProjectionOnCircleTangent, getCircleTangentTouchPoint,
 } from '../geometry/tangents'
 import { linearExpression } from '../math/function-algebra'
+import { formatDisplayNumber, formatMeasure } from '../math/format-display'
 import { parseCommand } from '../commands/parser'
 import { prepareCommand } from '../commands/prepare'
 import { createObjectName } from '../commands/names'
@@ -20,7 +21,8 @@ import { createCanvasSurface } from '../rendering/canvas-surface'
 import { createFrameRenderer, createSceneOrder } from '../rendering/frame-renderer'
 import { createFunctionEvaluator } from '../rendering/function-evaluator'
 import { createCoordinateTransform } from '../rendering/coordinate-transform'
-import { drawFunctionPlot } from '../rendering/function-plotter'
+import { paintDocumentScene } from '../rendering/scene-painter'
+import { createTransientPainter } from '../rendering/transient-painter'
 import { GeometryDocument } from '../document/geometry-document'
 
 const geometryDocument = new GeometryDocument()
@@ -271,14 +273,6 @@ function getIntersectionOutput(point) {
 	return '∅'
 }
 
-function formatDisplayNumber(value) {
-	let numberValue = Number(value)
-	if (!Number.isFinite(numberValue)) return String(value)
-	let roundedValue = Math.round(numberValue)
-	if (Math.abs(numberValue - roundedValue) < 0.000001) return String(roundedValue)
-	return numberValue.toFixed(2)
-}
-
 function getPointDisplayCoordinate(value) {
 	return formatDisplayNumber(value)
 }
@@ -429,15 +423,6 @@ function updateIntersectionPointRows() {
 	})
 }
 
-function text2canvas(x, y, style, align, font, text) {
-	ctx.fillStyle = style
-	ctx.textAlign = align
-	ctx.font = font
-	ctx.fillText(text, x, y)
-	ctx.textAlign = 'left'
-	ctx.font = '10px arial'
-}
-
 const gridRenderer = createGridRenderer()
 const sceneOrder = createSceneOrder()
 const functionEvaluator = createFunctionEvaluator()
@@ -456,6 +441,18 @@ function drawAll(preview = null) {
 	frameRenderer.request()
 }
 
+function createPainterFrame(objects = []) {
+	return {
+		ctx,
+		transform: coordinates,
+		width: surface.width,
+		height: surface.height,
+		activeId: geometryDocument.activeId,
+		objects,
+		evaluator: functionEvaluator,
+	}
+}
+
 function paintScene() {
 	surface.resize()
 	surface.prepare()
@@ -465,508 +462,10 @@ function paintScene() {
 		height: surface.height,
 		minX, minY, scaleX, scaleY, unitX, unitY,
 	}, surface.pixelRatio)
-	if (angleA && angleB) drawLineSegment(new mLineSegment(angleA, angleB, true))
-
-	for (const item of sceneOrder.get(geometryDocument.objects)) {
-		if (item.type === 'point') {
-			drawPoint(item)
-		} else if (item.type === 'verLine') {
-			drawVerLine(item)
-		} else if (item.type === 'lineWithEquation') {
-			drawLineWithEquation(item)
-		} else if (item.type === 'lineWithPoints') {
-			drawLineWithPoints(item)
-		} else if (item.type === 'lineSegment') {
-			drawLineSegment(item)
-		} else if (item.type === 'distanceSegment') {
-			drawDistanceSegment(item)
-		} else if (item.type === 'circleTangent') {
-			drawCircleTangent(item)
-		} else if (item.type === 'sequence') {
-			drawSequence(item)
-		} else if (item.type === 'limit') {
-			drawLimit(item)
-		} else if (item.type === 'tangent') {
-			drawTangent(item)
-		} else if (item.type === 'tangentHX') {
-			drawTangentHX(item)
-		} else if (item.type === 'sectionalFunctions') {
-			drawSectionalFunctions(item)
-		} else if (item.type === 'function') {
-			drawFunction(item)
-		} else if (item.type === 'functioncomposition') {
-			drawFunctionComposition(item)
-		} else if (item.type === 'circleR') {
-			drawCircleR(item)
-		} else if (item.type === 'circle2') {
-			drawCircle2(item)
-		} else if (item.type === 'circle3') {
-			drawCircle3(item)
-		} else if (item.type === 'angle') {
-			drawAngle(item)
-		} else if (item.type === 'arcMeasure') {
-			drawArcMeasure(item)
-		} else if (item.type === 'derivative') {
-			drawDerivative(item)
-		} else { console.log('drawAll: Type bulunamadı.') }
-	}
+	const frame = createPainterFrame(sceneOrder.get(geometryDocument.objects))
+	if (angleA && angleB) createTransientPainter(frame).line({ type: 'lineSegment', A: angleA, B: angleB })
+	paintDocumentScene(frame)
 	renderPreview?.()
-}
-
-function drawPoint(point) {
-	if (!point.visibility || point.geometryValid === false) return
-	if (!Number.isFinite(Number(point.a)) || !Number.isFinite(Number(point.b))) return
-	ctx.beginPath()
-
-	let pSize
-	point.id == geometryDocument.activeId ? pSize = point.size + 2 : pSize = point.size
-	let pColor = point.color
-	if (point.temp) pColor = '#000000'
-
-	ctx.strokeStyle = 'black'
-	ctx.fillStyle = pColor
-	ctx.arc(pixelX(point.a), pixelY(point.b), pSize, 0, 2 * Math.PI)
-	ctx.lineWidth = 1
-	if (!point.temp) text2canvas(pixelX(point.a) - 10, pixelY(point.b) - 5, pColor, 'center', 'bold 15px arial', point.name)
-	ctx.fill()
-	ctx.stroke()
-	ctx.closePath()
-}
-
-function getCircleCanvasRadii(r) {
-	return coordinates.radiusToPixels(Number(r))
-}
-
-function drawCircleR(circle) {
-	if (!circle.visibility || !getCircleDescriptor(circle).status) return
-
-	let sp = new mPoint(Number(circle.A.a) + Number(circle.r), circle.A.b, true)
-	drawPoint(sp)
-	let sls = new mLineSegment(circle.A, sp, true)
-	drawLineSegment(sls)
-
-	let cSize
-	circle.id == geometryDocument.activeId ? cSize = circle.size + 1 : cSize = circle.size
-	let cColor = circle.color
-	if (circle.temp) cColor = '#000000'
-	let canvasR = getCircleCanvasRadii(circle.r)
-	ctx.beginPath()
-	ctx.strokeStyle = cColor
-	ctx.ellipse(pixelX(circle.A.a), pixelY(circle.A.b), canvasR.x, canvasR.y, 0, 0, 2 * Math.PI)
-	ctx.lineWidth = cSize
-	if (!circle.temp) text2canvas(pixelX(circle.A.a) - canvasR.x * 0.75, pixelY(circle.A.b) - canvasR.y * 0.75, cColor, 'center', 'bold 15px arial', circle.name)
-	text2canvas(pixelX((Number(circle.A.a) + Number(sp.a)) / 2), pixelY((Number(circle.A.b) + Number(sp.b)) / 2), cColor, 'center', 'bold 15px arial', 'r = ' + formatDisplayNumber(circle.r))
-	ctx.stroke()
-	ctx.closePath()
-}
-
-function drawCircle2(circle) {
-	if (!circle.visibility) return
-	const data = getCircleDescriptor(circle)
-	if (!data.status) return
-	const r = data.r
-	let cSize
-	circle.id == geometryDocument.activeId ? cSize = circle.size + 1 : cSize = circle.size
-	let cColor = circle.color
-	if (circle.temp) cColor = '#000000'
-	let canvasR = getCircleCanvasRadii(r)
-	ctx.beginPath()
-	ctx.strokeStyle = cColor
-	ctx.ellipse(pixelX(circle.A.a), pixelY(circle.A.b), canvasR.x, canvasR.y, 0, 0, 2 * Math.PI)
-	ctx.lineWidth = cSize
-	if (!circle.temp) text2canvas(pixelX(circle.A.a) - canvasR.x * 0.75, pixelY(circle.A.b) - canvasR.y * 0.75, cColor, 'center', 'bold 15px arial', circle.name)
-	ctx.stroke()
-	ctx.closePath()
-}
-
-function drawCircle3(circle) {
-	if (!circle.visibility) return
-
-	let mr = getCircleDescriptor(circle)
-	if (!mr.status) return
-	let cSize
-	circle.id == geometryDocument.activeId ? cSize = circle.size + 1 : cSize = circle.size
-	let cColor = circle.color
-	if (circle.temp) cColor = '#000000'
-	let canvasR = getCircleCanvasRadii(mr.r)
-	ctx.beginPath()
-	ctx.strokeStyle = cColor
-	ctx.ellipse(pixelX(mr.m), pixelY(mr.n), canvasR.x, canvasR.y, 0, 0, 2 * Math.PI)
-	ctx.lineWidth = cSize
-	if (!circle.temp) text2canvas(pixelX(mr.m) - canvasR.x * 0.75, pixelY(mr.n) - canvasR.y * 0.75, cColor, 'center', 'bold 15px arial', circle.name)
-	ctx.stroke()
-	ctx.closePath()
-}
-
-function drawVerLine(vline) {
-	if (!vline.visibility) return
-	ctx.beginPath()
-
-	let vlSize
-	vline.id == geometryDocument.activeId ? vlSize = vline.size + 1 : vlSize = vline.size
-	let vlColor = vline.color
-
-	ctx.strokeStyle = ctx.fillStyle = vlColor
-	ctx.lineWidth = vlSize
-	ctx.moveTo(pixelX(vline.x), surface.height)
-	ctx.lineTo(pixelX(vline.x), 0)
-	if (!vline.temp) text2canvas(pixelX(vline.x) + 10, 15, vlColor, 'center', 'bold 15px arial', vline.name)
-	ctx.fill()
-	ctx.stroke()
-	ctx.closePath()
-}
-
-// Doğrular yalnız görünür matematik dikdörtgenine kadar hesaplanır.
-function drawLineWithEquation(line) {
-	if (!line.visibility) return
-	const m = Number(line.m)
-	const n = Number(line.n)
-	if (!Number.isFinite(m) || !Number.isFinite(n)) return
-	const bounds = coordinates.bounds
-	let startX = Math.max(bounds.left, line.startX == null ? bounds.left : Number(line.startX))
-	let endX = Math.min(bounds.right, line.endX == null ? bounds.right : Number(line.endX))
-	if (m === 0) {
-		if (n < bounds.bottom || n > bounds.top) return
-	} else {
-		const xAtBottom = (bounds.bottom - n) / m
-		const xAtTop = (bounds.top - n) / m
-		startX = Math.max(startX, Math.min(xAtBottom, xAtTop))
-		endX = Math.min(endX, Math.max(xAtBottom, xAtTop))
-	}
-	if (!Number.isFinite(startX) || !Number.isFinite(endX) || startX > endX) return
-
-	const size = line.id == geometryDocument.activeId ? line.size + 1 : line.size
-	const color = line.temp && !line.useOwnColorForTemp ? '#000000' : line.color
-	ctx.beginPath()
-	ctx.strokeStyle = color
-	ctx.lineWidth = size
-	ctx.moveTo(pixelX(startX), pixelY(m * startX + n))
-	ctx.lineTo(pixelX(endX), pixelY(m * endX + n))
-	ctx.stroke()
-	ctx.closePath()
-	if (!line.temp) {
-		const labelX = pixelX(startX) + (pixelX(endX) - pixelX(startX)) * 0.2
-		const labelY = pixelY(m * coordinates.pixelToX(labelX) + n)
-		text2canvas(labelX + 5, Math.max(15, Math.min(surface.height - 5, labelY - 8)), color, 'center', 'bold 15px arial', line.name)
-	}
-}
-
-function drawLineWithPoints(pl, useOwnColorForTemp = false) {
-	if (!pl.visibility || !numericPoint(pl.A) || !numericPoint(pl.B)) return
-	if (Number(pl.A.a) === Number(pl.B.a)) {
-		if (Number(pl.A.b) === Number(pl.B.b)) return
-		drawVerLine({ ...pl, x: pl.A.a, color: pl.temp && !useOwnColorForTemp ? '#000000' : pl.color })
-		return
-	}
-	const equation = createLineEquation(pl.A, pl.B)
-	drawLineWithEquation({ ...pl, m: equation.m, n: equation.c, useOwnColorForTemp })
-}
-
-function drawCircleTangent(tangent) {
-	if (!tangent.visibility) return
-
-	let tangentData = getCircleTangentLines(tangent.A, tangent.circle)
-	if (!tangentData.status) return
-
-	tangentData.lines.forEach(line => {
-		drawLineWithPoints({ ...line, color: tangent.color,
-			size: tangent.id == geometryDocument.activeId ? tangent.size + 1 : tangent.size,
-			visibility: true, temp: true, id: tangent.id }, true)
-	})
-
-	if (!tangent.temp) {
-		let labelX = pixelX(tangent.A.a) + 12
-		let labelY = pixelY(tangent.A.b) - 12
-		text2canvas(labelX, labelY, tangent.color, 'center', 'bold 15px arial', tangent.name)
-	}
-}
-
-function drawFunction(func, temp = false, lineWidth = null) {
-	if (!func.visibility) return
-	const expression = func.type === 'sequence'
-		? func.func.replace(/(?<![a-zA-Z0-9_])n(?![a-zA-Z0-9_])/g, 'x')
-		: func.func
-	drawFunctionPlot(ctx, {
-		expression,
-		transform: coordinates,
-		width: surface.width,
-		height: surface.height,
-		color: func.color,
-		lineWidth: lineWidth ?? (func.id == geometryDocument.activeId ? func.size + 1 : func.size),
-		startX: func.startX == null ? null : Number(func.startX),
-		endX: func.endX == null ? null : Number(func.endX),
-		startInclusive: func.startInclusive,
-		endInclusive: func.endInclusive,
-		dashed: temp,
-	}, functionEvaluator)
-}
-
-function drawSequence(seq) {
-	if (!seq.visibility) return
-	const expression = seq.func.replace(/(?<![a-zA-Z0-9_])n(?![a-zA-Z0-9_])/g, 'x')
-	drawFunction({ ...seq, func: expression, type: 'function', startX: seq.start, endX: seq.end }, true)
-
-	// Görünür olmayan indisler hesaplanmaz; sıkışan noktalar ekran çözünürlüğüne göre seyreltilir.
-	const first = Math.max(seq.start, Math.ceil(coordinates.bounds.left))
-	const last = Math.min(seq.end, Math.floor(coordinates.bounds.right))
-	if (first > last) return
-	const budget = Math.max(1, Math.ceil(surface.width / 8))
-	const step = Math.max(1, Math.ceil((last - first + 1) / budget))
-	const count = Math.min(budget, Math.floor((last - first) / step) + 1)
-	const size = seq.id == geometryDocument.activeId ? seq.size + 1 : seq.size
-	for (let index = 0; index < count; index++) {
-		const n = first + index * step
-		const y = functionEvaluator.evaluate(expression, n)
-		if (y === null) continue
-		const cx = pixelX(n)
-		const cy = pixelY(y)
-		if (!Number.isFinite(cy) || cy < -size || cy > surface.height + size) continue
-		ctx.beginPath()
-		ctx.strokeStyle = 'black'
-		ctx.fillStyle = seq.color
-		ctx.lineWidth = 1
-		ctx.arc(cx, cy, size, 0, 2 * Math.PI)
-		text2canvas(cx - 10, cy - 5, seq.color, 'center', 'bold 15px arial', seq.name + n)
-		ctx.fill()
-		ctx.stroke()
-		ctx.closePath()
-	}
-}
-
-function drawFunctionGuides(expression, x, color, dashed = false) {
-	const A = new mPoint(x, 0, true)
-	drawPoint(A)
-	const y = functionEvaluator.evaluate(expression, Number(x))
-	if (y === null) return
-	const B = new mPoint(x, y, true)
-	const C = new mPoint(0, y, true)
-	const vertical = new mLineSegment(A, B, true)
-	const horizontal = new mLineSegment(B, C, true)
-	vertical.color = horizontal.color = color
-	vertical.lineDash = horizontal.lineDash = dashed ? [2, 5] : []
-	drawLineSegment(vertical)
-	drawLineSegment(horizontal)
-	drawPoint(B)
-	drawPoint(C)
-}
-
-function drawLimit(lim) {
-	if (!lim.visibility) return
-	drawFunction(lim)
-	drawFunctionGuides(lim.func, lim.approachVal, lim.color)
-	if (lim.id == geometryDocument.activeId) {
-		drawFunctionGuides(lim.func, lim.approachValRight, lim.color, true)
-		drawFunctionGuides(lim.func, lim.approachValLeft, lim.color, true)
-	}
-}
-
-function drawTangent(tur) {
-	if (!tur.visibility) return
-	drawFunction(tur)
-	drawFunctionGuides(tur.func, tur.approachVal, tur.color, true)
-	if (tur.id == geometryDocument.activeId) drawLineWithEquation(tur.tngLine)
-}
-
-function drawTangentHX(turHX) {
-	if (!turHX.visibility) return
-	drawFunction(turHX)
-
-	// TürevH (.)
-	let A1 = new mPoint(turHX.aodLine.A.a, 0, true)
-	let C1 = new mPoint(0, turHX.aodLine.A.b, true)
-	let vls = new mLineSegment(A1, turHX.aodLine.A, true)
-	let hls = new mLineSegment(turHX.aodLine.A, C1, true)
-	vls.lineDash = hls.lineDash = [2, 5]
-	drawPoint(A1)
-	drawPoint(turHX.aodLine.A)
-	drawPoint(C1)
-	drawLineSegment(vls)
-	drawLineSegment(hls)
-
-	// TürevH (+h)
-	let A2 = new mPoint(turHX.aodLine.B.a, 0, true)
-	let C2 = new mPoint(0, turHX.aodLine.B.b, true)
-	vls = new mLineSegment(A2, turHX.aodLine.B, true)
-	hls = new mLineSegment(turHX.aodLine.B, C2, true)
-	vls.lineDash = hls.lineDash = [2, 5]
-	drawPoint(A2)
-	drawPoint(turHX.aodLine.B)
-	drawPoint(C2)
-	drawLineSegment(vls)
-	drawLineSegment(hls)
-
-	//Anlık Değişim Oranı
-	drawLineWithPoints(new mLineWithPoints(turHX.aodLine.A, turHX.aodLine.B, true))
-
-	//Teğet Doğrusu
-	if (turHX.aodLine.A.a == turHX.aodLine.B.a && turHX.aodLine.A.b == turHX.aodLine.B.b) drawLineWithEquation(turHX.tngLine)
-}
-
-function drawDerivative(der) {
-	if (!der.visibility) return
-	drawFunction(der.derFunc)
-	if (geometryDocument.activeId == der.id) drawFunction(der.func, true)
-}
-function drawFunctionComposition(funcComp) {
-	if (!funcComp.visibility) return
-	drawFunction(funcComp)
-}
-
-function drawLineSegment(ls) {
-	if (!ls.visibility || !numericPoint(ls.A) || !numericPoint(ls.B)) return
-	let lsSize
-	ls.id == geometryDocument.activeId ? lsSize = ls.size + 1 : lsSize = ls.size
-	let lsColor = ls.color
-	if (ls.temp) lsColor = '#000000'
-	ctx.beginPath()
-	ctx.strokeStyle = lsColor
-	ctx.lineWidth = lsSize
-	if (ls.temp) ctx.setLineDash(ls.lineDash)
-	ctx.moveTo(pixelX(ls.A.a), pixelY(ls.A.b))
-	ctx.lineTo(pixelX(ls.B.a), pixelY(ls.B.b))
-	if (!ls.temp) text2canvas(pixelX(((Number(ls.A.a) + Number(ls.B.a)) / 2)) - 10, pixelY(((Number(ls.A.b) + Number(ls.B.b)) / 2)) - 10, lsColor, 'center', 'bold 15px arial', ls.name)
-	ctx.stroke()
-	ctx.setLineDash([])
-	ctx.closePath()
-}
-
-function formatDistanceValue(value) {
-	return Number.isFinite(value) ? formatDisplayNumber(value) : '∅'
-}
-
-function formatAngleValue(value) {
-	return Number.isFinite(value) ? formatDisplayNumber(value) : '∅'
-}
-
-function drawDistanceSegment(ds) {
-	if (!ds.visibility || !numericPoint(ds.A) || !numericPoint(ds.B)) return
-
-	let dsColor = ds.temp ? '#000000' : ds.color
-	let distance = distanceAB(ds.A, ds.B)
-	let midX = pixelX(((Number(ds.A.a) + Number(ds.B.a)) / 2))
-	let midY = pixelY(((Number(ds.A.b) + Number(ds.B.b)) / 2))
-	let label = ds.temp ? formatDistanceValue(distance) + ' br' : ds.name + '=' + formatDistanceValue(distance) + ' br'
-	text2canvas(midX, midY - 10, dsColor, 'center', 'bold 15px arial', label)
-}
-
-function drawMeasuredArc(arcInfo, color, lineWidth) {
-	if (!arcInfo || arcInfo.span <= 0) return
-
-	let circleData = arcInfo.circleData
-	let steps = Math.max(16, Math.ceil(arcInfo.span / 6))
-	let radius = circleData.r
-
-	ctx.beginPath()
-	ctx.strokeStyle = color
-	ctx.lineWidth = lineWidth
-	for (let i = 0; i <= steps; i++) {
-		let angle = (arcInfo.startAngle + arcInfo.span * i / steps) * Math.PI / 180
-		let x = pixelX((circleData.m + radius * Math.cos(angle)))
-		let y = pixelY((circleData.n + radius * Math.sin(angle)))
-		if (i == 0) ctx.moveTo(x, y)
-		else ctx.lineTo(x, y)
-	}
-	ctx.stroke()
-	ctx.closePath()
-
-	let midAngle = (arcInfo.startAngle + arcInfo.span / 2) * Math.PI / 180
-	let labelRadius = radius + 0.2
-	let labelX = pixelX((circleData.m + labelRadius * Math.cos(midAngle)))
-	let labelY = pixelY((circleData.n + labelRadius * Math.sin(midAngle)))
-	text2canvas(labelX, labelY, color, 'center', 'bold 15px arial', formatAngleValue(arcInfo.span) + '\u00b0')
-}
-
-function drawArcMeasure(arcMeasure) {
-	if (!arcMeasure.visibility) return
-	let arcInfo = getPositiveArcMeasure(arcMeasure.A, arcMeasure.B, arcMeasure.circle)
-	if (!arcInfo) return
-
-	let arcColor = arcMeasure.temp ? '#000000' : arcMeasure.color
-	let circleData = arcInfo.circleData
-	let midAngle = (arcInfo.startAngle + arcInfo.span / 2) * Math.PI / 180
-	let labelRadius = circleData.r + 0.25
-	let labelX = pixelX((circleData.m + labelRadius * Math.cos(midAngle)))
-	let labelY = pixelY((circleData.n + labelRadius * Math.sin(midAngle)))
-	let label = arcMeasure.temp ? formatAngleValue(arcInfo.span) + '\u00b0' : arcMeasure.name + '=' + formatAngleValue(arcInfo.span) + '\u00b0'
-	text2canvas(labelX, labelY, arcColor, 'center', 'bold 15px arial', label)
-}
-
-function drawScaledAngleArc(cx, cy, startAngle, span, radius, color, lineWidth) {
-	let steps = Math.max(16, Math.ceil(span / 6))
-	const { x: radiusX, y: radiusY } = getCircleCanvasRadii(radius)
-
-	ctx.beginPath()
-	ctx.strokeStyle = color
-	ctx.lineWidth = lineWidth
-	for (let i = 0; i <= steps; i++) {
-		let angle = (startAngle + span * i / steps) * Math.PI / 180
-		let x = cx + radiusX * Math.cos(angle)
-		let y = cy + radiusY * Math.sin(angle)
-		if (i == 0) ctx.moveTo(x, y)
-		else ctx.lineTo(x, y)
-	}
-	ctx.stroke()
-	ctx.closePath()
-}
-
-
-function drawAngle(ag) {
-	if (!ag.visibility || !numericPoint(ag.A) || !numericPoint(ag.B) || !numericPoint(ag.C)) return
-	let agSize
-	ag.id == geometryDocument.activeId ? agSize = ag.size + 1 : agSize = ag.size
-	let agColor = ag.color
-	if (ag.temp) agColor = '#000000'
-	// Açı
-	ctx.beginPath()
-	ctx.strokeStyle = agColor
-	ctx.lineWidth = agSize
-	ctx.moveTo(pixelX(ag.A.a), pixelY(ag.A.b))
-	ctx.lineTo(pixelX(ag.B.a), pixelY(ag.B.b))
-	ctx.lineTo(pixelX(ag.C.a), pixelY(ag.C.b))
-	ctx.stroke()
-	ctx.closePath()
-
-	//Sembol ve Ölçü
-	let angles = calculateAngle(ag)
-	let angleBetween = getAngleMeasure(ag)
-	if (!Number.isFinite(angleBetween)) return
-	let cx = pixelX(ag.B.a)
-	let cy = pixelY(ag.B.b)
-	let startAngle = 360 - angles.angleBC
-	let endAngle = startAngle + angleBetween
-
-	drawScaledAngleArc(cx, cy, startAngle, angleBetween, 0.2, agColor, agSize + 1)
-	let textAngle = (startAngle + angleBetween / 2) * Math.PI / 180
-	const { x: textRadiusX, y: textRadiusY } = getCircleCanvasRadii(0.35)
-	text2canvas(cx + textRadiusX * Math.cos(textAngle), cy + textRadiusY * Math.sin(textAngle), agColor, 'center', 'bold 15px arial', ag.name + '=' + formatAngleValue(angleBetween) + '\u00b0')
-}
-
-function drawSectionalFunctions(sf) {
-	if (!sf.visibility) return
-	const lineWidth = sf.id == geometryDocument.activeId ? sf.size + 1 : sf.size
-	const markers = []
-	for (const section of sf.secFuncs) {
-		drawFunction(section, false, lineWidth)
-		for (const [x, inclusive] of [[section.startX, section.startInclusive], [section.endX, section.endInclusive]]) {
-			if (x === null || inclusive === undefined || x < coordinates.bounds.left || x > coordinates.bounds.right) continue
-			const y = functionEvaluator.evaluate(section.func, x)
-			if (y === null || y < coordinates.bounds.bottom || y > coordinates.bounds.top) continue
-			markers.push({ x: pixelX(x), y: pixelY(y), inclusive, color: section.color })
-		}
-	}
-	// Kapalı uçlar son boyanır; ortak bir uçtaki açık daire kapalı noktayı silemez.
-	markers.sort((first, second) => Number(first.inclusive) - Number(second.inclusive))
-	ctx.save()
-	for (const marker of markers) {
-		ctx.beginPath()
-		ctx.arc(marker.x, marker.y, 3.5, 0, Math.PI * 2)
-		ctx.fillStyle = marker.inclusive ? marker.color : 'white'
-		ctx.strokeStyle = marker.color
-		ctx.lineWidth = 1.5
-		ctx.fill()
-		ctx.stroke()
-	}
-	ctx.restore()
 }
 
 function isObjectUsedByOther(target) {
@@ -1120,7 +619,7 @@ function labelsCreator() {
 			labelB.hidden = true
 			sliderB.hidden = true
 			input.value = item.name + ': Açı(' + item.A.name + ',' + item.B.name + ',' + item.C.name + ')'
-			output.value = item.name + '=' + formatAngleValue(getAngleMeasure(item)) + '°'
+			output.value = item.name + '=' + formatMeasure(getAngleMeasure(item)) + '°'
 		} else if (item.type == 'arcMeasure') {
 			labelA.hidden = true
 			sliderA.hidden = true
@@ -1128,7 +627,7 @@ function labelsCreator() {
 			sliderB.hidden = true
 			let arcInfo = getPositiveArcMeasure(item.A, item.B, item.circle)
 			input.value = item.name + ': YayÖlçüsü(' + item.A.name + ',' + item.B.name + ')'
-			output.value = item.name + '=' + (arcInfo ? formatAngleValue(arcInfo.span) + '\u00b0' : '?')
+			output.value = item.name + '=' + (arcInfo ? formatMeasure(arcInfo.span) + '\u00b0' : '?')
 		} else if (item.type == 'lineWithEquation') {
 			input.value = item.name + ': y = ' + normalizeLine(item.m, item.n, ' ')
 		} else if (item.type == 'lineWithPoints') {
@@ -1246,7 +745,7 @@ function labelsCreator() {
 			sliderB.hidden = true
 			let arcInfo = getPositiveArcMeasure(item.A, item.B, item.circle)
 			input.value = item.name + ': YayÖlçüsü(' + item.A.name + ',' + item.B.name + ')'
-			output.value = item.name + '=' + (arcInfo ? formatAngleValue(arcInfo.span) + '\u00b0' : '?')
+			output.value = item.name + '=' + (arcInfo ? formatMeasure(arcInfo.span) + '\u00b0' : '?')
 		} else if (item.type == 'lineWithEquation') {
 			sliderA.value = item.m
 			labelA.innerHTML = 'm = ' + formatDisplayNumber(item.m)
@@ -1780,11 +1279,11 @@ function crossSlider() {
 					inputOwner.value = formatCircleInput(owner)
 				} else if (owner.type === 'angle') {
 					inputOwner.value = owner.name + ': Açı(' + owner.A.name + ',' + owner.B.name + ',' + owner.C.name + ')'
-					document.getElementById(owner.id + '-output').value = owner.name + '=' + formatAngleValue(getAngleMeasure(owner)) + '°'
+					document.getElementById(owner.id + '-output').value = owner.name + '=' + formatMeasure(getAngleMeasure(owner)) + '°'
 				} else if (owner.type === 'arcMeasure') {
 					let arcInfo = getPositiveArcMeasure(owner.A, owner.B, owner.circle)
 					inputOwner.value = owner.name + ': YayÖlçüsü(' + owner.A.name + ',' + owner.B.name + ')'
-					document.getElementById(owner.id + '-output').value = owner.name + '=' + (arcInfo ? formatAngleValue(arcInfo.span) + '\u00b0' : '?')
+					document.getElementById(owner.id + '-output').value = owner.name + '=' + (arcInfo ? formatMeasure(arcInfo.span) + '\u00b0' : '?')
 				}
 			});
 			reprojectAllOnOther()
@@ -1834,7 +1333,7 @@ function crossSlider() {
 			sliderB.hidden = true
 			let arcInfo = getPositiveArcMeasure(item.A, item.B, item.circle)
 			input.value = item.name + ': YayÖlçüsü(' + item.A.name + ',' + item.B.name + ')'
-			output.value = item.name + '=' + (arcInfo ? formatAngleValue(arcInfo.span) + '\u00b0' : '?')
+			output.value = item.name + '=' + (arcInfo ? formatMeasure(arcInfo.span) + '\u00b0' : '?')
 		} else if (item.type == 'lineWithEquation') {
 			item.m = Number(sliderA.value)
 			item.n = Number(sliderB.value)
@@ -2604,37 +2103,38 @@ function getHitObject(mousePos) {
 }
 
 function drawToolPreview(position) {
-	const cursor = () => new mPoint(position.x, position.y, true)
+	const preview = createTransientPainter(createPainterFrame())
+	const cursor = () => ({ a: position.x, b: position.y })
 	if (activeObject === 'line' && lineDrawing) {
-		drawLineWithPoints(new mLineWithPoints(lineA, cursor(), true))
+		preview.line({ type: 'lineWithPoints', A: lineA, B: cursor() })
 	} else if (activeObject === 'linesegment' && lineSegmentDrawing) {
-		drawLineSegment(new mLineSegment(lineSegmentA, cursor(), true))
+		preview.line({ type: 'lineSegment', A: lineSegmentA, B: cursor() })
 	} else if (activeObject === 'distancesegment' && distanceSegmentDrawing) {
-		drawDistanceSegment(new mDistanceSegment(distanceSegmentA, cursor(), true))
+		preview.distance(distanceSegmentA, cursor())
 	} else if (activeObject === 'reflectpoint' && reflectPointDrawing) {
 		const center = cursor()
 		const reflected = getReflectedPoint(reflectPointA, center)
-		drawPoint(center)
-		drawPoint(new mPoint(reflected.a, reflected.b, true))
+		preview.point(center)
+		preview.point(reflected)
 	} else if (activeObject === 'intersect' && intersectDrawing) {
 		const hovered = getHitObject(position).hit
 		if (isIntersectableObject(hovered) && hovered.id !== intersectLineA.id) {
 			const intersection = getObjectIntersection(intersectLineA, hovered)
-			intersection.points.forEach(point => drawPoint(new mPoint(point.a, point.b, true)))
+			intersection.points.forEach(point => preview.point(point))
 		}
 	} else if (activeObject === 'angle') {
 		if (!angleDrawing && angleA && !angleB) {
-			drawLineSegment(new mLineSegment(angleA, cursor(), true))
+			preview.line({ type: 'lineSegment', A: angleA, B: cursor() })
 		} else if (angleDrawing && angleA && angleB && !angleC) {
-			drawAngle(new mAngle(angleA, angleB, cursor(), true))
+			preview.angle(angleA, angleB, cursor())
 		}
 	} else if (activeObject === 'circle2' && circleDrawing) {
-		drawCircle2(new mCircle2(circleA, cursor(), true))
+		preview.circle({ type: 'circle2', A: circleA, B: cursor() })
 	} else if (activeObject === 'circle3') {
 		if (!circleDrawing && circleA && !circleB) {
-			drawLineSegment(new mLineSegment(circleA, cursor(), true))
+			preview.line({ type: 'lineSegment', A: circleA, B: cursor() })
 		} else if (circleDrawing && circleA && circleB && !circleC) {
-			drawCircle3(new mCircle3(circleA, circleB, cursor(), true))
+			preview.circle({ type: 'circle3', A: circleA, B: circleB, C: cursor() })
 		}
 	}
 }
