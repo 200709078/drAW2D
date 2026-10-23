@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { _electron as electron } from '@playwright/test'
 
@@ -17,7 +18,9 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   page.on('requestfailed', request => errors.push(`${request.url()}: ${request.failure()?.errorText}`))
   await page.waitForLoadState('load')
-  assert.equal(await page.title(), 'drAW2D | mADEMatik')
+  const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
+  const title = `drAW2D v_${version} | mADEMatik`
+  assert.equal(await page.title(), title)
   assert.ok(page.url().startsWith('file://'), 'Üretim çıktısı yerel dosyadan açılmalı')
 
   const preferences = await application.evaluate(({ BrowserWindow }) => {
@@ -28,12 +31,34 @@ try {
   assert.equal(preferences.contextIsolation, true)
   assert.equal(preferences.sandbox, true)
 
+  // Frameless window: the renderer's title bar replaces the system frame.
+  const titlebar = page.locator('#titlebar')
+  await titlebar.waitFor()
+  assert.equal(await titlebar.locator('.titlebar__title').textContent(), title)
+  const isMaximized = () => application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMaximized())
+  const maximizeLabel = maximized => maximized ? 'Geri Yükle' : 'Büyüt'
+  const wasMaximized = await isMaximized()
+  assert.deepEqual(await titlebar.locator('.titlebar__button').evaluateAll(buttons => buttons.map(button => button.title)),
+    ['Küçült', maximizeLabel(wasMaximized), 'Tam Ekran', 'Kapat'])
+  const titlebarHeight = (await titlebar.boundingBox()).height
+  assert.equal(titlebarHeight, 36)
+  assert.equal((await page.locator('#canvas').boundingBox()).y, titlebarHeight, 'Tuval başlık çubuğunun altında başlamalı')
+  assert.equal((await page.locator('#rightWrapper').boundingBox()).y, titlebarHeight, 'Panel başlık çubuğunun altında başlamalı')
+  const maximizeButton = titlebar.locator('.titlebar__button:nth-child(2)')
+  for (const maximized of [!wasMaximized, wasMaximized]) {
+    await maximizeButton.click()
+    await page.waitForFunction(label => document.querySelector('#titlebar .titlebar__button:nth-child(2)')?.title === label,
+      maximizeLabel(maximized))
+    assert.equal(await isMaximized(), maximized, 'Büyüt düğmesi pencere durumunu değiştirmeli')
+  }
+
   const input = page.locator('#giris')
   await input.fill('Türev(sin(x+1))')
   await input.press('Enter')
   await page.waitForFunction(() => document.querySelectorAll('#objectsContainer .expr-block').length === 1)
   assert.equal(await page.locator('#objectsContainer output').evaluate(output => output.value), "f': y = cos(x+1)")
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined')
+  assert.deepEqual(await page.evaluate(() => Object.keys(window.drAW2DDesktop ?? {})), ['windowControls'])
   assert.equal(await page.evaluate(() => typeof window.drAW2DRadialToolbar?.getActiveTool), 'function')
 
   const failedAssets = await page.evaluate(async () => {
@@ -57,7 +82,7 @@ try {
   assert.deepEqual(failedAssets, [], 'Simgeler ve ses paket içinde bulunmalı')
   assert.deepEqual(errors, [], 'Electron içinde JavaScript veya varlık yükleme hatası olmamalı')
   await page.screenshot({ path: path.join('test-results', 'electron.png') })
-  console.log('Electron kontrolü geçti: file:// açılış, türev, araç çubuğu, varlıklar ve renderer yalıtımı.')
+  console.log('Electron kontrolü geçti: file:// açılış, başlık çubuğu, türev, araç çubuğu, varlıklar ve renderer yalıtımı.')
 } finally {
   await application.close()
 }

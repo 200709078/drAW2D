@@ -20,7 +20,7 @@ export type Command =
   | { kind: 'angle'; A: PointArgument; B: PointArgument; C: PointArgument }
   | { kind: 'reflect'; point: PointArgument; center: PointArgument }
   | { kind: 'intersect'; first: string; second: string }
-  | { kind: 'arc'; A: string; B: string }
+  | { kind: 'arc'; A: string; B: string; circle?: string }
   | { kind: 'circleTangent'; circle: string; point: PointArgument }
   | { kind: 'sequence'; expression: string; start: number; end: number }
   | { kind: 'limit' | 'tangent' | 'tangentH' | 'tangentX'; expression: string; at: number }

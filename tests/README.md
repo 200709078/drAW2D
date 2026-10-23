@@ -34,8 +34,8 @@ alma, değişmeyen harekette yinelemeyi koruma, yarım çizimin iptali, reddedil
 teğet noktasının belgeye sızmaması ve mevcut noktalarla aracı tamamlamanın
 noktaları yanlışlıkla sürüklememesi. Escape ile süren sürüklemenin geri çevrilmesi,
 panel üzerinde fare bırakmanın işlemi tamamlaması ve taslak kartındaki gizle
-düğmesinin güvenli iptali de sınanır. Fare olaylarındaki bu kontroller Pointer
-Events veya dokunma/kalem doğrulaması değildir.
+düğmesinin güvenli iptali de sınanır. Dokunma ve iki parmak hareketi
+`touch-integration.spec.ts` içinde ayrıca sınanır.
 
 `function-models.spec.ts` fonksiyon/analiz modellerinin klonlanabilir belge grafiğini,
 sayısal hassasiyetini, teğet/sekant güncellemelerinin mevcut nesneleri kullanmasını
@@ -66,8 +66,32 @@ toparlanması, bağlı noktanın yuvarlanmadan izdüşürülmesi, iki ayrı teğ
 adı ve geri al/yinele, kesişimin iki nokta/teğet/boş küme arasında güncellenmesi.
 Bağımlı geometri tanımsızken son koordinatlar korunur; `geometryValid: false`
 durumuyla gizlenir ve yeniden geçerli olduğunda hesaplara döner. Dik eğimli
-doğru seçimi gerçek dik uzaklıkla sınanır; seçim eşiği hâlâ matematik
-koordinatlarında `0.1` birimdir, CSS pikseli eşiğine taşınmamıştır.
+doğru seçimi gerçek dik uzaklıkla sınanır; seçim eşiği yakınlaştırmadan bağımsız
+10 CSS pikselidir (varsayılan görünümde 0,1 birim).
+
+`app-tools.spec.ts` tarayıcı açmadan araç durum makinesini sınar: araçların komut
+hazırlamasını kullanması, aynı noktanın iki kez seçilmesinin ve doğrusal üç
+noktalı çemberin reddedilip önceki seçimlerin korunması, nesneye bağlı nokta
+oluşturma, reddedilen teğet adayının kimlik ayırmaması, yay ölçüsünün seçilen
+çemberi kullanması, zincirleme silme kümesi, bağımlı noktaların yeniden hesabı ve
+piksel cinsinden en yakın nesne seçimi. `app-view-cards.spec.ts` imleç merkezli
+yakınlaştırmayı, eksen sürüklemeyi, kaydırmayı, kart metinlerini/kaydırıcı
+aralıklarını ve reddedilen kaydırıcı değerinin modeli değiştirmemesini denetler.
+`touch-integration.spec.ts` 390 × 844 dokunmatik telefon görünümünde gerçek dokunma
+olaylarını Chromium CDP arabirimiyle gönderir: panelin kapalı başlaması, başlangıç
+noktasının ortada olması, alttan açılan panelin tutamakla büyütülmesi, yapı aracında
+parmağın nişan alıp kalkınca nokta koyması, iki parmakla orta nokta sabit kalarak
+yakınlaştırma/kaydırma ve ikinci parmağın süren nokta sürüklemesini geçmiş adımı
+bırakmadan geri alması sınanır. `app-view-cards.spec.ts` sürekli yakınlaştırmayı ve
+iki parmak hareketinin hesabını tarayıcı açmadan denetler. Fare olaylarını kodla
+gönderen çizim testleri artık `PointerEvent` kullanır.
+`page-shell.spec.ts` bütün betikler engellendiğinde de panel simgelerinin küçük
+kaldığını (stillerin `index.html` içinden ilk çizimden önce yüklendiğini) ve
+tarayıcıda özel başlık çubuğu eklenmediğini denetler.
+`app-integration.spec.ts` aynı davranışları arayüzde sınar: zincirleme silme ve tek
+adımda geri alma, tamamlanan aracın seçim aracına dönüp yeni nesneyi seçili
+bırakması ve tekerlek yakınlaştırmasından sonra imlecin altındaki noktanın
+sürüklenebilmesi.
 
 İki temel Chromium testi arayüzü, Canvas çizimini ve geçmişi kontrol eder.
 Ek komut matrisi; doğru, doğru parçası, çember, açı, uzaklık, yansıtma, kesişim,
@@ -81,6 +105,8 @@ Matris ilk geçişte kaydedilen örneklerden başlar; eski hataları koruma zoru
 getirmez. Eski sürümde `TeğetC(a,(3,2))` iki temas noktasına aynı `C` adını
 veriyordu. Saf geometri geçişinde noktalar sırayla belgeye eklenerek `C` ve `D`
 adlarını alır; fixture ve arayüz kontrolleri bu iyileştirmeye göre güncellenmiştir.
+`Uzaklık` kartı artık ölçülen uzaklığı da gösterir (`a=1.41`); matris beklentisi
+buna göre güncellenmiştir.
 Diğer doğruluk veya kullanım iyileştirmelerinde de beklentiler gerekçesiyle
 güncellenebilir.
 
@@ -104,10 +130,20 @@ Canvas raster boyutunda uygulanır; dönüşüm görünüm değişene kadar tekr
 tanım aralıklarında kalmasını, örnek sayısının sınırlı olmasını, tanımsız bölgelerin
 ve asimptot dallarının birleştirilmemesini denetler. Çok dik/büyük değerli eğrilerin
 kırpılması ve hata durumunda çizim stilinin geri yüklenmesi de kontrol edilir.
+Açık tanım uçları değerlendirilmez ama eğri uca kadar çizilir; `x^(1/2)` piksel
+arasına düşen sınırdan, tam (0,0)'dan başlar; `log(x)` asimptotta alt kenara iner.
+Ayrıca 26 fonksiyon (logaritmalar, kökler, `tan`/`cot`, `1/x`, `floor`, `sign`,
+`asin`/`acos`, `nthRoot` ...) dokuz görünümde (varsayılan, küçük kaydırmalar,
+uzaklaştırma, asimptotlara 1000–100000 piksel/birim yakınlaştırma) çizilip gerçek
+fonksiyonla karşılaştırılır: görünür ve tanımlı her piksel sütunu çizilmiş olmalı,
+çizilen parçalar eğriden 1,5 pikselden fazla sapmamalı ve tanımsız bölgelerin ya da
+karşı dalların üstünden geçmemelidir. Önceki çizici bu denetimde sınır, sıçrama ve
+asimptot hatalarıyla başarısız oluyordu. Piksel altında salınan `sin(1/x)` gibi
+eğriler denetime alınmaz; onlar için yalnızca değerlendirme sayısının sınırlı
+olduğu ölçülür.
 `function-evaluator.spec.ts` derleme önbelleğini; `coordinate-grid.spec.ts` görünür
 ızgarayı, okunabilir aralıkları ve etiketleri; `frame-renderer.spec.ts` kare
-planlamasını denetler. Bu adımda yeni araç veya mobil etkileşim uygulanmadığından
-bu kontroller dokunma/kalem ya da mobil paket doğrulaması sayılmaz.
+planlamasını denetler. Bu kontroller mobil paket doğrulaması sayılmaz.
 
 ```sh
 npm test
@@ -142,7 +178,9 @@ npm run test:electron
 
 Bu kontrol derlenmiş uygulamayı `file://` üzerinden açar; türev çıktısını, araç
 çubuğunu, simge/ses yüklemesini ve renderer'ın Node.js erişiminin kapalı olmasını
-denetler. Hazır Linux paket klasöründeki çalıştırılabilir dosya da aynı kontrolle
+denetler. Başlık çubuğunun sürümlü başlığı, düğmeleri, tuval ile panelin çubuğun
+altında başlaması ve Büyüt düğmesinin pencere durumunu değiştirmesi de sınanır;
+preload yalnızca `drAW2DDesktop.windowControls` nesnesini açar. Hazır Linux paket klasöründeki çalıştırılabilir dosya da aynı kontrolle
 açılabilir:
 
 ```sh

@@ -25,9 +25,11 @@ sabitlenir; eski `log(a, b)` özelleştirmesi aynen uygulanır.
 
 Masaüstü kabuğu `electron/main.ts` dosyasından `dist-electron/main.js` olarak
 derlenir. Electron geliştirmede yerel Vite sunucusunu, üretimde `dist/index.html`
-dosyasını açar. Ortak arayüze Node.js erişimi verilmez. Gerektiğinde dosya
-açma/kaydetme gibi işletim sistemi işlemleri ayrı bir preload/IPC katmanından
-sunulacaktır; geometri kodu doğrudan Electron'a bağlanmayacaktır.
+dosyasını açar. Ortak arayüze Node.js erişimi verilmez. İşletim sistemi işlemleri
+ayrı bir preload/IPC katmanından sunulur; geometri kodu doğrudan Electron'a
+bağlanmaz. İlk kullanım pencere denetimleridir: pencere çerçevesizdir ve
+`electron/preload.cts` yalnızca `drAW2DDesktop.windowControls` nesnesini açar;
+drAW ile aynı görünümdeki başlık çubuğunu `src/ui/title-bar.ts` çizer.
 
 ## Adım 1: temel geometri modelleri
 
@@ -227,10 +229,120 @@ değildir.
   sürükleme başlangıç uzaklığını korur. Canvas dışında bırakılan fare işlemi
   `window` üzerindeki `mouseup` ile tamamlanır.
 
-Araç denetleyicileri, bağımlılık eşleme, kalan nesne çizicileri ve giriş/arayüz
-akışı hâlâ JavaScript'tedir. Sıradaki adım kalan çizicileri TypeScript'e ayırmaktır.
-Bu adım Pointer Events veya mobil paket eklemez; doğrulamadan sonra kullanıcı
-devam etmemizi isteyene kadar durulur.
+Bu adımın sonunda araç denetleyicileri, bağımlılık eşleme, kalan nesne çizicileri
+ve giriş/arayüz akışı JavaScript'teydi. Çiziciler sonraki adımda ayrıldı.
+
+## Adım 7: nesne çizicileri
+
+Kalıcı nesneleri, analiz nesnelerini ve araç önizlemelerini boyayan kod
+`src/legacy/app.js` içinden strict TypeScript modüllerine ayrıldı. Legacy motorda
+yalnızca kare hazırlığı (`paintScene`) ve hangi önizlemenin çizileceğine karar veren
+araç akışı (`drawToolPreview`) kaldı.
+
+- `painter-types.ts` tek bir boyama karesinin girdisini (`PainterFrame`) tanımlar:
+  Canvas bağlamının kullanılan alt kümesi, koordinat dönüşümü, görünür boyut, etkin
+  nesne kimliği, sıralanmış nesneler ve fonksiyon değerlendiricisi. Çiziciler bu
+  veriyi yalnızca okur; belgeye, araç durumuna, ızgaraya veya DOM'a erişmez.
+- `canvas-primitives.ts` nokta, görünür alana kırpılmış doğru, çember, yay ve metin
+  çizimini matematik koordinatlarından yapar. Kılavuz çizgileri ve önizlemeler
+  geometri modeli oluşturmadan düz tanımlarla çizilir.
+- `geometry-painter.ts` nokta, çember türleri, doğrular, doğru parçası, uzaklık,
+  çember teğeti, açı ve yay ölçüsünü; `analysis-painter.ts` fonksiyon, bileşke,
+  türev, teğet, limit, dizi ve parçalı fonksiyonları boyar.
+- `scene-painter.ts` nesne türüne göre ilgili çiziciyi seçer. Sıralama
+  `createSceneOrder` ile çağıran tarafta yapılır; sahne çizimi nesneleri sıralamaz
+  veya değiştirmez.
+- `transient-painter.ts` araç önizlemelerini (nokta, doğru, uzaklık, çember, açı)
+  belge modeline dokunmadan çizer.
+
+Mevcut tarayıcı ve komut matrisi kontrollerinin tamamı (156 test)
+ile tip denetimi geçti. Bu adımın sonunda araç denetleyicileri, bağımlılık eşleme,
+komutların belgeye uygulanması ve giriş/arayüz akışı hâlâ JavaScript'teydi.
+
+## Adım 8: araçlar, bağımlılıklar ve arayüz bağları
+
+`src/legacy/app.js` kaldırıldı; uygulamanın tamamı strict TypeScript'tir ve
+`allowJs` kapatıldı. Eski kod birebir çevrilmedi, sorumluluklarına göre yeniden
+tasarlandı. `src/main.ts` yalnızca `src/app/app.ts` içindeki `startApp` işlevini
+çağırır; bu dosya belgeyi, görünümü ve bütün DOM bağlarını bir araya getirir.
+
+- `document/dependencies.ts` bağımlı noktaları (çember/doğru/açı/teğet üzerinde,
+  yansıma, kesişim, teğet temas noktası) belge sırasıyla tek geçişte yeniden
+  hesaplar ve bağımlılık grafiğini çıkarır. Eski koddaki, kaydırıcı değişince
+  sahip nesnelerin koordinatlarını adla eşleyip elle kopyalayan döngü gereksizdi;
+  nesneler aynı nokta başvurusunu paylaştığı için kaldırıldı.
+- `app/tools.ts` araç durumunu tek bir seçim listesiyle tutar; eski koddaki
+  araç başına ayrı bayrak ve nokta değişkenleri (20'den fazla) kalktı. Araçlar
+  noktaları taslak olarak seçer, son adımda yapıyı komut satırıyla aynı
+  `prepareCommand` yolundan oluşturur. Böylece doğrulama ve adlandırma tek yerdedir:
+  aynı doğrudaki üç noktadan çember veya aynı noktayı iki kez seçmek artık
+  reddedilir, son seçim geri alınır ve önceki seçimler korunur. `YayÖlçüsü`
+  komutu, aracın seçtiği çemberi kullanmak için isteğe bağlı çember adı alır.
+- Bütün nokta seçen araçlar tıklanan doğruya, çembere, teğete veya açıya bağlı
+  nokta oluşturur (önceden yalnızca nokta, doğru parçası ve açı araçları
+  bağlıyordu). Önizleme imlecin oluşturacağı noktayı gösterir ve tıklamadan sonra
+  da kalır; çember teğeti aracı teğet doğrularını önceden gösterir.
+- `app/hit-test.ts` seçim eşiğini yakınlaştırmadan bağımsız 10 CSS pikseli olarak
+  uygular (varsayılan görünümde eski 0,1 birime eşittir) ve ilk bulunan yerine en
+  yakın nesneyi seçer; noktalar diğer nesnelere göre önceliklidir.
+- `app/viewport-state.ts` kaydırma, tekerlekle yakınlaştırma ve eksen sürüklemeyi
+  tutar. Yakınlaştırma imlecin altındaki noktayı, eksen sürükleme tutulan noktayı
+  yerinde bırakır; eskiden ikisi de sol üst köşeye göre ölçekliyordu.
+- `app/object-cards.ts` kart metinlerini ve kaydırıcı tanımlarını tek yerde üretir;
+  eski kodda aynı metinler kart oluşturma, kaydırıcı ve seçim işlevlerinde üç kez
+  ve kısmen farklı biçimlerde yazılıydı. Yatay `Doğru` kartı artık `y = c`,
+  `Uzaklık` kartı ölçülen uzaklığı gösterir.
+- `ui/object-panel.ts` kartları her olayda baştan kurmak yerine kimliğe göre yerinde
+  günceller; sürükleme sırasında DOM yeniden oluşturulmaz. Kart öğe kimlikleri
+  (`<id>-input`, `<id>-sliderA` ...) ve yeniden eskiye sıralama korunur.
+- Silme, nesneye bağlı bütün yapıları birlikte siler ve tek geçmiş adımında geri
+  getirir. Önceden başka nesnelerin kullandığı nesnelerin silme düğmesi gizleniyordu.
+- Tamamlanan araç seçim aracına döner ve yeni nesneyi seçili bırakır.
+- `ui/command-input.ts`, `ui/help-popup.ts`, `ui/side-panel.ts` ve `ui/toast.ts`
+  komut girişi, yardım/öneriler, sağ panel ve bildirimleri ayrı modüllerde tutar.
+  Araç çubuğu API'si `ui/radial-toolbar.ts` modülünden tipli olarak alınır;
+  `window.drAW2DRadialToolbar` testler için korunur.
+
+Bu adım Pointer Events, dokunma/kalem veya mobil düzen eklemedi; fare olayları
+korundu. Tarayıcı, preview ve Electron kontrolleri geçti. Doğrulamadan sonra
+kullanıcı devam etmemizi isteyene kadar durulur.
+
+## Adım 9: dokunma, kalem ve mobil düzen
+
+Tuval girdisi fare olaylarından Pointer Events'e taşındı; fare, kalem ve dokunma
+aynı yoldan geçer. Basılı işaretçi tuvale bağlanır (pointer capture), böylece
+tuval dışında bırakılan hareket de tamamlanır; pencere dinleyicileri yakalanamayan
+olayları da bitirir.
+
+- Fare ve kalem basıldığı anda etki eder; masaüstündeki davranış değişmedi.
+- Dokunmada yapı araçları "nişan alır": önizleme parmağı izler, nokta parmak
+  kalkınca konur. Küçük ekranda noktayı parmağın altından görmeden yerleştirmek
+  yerine sürükleyip doğru yerde bırakmak mümkündür.
+- Parmaklar için isabet eşiği 22 piksel, eksen tutma eşiği 16 pikseldir (fare
+  ve kalemde 10 ve 8 piksel).
+- İkinci parmak her tek parmak hareketini iptal eder: süren nokta sürüklemesi
+  geçmiş adımı bırakmadan geri alınır, yarım nişan atılır ve iki parmak hareketi
+  başlar. Parmakların orta noktasının altındaki matematik noktası orta noktayı
+  izler, aralarındaki uzaklık ölçeği belirler; yakınlaştırma ve kaydırma birlikte
+  yapılır. Kalan parmaklar hepsi kalkana kadar yok sayılır.
+- İki parmak ve dokunmatik yüzey (Ctrl+tekerlek) yakınlaştırması sürekli ölçektir;
+  ızgara aralığını ölçekten kendisi seçtiği için birim adımlarına bağlı değildir.
+  Ölçek her iki eksende birim başına 0,001–10⁷ piksel arasında tutulur. Fare
+  tekerleği önceki adımlı yakınlaştırmayı korur.
+- Tuvalde `touch-action: none` vardır; dokunma sayfayı kaydırmaz veya tarayıcıyı
+  yakınlaştırmaz.
+- 700 pikselden dar ekranlarda nesne paneli alttan açılan bir sayfadır. Üst
+  kenarındaki tutamak parmakla sürüklenerek yüksekliği değiştirir (fare ile
+  sütun düzeninde genişlik). Uygulama bu ekranlarda panel kapalı ve başlangıç
+  noktası tuvalin ortasında açılır; tarayıcı kimliği (user agent) koklaması
+  kaldırıldı.
+- Dokunmatik ekranlarda (`pointer: coarse`) araç düğmeleri 44 piksel, kart
+  satırları ve gizle/sil düğmeleri büyüktür; komut girişi 16 piksel yazı
+  kullanır, mobil tarayıcılar odaklanınca sayfayı yakınlaştırmaz.
+
+Testler gerçek dokunma olaylarını Chromium'un CDP arabirimiyle (çoklu dokunuş
+dahil) gönderir. Tarayıcı, preview ve Electron kontrolleri geçer. Doğrulamadan
+sonra kullanıcı devam etmemizi isteyene kadar durulur.
 
 ## Kalan taşıma sırası
 
@@ -238,10 +350,7 @@ Her adımda mevcut maliyet veya sorun belirlenir; yeni yapı webde ve Electron'd
 doğrulanır. Eski sürüm örnekleri karşılaştırmaya yardımcı olur; iyileştirmeleri
 engelleyen değişmez kurallar sayılmaz.
 
-1. Kalan nesne çizicilerini TypeScript'e ayırma.
-2. Araç durumu/controller, bağımlılık eşleme, giriş olayları ve arayüz bağları; motorun kalan JavaScript kodunun kaldırılması.
-3. Dokunma/kalem desteği, çoklu dokunmayla yakınlaştırma ve mobil ekran düzeni.
-4. Mobil paketleme ihtiyacı netleştiğinde Android/iOS katmanı.
+1. Mobil paketleme ihtiyacı netleştiğinde Android/iOS katmanı.
 
 Sadece uzantı değiştirerek veya `@ts-nocheck` ekleyerek taşımak yerine her modülün
 gerçek veri ve olay tipleri tanımlanır. Yeni özellikler `src/` altındaki ortak

@@ -109,14 +109,20 @@ test('görünür matematik alanı örneklenir; uzak pan ve dar tanım aralıklar
   expect(samples).toHaveLength(0)
 })
 
-test('açık tanım aralığı uçları değerlendirilmez; ekran kenarları açık uç sayılmaz', () => {
+test('açık tanım aralığı uçları değerlendirilmez ama eğri uca kadar çizilir; ekran kenarları açık uç sayılmaz', () => {
   const { evaluator, samples } = countingEvaluator()
   const openDomain = new RecordingContext()
   drawFunctionPlot(openDomain, plotOptions({
     startX: -2, endX: 2, startInclusive: false, endInclusive: false,
   }), evaluator)
-  expect(samples).toEqual([-1, 0, 1])
-  expect(openDomain.segments.length).toBeGreaterThan(0)
+  // The ends are approached from inside, within a billionth of a pixel, but never evaluated.
+  expect(samples).not.toContain(-2)
+  expect(samples).not.toContain(2)
+  expect(samples.every(x => x > -2 && x < 2)).toBe(true)
+  expect(samples).toEqual(expect.arrayContaining([-1, 0, 1]))
+  expect(samples).toHaveLength(5)
+  expect(openDomain.segments[0]?.start.x).toBeCloseTo(3, 6)
+  expect(openDomain.segments.at(-1)?.end.x).toBeCloseTo(7, 6)
 
   samples.length = 0
   drawFunctionPlot(new RecordingContext(), plotOptions({ startX: -2, endX: 2 }), evaluator)
@@ -140,6 +146,21 @@ test('domain boşlukları ve piksel arasındaki asimptot karşı dalları birle�
   expect(domain.segments.length).toBeGreaterThan(0)
   expect(domain.segments.every(segment => segment.start.x >= 5 && segment.end.x >= 5)).toBe(true)
 
+  // A domain boundary between pixel samples is found exactly: sqrt starts at the origin.
+  const shifted = createCoordinateTransform({
+    width: 10, height: 100, minX: -5.3, minY: -50, scaleX: 1, scaleY: 1, unitX: 1, unitY: 1,
+  })
+  const root = new RecordingContext()
+  drawFunctionPlot(root, plotOptions({ expression: 'x^(1/2)', transform: shifted }), evaluator)
+  expect(root.segments[0]?.start.x).toBeCloseTo(5.3, 9)
+  expect(root.segments[0]?.start.y).toBeCloseTo(50, 6)
+
+  // log(x) approaches its asymptote without converging: the branch reaches the bottom edge at x = 0.
+  const logarithm = new RecordingContext()
+  drawFunctionPlot(logarithm, plotOptions({ expression: 'log(x)', transform: shifted }), evaluator)
+  const lowest = logarithm.segments.flatMap(segment => [segment.start, segment.end]).find(point => point.y === 100)
+  expect(lowest?.x).toBeCloseTo(5.3, 3)
+
   const transform = createCoordinateTransform({
     width: 10, height: 100, minX: -5.5, minY: -50,
     scaleX: 1, scaleY: 1, unitX: 1, unitY: 1,
@@ -149,7 +170,11 @@ test('domain boşlukları ve piksel arasındaki asimptot karşı dalları birle�
   drawFunctionPlot(discontinuous, plotOptions({ expression: '100/x', transform }), counted)
   expect(discontinuous.segments.length).toBeGreaterThan(0)
   expect(discontinuous.segments.some(segment => segment.start.x < 5.5 && segment.end.x > 5.5)).toBe(false)
-  expect(samples.length).toBeLessThanOrEqual(2 * 10 + 3)
+  // Both branches leave through the screen edges: down on the left, up on the right.
+  expect(discontinuous.segments.some(segment => segment.end.y === 100 && segment.end.x < 5.5)).toBe(true)
+  expect(discontinuous.segments.some(segment => segment.start.y === 0 && segment.start.x > 5.5)).toBe(true)
+  // Locating the pole to float precision is bounded work.
+  expect(samples.length).toBeLessThanOrEqual(11 * 48)
 })
 
 test('dik sürekli eğri kırpılır ve çok büyük değerler Canvas koordinatlarını taşırmaz', () => {
@@ -191,4 +216,73 @@ test('çizgi stili ve clip kaydedilir; hata durumunda da Canvas durumu geri yük
   expect(() => drawFunctionPlot(failure, plotOptions(), throwing)).toThrow('Beklenmedik değerlendirme hatası')
   expect(failure.saves).toBe(failure.restores)
   expect([failure.strokeStyle, failure.lineWidth, failure.dash]).toEqual(['#222222', 7, [9, 3]])
+})
+
+test('asimptot, tanım sınırı ve kutuplu fonksiyonlar her yakınlaştırmada kesintisiz ve doğru çizilir', () => {
+  const width = 600
+  const height = 400
+  const evaluator = createFunctionEvaluator()
+  const expressions = [
+    'log(e, 4 - x ^ 2)', 'log(5,2x-3)', 'x^(1/2)', 'sqrt(x)', '1/x', '1/x^2', 'tan(x)', 'cot(x)', 'log(x)',
+    'floor(x)', 'abs(x)', 'sqrt(4-x^2)', 'exp(x)', '1/(x-1)', 'sqrt(x^2-1)', 'log(abs(x))', '(x^2-1)/(x-1)',
+    'e^(1/x)', 'asin(x)', 'acos(x)', '1/sin(x)', 'nthRoot(x,3)', 'sign(x)', 'log(2, 8-x)', 'sqrt(sin(x))', 'log(x^2)',
+  ]
+  // Pixels per unit and the view centre: default, tiny pans, far out, and deep zooms at asymptotes.
+  const views = [[100, 0, 0], [100, 0.003, 0.7], [10, 3, -2], [1000, 1.5, 0], [1000, 2, -1], [100000, 0, 0],
+    [20, 0.37, 0.2], [5000, 1.5707, 0], [300, -1.999, -3]] as const
+  const failures: string[] = []
+  for (const [pixelsPerUnit, centerX, centerY] of views) {
+    const transform = createCoordinateTransform({
+      width, height, scaleX: 100, scaleY: 100, unitX: 100 / pixelsPerUnit, unitY: 100 / pixelsPerUnit,
+      minX: centerX * pixelsPerUnit / 100 - width / 200, minY: -centerY * pixelsPerUnit / 100 - height / 200,
+    })
+    for (const expression of expressions) {
+      const ctx = new RecordingContext()
+      drawFunctionPlot(ctx, { ...plotOptions({ width, height }), expression, transform }, evaluator)
+      const y = (pixel: number) => {
+        const value = evaluator.evaluate(expression, transform.pixelToX(pixel))
+        return value === null ? null : transform.yToPixel(value)
+      }
+      const label = `${expression} @ ${pixelsPerUnit} px/birim, merkez (${centerX}, ${centerY})`
+      // Every visible column of a defined, non-vertical piece of the curve is drawn.
+      for (let pixel = 0.5; pixel < width; pixel++) {
+        const value = y(pixel)
+        const left = y(pixel - 0.5)
+        const right = y(pixel + 0.5)
+        if (value === null || left === null || right === null || value < 1 || value > height - 1
+          || Math.abs(right - left) > height) continue
+        if (!ctx.segments.some(segment => Math.min(segment.start.x, segment.end.x) <= pixel + 0.5
+          && Math.max(segment.start.x, segment.end.x) >= pixel - 0.5)) {
+          failures.push(`${label}: x=${transform.pixelToX(pixel)} çizilmedi`)
+          break
+        }
+      }
+      // Drawn segments follow the curve and never bridge undefined parts or opposite branches.
+      for (const segment of ctx.segments) {
+        if (Math.abs(segment.end.x - segment.start.x) < 0.05) continue
+        const pixel = (segment.start.x + segment.end.x) / 2
+        const drawn = (segment.start.y + segment.end.y) / 2
+        if (drawn <= 0.5 || drawn >= height - 0.5) continue
+        const value = y(pixel)
+        if (value === null || Math.abs(value - drawn) > 1.5) {
+          failures.push(`${label}: x=${transform.pixelToX(pixel)} çizilen ${drawn}, gerçek ${value}`)
+          break
+        }
+      }
+    }
+  }
+  expect(failures).toEqual([])
+})
+
+test('piksel altında salınan eğriler sınırlı sayıda değerlendirmeyle çizilir', () => {
+  const width = 600
+  for (const [expression, unit] of [['sin(1/x)', 1], ['tan(1/x)', 1], ['tan(x)', 100], ['x*sin(1/x)', 0.001]] as const) {
+    const { evaluator, samples } = countingEvaluator()
+    const transform = createCoordinateTransform({
+      width, height: 400, minX: -3, minY: -2, scaleX: 100, scaleY: 100, unitX: unit, unitY: unit,
+    })
+    drawFunctionPlot(new RecordingContext(), { ...plotOptions({ width, height: 400 }), expression, transform }, evaluator)
+    // One sample per pixel, one guaranteed midpoint per pixel interval and the per-pixel budget.
+    expect(samples.length, expression).toBeLessThanOrEqual((width + 2) * (2 + 8) + 16)
+  }
 })

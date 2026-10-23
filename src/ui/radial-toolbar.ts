@@ -1,5 +1,6 @@
 import type {
     RadialTool,
+    RadialToolbarApi,
     RadialToolChangeDetail,
     ToolChangeOptions
 } from "./toolbar-types"
@@ -375,15 +376,13 @@ function startToolbarDrag(event: PointerEvent): void {
 
     window.clearTimeout(menuCloseTimer)
 
-    const rect = toolbarStage.getBoundingClientRect()
-
     dragState.isPointerDown = true
     dragState.isDragging = false
     dragState.pointerId = event.pointerId
     dragState.startPointerX = event.clientX
     dragState.startPointerY = event.clientY
-    dragState.startToolbarX = rect.left
-    dragState.startToolbarY = rect.top
+    dragState.startToolbarX = dragState.currentX
+    dragState.startToolbarY = dragState.currentY
 
     document.addEventListener("pointermove", handleToolbarDrag)
     document.addEventListener("pointerup", endToolbarDrag)
@@ -454,9 +453,12 @@ function cancelToolbarDrag(event: PointerEvent): void {
 
 function setToolbarPosition(x: number, y: number, shouldSave = false): void {
     const rect = toolbarStage.getBoundingClientRect()
+    // Positions are relative to the stage's containing area, which starts below
+    // the desktop title bar; in the browser it is the whole viewport.
+    const area = toolbarStage.parentElement?.getBoundingClientRect()
 
-    const maxX = Math.max(0, window.innerWidth - rect.width)
-    const maxY = Math.max(0, window.innerHeight - rect.height)
+    const maxX = Math.max(0, (area?.width ?? window.innerWidth) - rect.width)
+    const maxY = Math.max(0, (area?.height ?? window.innerHeight) - rect.height)
 
     const clampedX = clamp(x, 0, maxX)
     const clampedY = clamp(y, 0, maxY)
@@ -546,10 +548,12 @@ function selectToolByAction(action: string, options: ToolChangeOptions = {}): vo
     dispatchToolChange(selectedTool, options)
 }
 
-window.drAW2DRadialToolbar = {
+export const radialToolbarApi: RadialToolbarApi = {
     getActiveTool: getActiveRadialTool,
     selectToolByAction: selectToolByAction
 }
+
+window.drAW2DRadialToolbar = radialToolbarApi
 
 renderRadialToolbar()
 loadToolbarPosition()

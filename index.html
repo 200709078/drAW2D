@@ -10,6 +10,10 @@
 	<meta name="description" content="made by mADEMatik">
 	<meta name="author" content="made by mADEMatik">
 	<link rel="shortcut icon" href="img/favicon.svg" />
+	<!-- Stiller ilk çizimden önce yüklenir; JavaScript'ten eklenince simgeler bir an doğal boyutlarında görünür. -->
+	<link rel="stylesheet" href="/src/styles/toolbar.css" />
+	<link rel="stylesheet" href="/src/styles/styles.css" />
+	<link rel="stylesheet" href="/src/styles/titlebar.css" />
 
 
 </head>
@@ -22,37 +26,37 @@
 		</div>
 		<div class="rightToolbar" id="rightToolbar">
 			<button class="calcMenuButton" id="btnCalc" type="button" title="Paneli Gizle">
-				<img id="btnimgCalc" src="./img/arrow.svg">
+				<img id="btnimgCalc" src="./img/arrow.svg" width="26" height="26" alt="">
 			</button>
 
 			<button class="rightToolbarButton" id="btnAcordeon" type="button" title="Araçları göster"
 				aria-expanded="false">
-				<img id="btnimgAcordeon" src="./img/acordeon.svg">
+				<img id="btnimgAcordeon" src="./img/acordeon.svg" width="26" height="26" alt="">
 			</button>
 
 			<div class="rightToolbarCollapsible" id="rightToolbarCollapsible">
 				<button class="rightToolbarButton standardMenuButton" id="btnStandartWiew" type="button"
 					title="Standart Görünüm">
-					<img src="./img/default.svg">
+					<img src="./img/default.svg" width="26" height="26" alt="">
 				</button>
 
 				<div class="historyControls" id="ucrButtons">
 					<button type="button" id="undo" title="Geri Al">
-						<img src="./img/toogle.svg" style="transform:rotateX(180deg) rotate(30deg)">
+						<img src="./img/toogle.svg" width="26" height="26" alt="" style="transform:rotateX(180deg) rotate(30deg)">
 					</button>
 					<button type="button" id="redo" title="Yinele">
-						<img src="./img/toogle.svg" style="transform:rotate(210deg)">
+						<img src="./img/toogle.svg" width="26" height="26" alt="" style="transform:rotate(210deg)">
 					</button>
 				</div>
 
 				<div class="clearControl">
 					<button type="button" id="clear" title="Temizle">
-						<img src="./img/clear.svg">
+						<img src="./img/clear.svg" width="26" height="26" alt="">
 					</button>
 				</div>
 
 				<button class="helpMenuButton" id="helpMenuButton" type="button" title="Yardım">
-					<img id="btnimgHelpMenu" src="./img/help.svg">
+					<img id="btnimgHelpMenu" src="./img/help.svg" width="26" height="26" alt="">
 				</button>
 			</div>
 		</div>

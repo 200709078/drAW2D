@@ -1,6 +1,6 @@
 // Measured in the previous application at 1440 × 900. Each scenario starts with an
 // empty page; rows are complete user-visible card contents, newest first.
-// TeğetC now reserves distinct names for its two touch points.
+// TeğetC now reserves distinct names for its two touch points; Uzaklık cards show the distance.
 export const legacyCommandMatrix = [
   {
     name: 'dik doğru',
@@ -71,7 +71,8 @@ export const legacyCommandMatrix = [
     steps: [{
       command: 'Uzaklık((-2,1),(-1,2))',
       rows: [
-        { input: 'a: Uzaklık((-2,1), (-1,2))', output: '' },
+        // The card now shows the measured distance next to the construction.
+        { input: 'a: Uzaklık((-2,1), (-1,2))', output: 'a=1.41' },
         { input: 'B=(-1,2)', output: '' },
         { input: 'A=(-2,1)', output: '' },
       ],

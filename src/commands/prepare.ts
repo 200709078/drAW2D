@@ -174,6 +174,7 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         if (A.id === B.id) throw new Error('İki farklı nokta gereklidir.')
         const circle = document.find((object): object is GeometryCircle => {
           if (object.type !== 'circleR' && object.type !== 'circle2' && object.type !== 'circle3') return false
+          if (command.circle !== undefined && object.name !== command.circle) return false
           const data = getCircleDescriptor(object)
           return data.status && isPointOnCircleData(A, data) && isPointOnCircleData(B, data)
         })

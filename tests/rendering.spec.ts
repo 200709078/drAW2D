@@ -122,8 +122,9 @@ test('a pointer burst paints one preview frame and reuses the coordinate grid', 
     const canvas = document.querySelector<HTMLCanvasElement>('#canvas')!;
     const rect = canvas.getBoundingClientRect();
     for (let index = 0; index < 30; index++) {
-      canvas.dispatchEvent(new MouseEvent('mousemove', {
-        bubbles: true, clientX: rect.left + 800 + index * 3, clientY: rect.top + 320 + index,
+      canvas.dispatchEvent(new PointerEvent('pointermove', {
+        bubbles: true, pointerId: 1, pointerType: 'mouse', isPrimary: true,
+        clientX: rect.left + 800 + index * 3, clientY: rect.top + 320 + index,
       }));
     }
   });
@@ -239,19 +240,19 @@ test('point input keeps precise coordinates without implicit integer snapping or
   await canvas.evaluate((element: HTMLCanvasElement) => {
     const rect = element.getBoundingClientRect();
     for (const event of [
-      { type: 'mousedown', x: 704, y: 296, buttons: 1 },
-      { type: 'mousemove', x: 714.625, y: 285.25, buttons: 1 },
-      { type: 'mouseup', x: 714.625, y: 285.25, buttons: 0 },
+      { type: 'pointerdown', x: 704, y: 296, buttons: 1 },
+      { type: 'pointermove', x: 714.625, y: 285.25, buttons: 1 },
+      { type: 'pointerup', x: 714.625, y: 285.25, buttons: 0 },
     ]) {
-      const mouseEvent = new MouseEvent(event.type, {
-        bubbles: true, button: 0, buttons: event.buttons,
+      const pointerEvent = new PointerEvent(event.type, {
+        bubbles: true, button: 0, buttons: event.buttons, pointerId: 1, pointerType: 'mouse', isPrimary: true,
         clientX: rect.left + event.x, clientY: rect.top + event.y,
       });
-      Object.defineProperties(mouseEvent, {
+      Object.defineProperties(pointerEvent, {
         clientX: { value: rect.left + event.x },
         clientY: { value: rect.top + event.y },
       });
-      element.dispatchEvent(mouseEvent);
+      element.dispatchEvent(pointerEvent);
     }
   });
   await expect(pointInput).toHaveValue('A=(2.15,2.15)');

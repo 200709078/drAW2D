@@ -45,6 +45,8 @@ canvas {
 	position: fixed;
 	width: 100%;
 	height: 100%;
+	/* Touch gestures belong to the drawing, not to page scrolling or browser zoom. */
+	touch-action: none;
 }
 
 #btnimgCalc {
@@ -379,6 +381,7 @@ canvas {
 	display: block;
 	margin: 0 auto;
 	width: 26px;
+	height: auto;
 	max-height: 26px;
 	filter: grayscale(1) brightness(0.45);
 }
@@ -779,5 +782,139 @@ code.example:hover {
 
 	.help-search {
 		top: 55px;
+	}
+}
+
+/* Narrow screens: the object panel becomes a bottom sheet over the canvas. */
+@media (max-width: 700px) {
+	#rightWrapper {
+		top: auto;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		width: auto;
+		min-width: 0;
+		max-width: none;
+		height: 42%;
+		border-left: 0;
+		border-top: 1px solid #d6dce8;
+		border-radius: 12px 12px 0 0;
+		box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.12);
+		transition: transform 0.35s ease, visibility 0.35s;
+	}
+
+	#rightWrapper.hide {
+		transform: translateY(100%);
+	}
+
+	/* A wide, finger-sized grip along the top edge. */
+	.reSizer {
+		left: 0;
+		right: 0;
+		top: 0;
+		width: 100%;
+		height: 18px;
+		cursor: row-resize;
+		background: transparent;
+		touch-action: none;
+		z-index: 1;
+	}
+
+	.reSizer::after {
+		content: "";
+		position: absolute;
+		top: 6px;
+		left: 50%;
+		width: 44px;
+		height: 5px;
+		border-radius: 3px;
+		background: #c7cfdd;
+		transform: translateX(-50%);
+	}
+
+	#scrollWrapper {
+		padding-top: 22px;
+		padding-left: 10px;
+		padding-right: 10px;
+	}
+
+	.rightToolbar {
+		right: 8px;
+	}
+
+	.rightToolbar .calcMenuButton,
+	.rightToolbar .rightToolbarButton,
+	.rightToolbar .helpMenuButton,
+	.rightToolbar .historyControls button,
+	.rightToolbar .clearControl button {
+		border-radius: 5px;
+	}
+
+	/* Over a sheet the panel arrow points down to hide and up to show. */
+	.rightToolbar #btnimgCalc:not(.panel-hidden) {
+		transform: rotate(90deg);
+	}
+
+	.rightToolbar #btnimgCalc.panel-hidden {
+		transform: rotate(-90deg);
+	}
+
+	#made-signature {
+		display: none;
+	}
+}
+
+/* Touch screens: finger-sized buttons, sliders and command input. */
+@media (pointer: coarse) {
+	.rightToolbar .calcMenuButton,
+	.rightToolbar .rightToolbarButton,
+	.rightToolbar .helpMenuButton,
+	.rightToolbar .historyControls button,
+	.rightToolbar .clearControl button {
+		width: 44px;
+		height: 44px;
+	}
+
+	.rightToolbar button img,
+	.rightToolbar .historyControls button img,
+	.rightToolbar .clearControl button img {
+		width: 30px;
+		max-height: 30px;
+	}
+
+	/* 16px keeps mobile browsers from zooming the page when the input gains focus. */
+	#rightWrapper .expr-block-giris input {
+		height: 40px;
+		font-size: 16px;
+	}
+
+	#rightWrapper input[type="range"] {
+		height: 32px;
+	}
+
+	/* Taller card rows with room for 28px hide/delete buttons beside the text. */
+	#rightWrapper .expr-block input,
+	#rightWrapper .expr-block output {
+		height: 32px;
+		min-height: 32px;
+		line-height: 30px;
+		padding-left: 40px;
+		padding-right: 44px;
+	}
+
+	#rightWrapper .expr-block::after {
+		top: 32px;
+		left: 40px;
+		right: 44px;
+	}
+
+	#rightWrapper .expr-block .btn {
+		top: 32px;
+		width: 28px;
+		height: 28px;
+	}
+
+	#rightWrapper .expr-block .sil {
+		background-size: 18px 18px;
 	}
 }
