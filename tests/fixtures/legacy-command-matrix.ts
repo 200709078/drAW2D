@@ -1,6 +1,7 @@
 // Measured in the previous application at 1440 × 900. Each scenario starts with an
 // empty page; rows are complete user-visible card contents, newest first.
 // TeğetC now reserves distinct names for its two touch points; Uzaklık cards show the distance.
+// Teğet, TeğetH/X and Limit create slider parameters for their approach values.
 export const legacyCommandMatrix = [
   {
     name: 'dik doğru',
@@ -117,7 +118,11 @@ export const legacyCommandMatrix = [
     name: 'limit',
     steps: [{
       command: 'Limit(sin(2x-1),2)',
-      rows: [{ input: 'f = Limit(sin(2x-1),2)', output: '' }],
+      // The approach guides move with the δ slider instead of the card's own sliders.
+      rows: [
+        { input: 'f = Limit(sin(2x-1),2)', output: '' },
+        { input: 'δ = 0.40', output: '' },
+      ],
     }],
   },
   {
@@ -132,21 +137,33 @@ export const legacyCommandMatrix = [
     name: 'teğet',
     steps: [{
       command: 'Teğet(sin(2x-1),2)',
-      rows: [{ input: 'Teğet(sin(2x-1),2)', output: 'f: y = -1.98x+4.10' }],
+      // A typed approach value becomes the slider a, which the tangent is defined by.
+      rows: [
+        { input: 'Teğet(sin(2x-1),a)', output: 'f: y = -1.98x+4.10' },
+        { input: 'a = 2', output: '' },
+      ],
     }],
   },
   {
     name: 'teğet H',
     steps: [{
       command: 'TeğetH(x^2,1)',
-      rows: [{ input: 'TeğetH(x^2,1)', output: '[f(1+h) - f(1)] / h = 4' }],
+      rows: [
+        { input: 'TeğetH(x^2,a)', output: '[f(1+h) - f(1)] / h = 4' },
+        { input: 'h = 2', output: '' },
+        { input: 'a = 1', output: '' },
+      ],
     }],
   },
   {
     name: 'teğet X',
     steps: [{
       command: 'TeğetX(x^2,1)',
-      rows: [{ input: 'TeğetX(x^2,1)', output: '[f(2) - f(x₀)] /(2-x₀)  = 3' }],
+      rows: [
+        { input: 'TeğetX(x^2,a)', output: '[f(2) - f(x₀)] /(2-x₀)  = 3' },
+        { input: 'b = 2', output: '' },
+        { input: 'a = 1', output: '' },
+      ],
     }],
   },
   {

@@ -21,50 +21,43 @@
 <body>
 	<div id="centerWrapper">
 		<canvas id="canvas"></canvas>
-		<div id="toolbarStage" class="toolbar-stage">
-			<div id="radialToolbar" class="radial-toolbar" aria-label="drAW2D araç menüsü"></div>
-		</div>
-		<div class="rightToolbar" id="rightToolbar">
-			<button class="calcMenuButton" id="btnCalc" type="button" title="Paneli Gizle">
-				<img id="btnimgCalc" src="./img/arrow.svg" width="26" height="26" alt="">
-			</button>
-
-			<button class="rightToolbarButton" id="btnAcordeon" type="button" title="Araçları göster"
-				aria-expanded="false">
-				<img id="btnimgAcordeon" src="./img/acordeon.svg" width="26" height="26" alt="">
-			</button>
-
-			<div class="rightToolbarCollapsible" id="rightToolbarCollapsible">
-				<button class="rightToolbarButton standardMenuButton" id="btnStandartWiew" type="button"
-					title="Standart Görünüm">
+		<div id="mainToolbar" class="main-toolbar" role="toolbar" aria-label="Araçlar" data-action="select">
+			<button id="currentTool" class="toolbar-button current-tool" type="button" title="Araçlar"></button>
+			<div id="toolGroups" class="tool-groups"></div>
+			<div class="toolbar-actions">
+				<button type="button" id="undo" class="toolbar-button" title="Geri Al">
+					<img src="./img/toogle.svg" width="26" height="26" alt="" style="transform:rotateX(180deg) rotate(30deg)">
+				</button>
+				<button type="button" id="redo" class="toolbar-button" title="Yinele">
+					<img src="./img/toogle.svg" width="26" height="26" alt="" style="transform:rotate(210deg)">
+				</button>
+				<button type="button" id="clear" class="toolbar-button" title="Temizle">
+					<img src="./img/clear.svg" width="26" height="26" alt="">
+				</button>
+				<button type="button" id="btnStandartWiew" class="toolbar-button" title="Standart Görünüm">
 					<img src="./img/default.svg" width="26" height="26" alt="">
 				</button>
-
-				<div class="historyControls" id="ucrButtons">
-					<button type="button" id="undo" title="Geri Al">
-						<img src="./img/toogle.svg" width="26" height="26" alt="" style="transform:rotateX(180deg) rotate(30deg)">
-					</button>
-					<button type="button" id="redo" title="Yinele">
-						<img src="./img/toogle.svg" width="26" height="26" alt="" style="transform:rotate(210deg)">
-					</button>
-				</div>
-
-				<div class="clearControl">
-					<button type="button" id="clear" title="Temizle">
-						<img src="./img/clear.svg" width="26" height="26" alt="">
-					</button>
-				</div>
-
-				<button class="helpMenuButton" id="helpMenuButton" type="button" title="Yardım">
+				<button type="button" id="helpMenuButton" class="toolbar-button" title="Yardım">
 					<img id="btnimgHelpMenu" src="./img/help.svg" width="26" height="26" alt="">
+				</button>
+				<button type="button" id="btnCalc" class="toolbar-button" title="Paneli Gizle">
+					<img id="btnimgCalc" src="./img/arrow.svg" width="26" height="26" alt="">
 				</button>
 			</div>
 		</div>
 		<div class="rightWrapper" id="rightWrapper">
 			<div class="reSizer"></div>
+			<!-- Narrow screens: the sheet switches between objects and tools. -->
+			<div class="panel-tabs" role="tablist" aria-label="Panel">
+				<button type="button" id="tabAlgebra" class="panel-tab" role="tab" aria-selected="true" aria-controls="scrollWrapper">Cebir</button>
+				<button type="button" id="tabTools" class="panel-tab" role="tab" aria-selected="false" aria-controls="toolsPanel">Araçlar</button>
+			</div>
+			<div id="toolsPanel" class="tools-panel" role="tabpanel" hidden></div>
 			<div id="scrollWrapper">
 				<div class="expr-block-giris">
 					<input id="giris" placeholder="Giriş" title="Giriş" value="">
+					<button type="button" id="keyboardToggle" class="keyboard-toggle" title="Matematik klavyesi" aria-pressed="false"
+						aria-controls="mathKeyboard"><img src="./img/keyboard.svg" width="20" height="20" alt=""></button>
 				</div>
 				<hr>
 				<div id="objectsContainer"></div>
@@ -86,97 +79,11 @@
 
 			<div class="help-section">
 				<h3>Giriş Alanı Komutları</h3>
-
-				<h4>Nokta</h4>
-				<pre>(apsis, ordinat)
-<code class="example">(-1, 2)</code></pre>
-				<pre>YansıtNokta(Nokta, Merkez Nokta)
-<code class="example">YansıtNokta((1,2),(0,0))</code><code class="example">YansıtNokta(A,B)</code></pre>
-
-				<h4>Doğru</h4>
-
-				<pre>Eğimli Doğru: ax + b
-<code class="example">2x-3</code>
-Dik Doğru: x = c
-<code class="example">x=2</code>
-Doğru(Nokta, Nokta)
-<code class="example">Doğru((-1,0),(1,1))</code>
-<code class="example">Kesiştir(f,g)</code></pre>
-
-				<h4>Doğru Parçası</h4>
-				<pre>DoğruParçası(Nokta, Nokta)
-<code class="example">DoğruParçası((-2,1),(-1,2))</code></pre>
-				<pre>Uzaklık(Nokta, Nokta)
-<code class="example">Uzaklık((-2,1),(-1,2))</code></pre>
-
-				<h4>Çember</h4>
-				<pre>Çember(Nokta, r)
-<code class="example">Çember((-1,2),1)</code></pre>
-				<pre>Çember(Nokta, Nokta)
-<code class="example">Çember((-1,1),(0,2))</code></pre>
-				<pre>Çember(Nokta, Nokta,Nokta)
-<code class="example">Çember((0,0),(0,-2),(-2,0))</code></pre>
-
-				<h4>Açı</h4>
-				<pre>Açı(Nokta, Nokta, Nokta)
-<code class="example">Açı((-1,2),(0,1),(-1,0))</code></pre>
-
-				<h4>Yay Ölçüsü</h4>
-				<pre>YayÖlçüsü(Nokta, Nokta)
-<code class="example">YayÖlçüsü(A,B)</code></pre>
-
-				<h4>Trigonometrik İfadeler</h4>
-				<pre>sin(...), cos(...), tan(...), cot(...)
-<code class="example">sin(-x+4)</code><code class="example">cos(3x-1)</code><code class="example">tan(1/x)</code><code class="example">cot(x+1)</code></pre>
-
-				<h4>Üstel İfadeler</h4>
-				<pre>(Taban)^(Üs)
-<code class="example">2^(x-1)</code><code class="example">(1/2)^sin(x)</code><code class="example">E^(x-1)</code></pre>
-
-				<h4>Logaritmik İfadeler</h4>
-				<pre>log(Taban,...)
-<code class="example">log(E,4-x^2)</code><code class="example">log(5,2x-3)</code></pre>
-
-				<h4>Dizi</h4>
-				<pre>Dizi(Fonksiyon (n),Başlangıç,Bitiş)
-<code class="example">Dizi(1/n,1,7)</code></pre>
-
-				<h4>Limit</h4>
-				<pre>Limit(Fonksiyon,Apsis)
-<code class="example">Limit(sin(2x-1),2)</code></pre>
-
-				<h4>Türev</h4>
-				<pre>Türev(Fonksiyon)
-<code class="example">Türev(sin(x+1))</code></pre>
-
-				<h4>Bileşke Fonksiyon</h4>
-				<pre>Bileşke(Fonksiyon,Fonksiyon,...)
-<code class="example">Bileşke(x-1,x^2-2)</code></pre>
-
-				<h4>Teğet</h4>
-				<pre>Teğet(Fonksiyon,Apsis)
-<code class="example">Teğet(sin(2x-1),2)</code></pre>
-				<pre>TeğetH(Fonksiyon,Apsis)
-<code class="example">TeğetH(x^2,1)</code></pre>
-				<pre>TeğetX(Fonksiyon,Apsis)
-<code class="example">TeğetX(x^2,1)</code></pre>
-				<pre>TeğetC(Çember,Nokta)
-<code class="example">TeğetC(c,A)</code><code class="example">TeğetC(a,(3,2))</code></pre>
-
-				<h4>Fonksiyon İşlemleri</h4>
-				<h6>Kullanılacak fonksiyonların daha önce grafiğinin çizilmesi şartıyla </h6>
-				<pre><code class="example">2f/(1-3x)</code><code class="example">f+2(3x-4)</code><code class="example">3f-4g</code><code class="example">f*g</code></pre>
-
-				<h4>Parçalı Fonksiyon</h4>
-				<pre>Fonksiyon,Aralık;Fonksiyon,Aralık;...
-<code class="example">2x+1,x&lt;0; x^2,x>=0</code></pre>
+				<!-- Konular ve örnekler src/commands/language.ts tablosundan üretilir. -->
 			</div>
 		</div>
 	</div>
 	<!-- Yardım Penceresi Son -->
-	<a id="made-signature" href="https://www.madematik.com" target="_blank" rel="noopener noreferrer">
-		<span>m</span><span class="made-highlight">ADEM</span><span>atik</span>
-	</a>
 	<script type="module" src="/src/main.ts"></script>
 </body>
 

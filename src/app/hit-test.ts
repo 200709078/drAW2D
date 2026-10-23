@@ -1,3 +1,4 @@
+import { curveOf, isGraphObject } from '../geometry/analysis'
 import type { GeometryDocumentObject } from '../geometry/function-types'
 import { getProjectionOnAngle, getProjectionOnCircle, getProjectionOnLine, numericPoint, type NumericPoint } from '../geometry/primitives'
 import { getProjectionOnCircleTangent } from '../geometry/tangents'
@@ -34,7 +35,15 @@ function objectDistance(object: GeometryDocumentObject, position: NumericPoint, 
     case 'lineSegment':
     case 'distanceSegment':
     case 'lineWithPoints':
+    case 'ray':
       return scaled(getProjectionOnLine(object, a, b))
+    case 'polygon': {
+      const distances = object.points.map((point, index) => {
+        const next = object.points[(index + 1) % object.points.length]!
+        return scaled(getProjectionOnLine({ type: 'lineSegment', A: point, B: next }, a, b))
+      }).filter((distance): distance is number => distance !== null)
+      return distances.length ? Math.min(...distances) : null
+    }
     case 'circleTangent':
       return scaled(getProjectionOnCircleTangent(object, a, b))
     case 'circleR':
@@ -47,8 +56,13 @@ function objectDistance(object: GeometryDocumentObject, position: NumericPoint, 
       const y = options.evaluator.evaluate(object.func.replace(SEQUENCE_VARIABLE, 'x'), a)
       return y === null ? null : Math.abs(transform.yToPixel(y) - transform.yToPixel(b))
     }
-    default:
-      return null
+    default: {
+      // Function graphs: the vertical distance at the cursor's x.
+      if (!isGraphObject(object)) return null
+      const curve = curveOf(object)
+      const y = curve?.kind === 'graph' ? curve.evaluate(a) : null
+      return y === null ? null : Math.abs(transform.yToPixel(y) - transform.yToPixel(b))
+    }
   }
 }
 
@@ -63,7 +77,7 @@ export function hitTest(objects: readonly GeometryDocumentObject[], position: Nu
   let other: Exclude<GeometryDocumentObject, GeometryPoint> | null = null
   let otherDistance = tolerance
   for (const object of objects) {
-    if (!object.visibility) continue
+    if (!object.visibility || object.invalid) continue
     if (object.type === 'point') {
       const location = numericPoint(object)
       if (!location) continue

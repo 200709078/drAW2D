@@ -8,13 +8,20 @@ made by **mADEMatik Solutions** — [madematik.com](https://www.madematik.com/dr
 
 ## Özellikler
 
-- **Geometrik araçlar**: nokta, doğru, doğru parçası, çember (merkez + nokta / üç nokta), teğet çember, açı, yay ölçüsü
-- **İşlemler**: kesiştir, yansıt (nokta), uzaklık ölç
+- **Geometrik araçlar**: nokta, orta nokta, doğru, doğru parçası, ışın, dik ve paralel doğru, kenar orta dikmesi, açıortay, çokgen (alanıyla), çember (merkez + nokta / üç nokta), çembere teğet, açı, yay ölçüsü
+- **Dönüşümler**: noktaya ve doğruya göre yansıtma, döndürme (açı kaydırıcısıyla), öteleme
+- **İşlemler**: kesiştir, uzaklık ölç
 - **Fonksiyon çizimi**: trigonometrik (`sin`, `cos`, `tan`, `cot`), üstel, logaritmik, parçalı fonksiyonlar
 - **Analiz komutları**: `Türev`, `Limit`, `Bileşke`, `Teğet` / `TeğetH` / `TeğetX` / `TeğetC`, `Dizi`
+- **Fonksiyon analizi**: `Kök(f)`, `Ekstremum(f)`, `Dönüm(f)`, fonksiyonların fonksiyon/doğru/çemberle `Kesiştir`'i ve taranmış alanlı `İntegral(f,a,b)`; noktalar fonksiyon değişince izler. Eğriye bağlı nokta eğri boyunca sürüklenir.
 - **İfade birleştirme**: daha önce çizilmiş fonksiyonlarla işlem (`2f/(1-3x)`, `3f-4g`, `f(x+1)`, ...)
+- **Matematik klavyesi**: giriş alanındaki düğmeyle açılır; rakam ve işlemler, fonksiyonlar, harfler ve komut şablonları sekmeleri vardır. Dokunmatik ekranlarda sistem klavyesinin yerini alır.
+- **Komut şablonları**: girişte komut adı yazılırken (`Diz`, `teg`) eşleşen komutlar önerilir; seçilen şablonun yer tutucuları (`<Fonksiyon>`) Tab ile sırayla doldurulur.
+- **Karttan düzenleme**: kalem düğmesi veya çift tıklama kartı açar; `ad: tanım` metni değiştirilip Enter ile uygulanır. Nesne kimliğini ve bağlı yapılarını koruyarak yeniden tanımlanır, ad değiştirilince ona başvuran tanımlar da güncellenir.
+- **Parametreler ve kaydırıcılar**: `a=2` bir kaydırıcı oluşturur; `a·x^2+1`, `(a,1)`, `Çember((0,0),a)`, `x=a`, `Teğet(f,a)` gibi her tanım ona bağlanır ve kaydırıcıyla canlı değişir. Kaydırıcının aralığı ve adımı kartta düzenlenir, değer canlandırılabilir. `Teğet`, `TeğetH/X` ve `Limit` yaklaşım değerleri için kaydırıcıyı kendisi oluşturur.
 - **Geri al / yinele**, temizleme, standart görünüm
-- **Radyal (dairesel) araç çubuğu** ve katlanır sağ panel
+- **Gruplu araç çubuğu**: her grup son kullanılan aracını gösterir, basınca grubun araçları açılır; geri al, yinele, temizle, standart görünüm ve yardım çubuğun sağındadır. Dar ekranlarda araçlar alttan açılan panelin "Araçlar" sekmesindedir.
+- Gizlenebilir, yeniden boyutlandırılabilir nesne paneli
 - **Yardım penceresi**: uygulama içi komut referansı
 
 ## Giriş dili örnekleri
@@ -33,7 +40,9 @@ Türev(sin(x+1))              # türev
 Limit(sin(2x-1),2)           # limit
 Teğet(sin(2x-1),2)           # teğet doğrusu
 Dizi(1/n,1,7)                # dizi değerleri
-2x+1,x<0; x^2,x>=0           # parçalı fonksiyon
+a=2                          # kaydırıcı (parametre)
+a*x^2+1                      # parametreye bağlı fonksiyon
+ParçalıFonksiyon(2x+1, x<0; x^2, x>=0)  # parçalı fonksiyon
 ```
 
 ## Çalıştırma
@@ -100,19 +109,20 @@ drAW2D/
 │   ├── geometry/     # TypeScript modelleri, belge tipleri ve saf geometri hesapları
 │   ├── math/         # Bileşke, türev, hassas doğru ifadeleri ve analiz değerlendirmesi
 │   ├── rendering/    # Koordinat dönüşümü, kare/ızgara önbelleği, fonksiyon çizimi ve nesne çizicileri
-│   ├── ui/           # Radyal araç çubuğu, nesne paneli, komut girişi, yardım ve bildirimler
+│   ├── ui/           # Araç kaydı ve araç çubuğu, nesne paneli, komut girişi, yardım ve bildirimler
 │   └── styles/       # Mevcut stiller
 ├── public/           # SVG simgeler, uygulama simgesi ve ses
 ├── electron/         # TypeScript masaüstü kabuğu ve pencere denetimi preload'u
 ├── build/            # Linux ve Windows paket simgeleri
 ├── scripts/          # Electron geliştirme başlatıcısı
 ├── tests/            # Tarayıcı regresyon kontrolleri
-└── docs/             # Geçiş planı
+└── docs/             # Yol haritası
 ```
 
 ## Teknoloji
 
 - TypeScript + Vite + Canvas; uygulamanın tamamı strict TypeScript'tir.
+- Parametreye veya başka fonksiyona dayanan nesneler tanımlarını saklar; değer değişince bağımlılık sırasıyla yeniden hesaplanır, kimlikleri ve başvuruları korunur.
 - Araçlar noktaları taslak olarak seçer ve yapıyı komut satırıyla aynı hazırlama yolundan oluşturur; tıklanan doğru, çember, teğet veya açıya bağlı nokta oluşur. Seçim eşiği yakınlaştırmadan bağımsız olarak CSS pikseli cinsindendir.
 - Fare, kalem ve dokunma Pointer Events ile aynı yoldan çalışır. Dokunmada yapı araçları parmağı izleyen önizlemeyle nişan alır ve parmak kalkınca noktayı koyar; iki parmak yakınlaştırır ve kaydırır. Dar ekranlarda nesne paneli alttan açılan bir sayfadır, dokunmatik ekranlarda düğmeler büyüktür.
 - Tekerlekle yakınlaştırma imlecin altındaki noktayı sabit tutar; dokunmatik yüzeyle (Ctrl+tekerlek) yakınlaştırma süreklidir. Bir nesneyi silmek ona bağlı yapıları da siler; geri alma hepsini tek adımda getirir.
@@ -139,9 +149,8 @@ Eski JavaScript motoru kaldırıldı.
 Bağımlı noktaların hesap koordinatları yuvarlanmaz; tanımsız yapılar son konumları
 korunarak gizlenir ve yeniden geçerli olduklarında toparlanır. Çember teğetinin
 iki temas noktası farklı adlar alır.
-Her taşıma adımından sonra durulur; daha verimli veya kullanışlı tasarımlar için eski uygulama davranışı
-değiştirilebilir. Tamamlanan adımlar, sonraki modüller ve
-doğrulama sırası [geçiş planında](docs/gecis-plani.md) açıklanır.
+Taşıma adımlarının ayrıntıları Git geçmişinde bulunur. Planlanan geliştirmeler ve
+kullanıcı istekleri [yol haritasında](docs/yol-haritasi.md) not edilir.
 
 GeoGebra benzeri araçları ileride genişletmek için araç durumu, geometri/bağımlılık
 hesapları ve çiziciler ayrı modüllerdedir. Dokunma/kalem desteği, iki parmakla

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { parseCommand, splitTopLevel } from '../src/commands/parser'
+import { prepareCommand } from '../src/commands/prepare'
 import type { Command } from '../src/commands/types'
 
 function command(source: string): Command {
@@ -80,11 +81,20 @@ test('eksik, artan ve dengesiz parametreler bilinen komuttan fonksiyona düşmez
 test('sayısal alanlar sonlu gerçek değer ve anlamlı indis/aralık gerektirir', () => {
   for (const source of [
     '(x,1)', '(sqrt(-1),0)', 'Çember(A,-1)', 'Çember(A,1/0)',
-    'Dizi(n,0,2)', 'Dizi(n,1.5,3)', 'Dizi(n,4,2)', 'Limit(x,undefinedName)',
+    'Dizi(n,0,2)', 'Dizi(n,1.5,3)', 'Dizi(n,4,2)', 'Limit(x,n+1)',
     'x, 3<x<1', 'x, 1<x<=1', 'x, 1<x>2', 'x, x==2', 'x, 1<y<2',
   ]) {
     expect(parseCommand(source), source).toMatchObject({ ok: false })
   }
+  // Other unknown names may be parameters: only the document can reject them.
+  expect(parseCommand('Limit(x,undefinedName)')).toEqual({
+    ok: true, command: { kind: 'limit', expression: 'x', at: { expression: 'undefinedName' } },
+  })
+  const parsed = parseCommand('Limit(x,undefinedName)')
+  if (!parsed.ok) throw new Error(parsed.error)
+  expect(prepareCommand(parsed.command, [], { nextId: 0, randomColor: () => '#000000' })).toEqual({
+    ok: false, error: 'İfade oluşturulamadı. Bilinmeyen simge: undefinedName',
+  })
 })
 
 test('çıplak ve y eşitlikli ifadeler sınıflandırma için değiştirilmeden bırakılır', () => {
@@ -107,4 +117,15 @@ test('ayrıştırılmış komutlar belge veya DOM gerektirmeyen kopyalanabilir d
   })
   expect(structuredClone(first)).toEqual(first)
   expect(command(source)).toEqual(first)
+})
+
+test('parçalı fonksiyon ParçalıFonksiyon(...) içinde yazılır; çıplak biçim de çalışır', () => {
+  const bare = command('2x+1,x<0; x^2,x>=0')
+  const named = command('ParçalıFonksiyon(2x+1,x<0; x^2,x>=0)')
+  expect(named).toEqual(bare)
+  expect(command('parcalifonksiyon( x , x>1 )')).toMatchObject({ kind: 'piecewise', source: 'x , x>1' })
+  expect(command('Piecewise(-x, x<0; x, x>=0)')).toMatchObject({ kind: 'piecewise', sections: [{ endX: 0 }, { startX: 0 }] })
+  for (const source of ['ParçalıFonksiyon()', 'ParçalıFonksiyon(x)', 'ParçalıFonksiyon(x, 3<x<1)', 'ParçalıFonksiyon(x, x<0) + 1']) {
+    expect(parseCommand(source), source).toMatchObject({ ok: false })
+  }
 })

@@ -1,5 +1,5 @@
 import { expect, test, type CDPSession, type Page } from '@playwright/test'
-import type { RadialToolAction } from '../src/ui/toolbar-types'
+import type { ToolAction } from '../src/ui/tool-registry'
 
 // A phone-sized touch screen. The canvas fills the viewport, so page and canvas pixels agree.
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
@@ -28,8 +28,8 @@ async function touch(client: CDPSession, type: 'touchStart' | 'touchMove' | 'tou
   })
 }
 
-async function selectTool(page: Page, action: RadialToolAction): Promise<void> {
-  await page.evaluate(action => window.drAW2DRadialToolbar!.selectToolByAction(action, { showToast: false }), action)
+async function selectTool(page: Page, action: ToolAction): Promise<void> {
+  await page.evaluate(action => window.drAW2DToolbar!.selectToolByAction(action, { showToast: false }), action)
 }
 
 async function showPanel(page: Page): Promise<void> {
@@ -38,7 +38,7 @@ async function showPanel(page: Page): Promise<void> {
 }
 
 async function openHistoryControls(page: Page): Promise<void> {
-  await page.locator('#btnAcordeon').click()
+  // Undo and redo stay in the toolbar on small screens.
   await expect(page.locator('#undo')).toBeVisible()
 }
 
@@ -87,7 +87,7 @@ test('yapı aracında parmak nişan alır ve nokta parmak kalkınca konur', asyn
   await touch(client, 'touchEnd', [])
   await showPanel(page)
   await expect(cardInputs(page).first()).toHaveValue('a: DoğruParçası((0,0), (1,1))')
-  await expect(page.locator('#radialToolbar .center-button')).toHaveAttribute('data-action', 'select')
+  await expect(page.locator('#mainToolbar')).toHaveAttribute('data-action', 'select')
 })
 
 test('iki parmak orta noktanın altındaki noktayı tutarak yakınlaştırır ve kaydırır', async ({ page }) => {

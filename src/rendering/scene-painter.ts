@@ -10,6 +10,8 @@ import type { PainterFrame } from './painter-types'
 export function paintDocumentScene(frame: PainterFrame): void {
   const primitives = createCanvasPrimitives(frame)
   for (const object of frame.objects) {
+    // A definition without a value for the current parameters is not drawn.
+    if (object.invalid) continue
     switch (object.type) {
       case 'point':
       case 'circleR':
@@ -20,6 +22,8 @@ export function paintDocumentScene(frame: PainterFrame): void {
       case 'lineWithPoints':
       case 'lineSegment':
       case 'distanceSegment':
+      case 'ray':
+      case 'polygon':
       case 'circleTangent':
       case 'angle':
       case 'arcMeasure':
@@ -33,6 +37,7 @@ export function paintDocumentScene(frame: PainterFrame): void {
       case 'tangentHX':
       case 'derivative':
       case 'sectionalFunctions':
+      case 'integral':
         paintAnalysisObject(frame, primitives, object)
         break
     }

@@ -1,5 +1,6 @@
 import { parseNumericExpression } from './expressions'
-import type { Command, ParseCommandResult, PointArgument, SectionSpec } from './types'
+import { commandKind as commandName, type NamedCommand } from './language'
+import type { Command, NumberArgument, ParseCommandResult, PointArgument, SectionSpec } from './types'
 
 const openings = new Map([['(', ')'], ['[', ']'], ['{', '}']])
 const closings = new Set(openings.values())
@@ -30,35 +31,6 @@ export function splitTopLevel(source: string, separator = ','): string[] {
   return parts
 }
 
-function normalizedName(name: string): string {
-  return name.toLocaleLowerCase('tr-TR').normalize('NFD').replace(/\p{M}/gu, '').replace(/ı/g, 'i')
-}
-
-type NamedCommand = 'circle' | 'line' | 'segment' | 'distance' | 'angle' | 'reflect' |
-  'intersect' | 'arc' | 'circleTangent' | 'sequence' | 'limit' | 'tangent' | 'tangentH' |
-  'tangentX' | 'derivative' | 'composition'
-
-const commandNames: Readonly<Record<string, NamedCommand>> = {
-  cember: 'circle', circle: 'circle',
-  dogru: 'line', line: 'line',
-  dogruparcasi: 'segment', segment: 'segment', linesegment: 'segment',
-  uzaklik: 'distance', distance: 'distance', distancesegment: 'distance',
-  aci: 'angle', angle: 'angle',
-  yansitnokta: 'reflect', yansit: 'reflect', reflect: 'reflect',
-  kesistir: 'intersect', intersect: 'intersect',
-  yayolcusu: 'arc', arcmeasure: 'arc',
-  tegetc: 'circleTangent', circletangent: 'circleTangent',
-  dizi: 'sequence', sequence: 'sequence',
-  limit: 'limit', teget: 'tangent', tangent: 'tangent',
-  tegeth: 'tangentH', tangenth: 'tangentH', tegetx: 'tangentX', tangentx: 'tangentX',
-  turev: 'derivative', derivative: 'derivative', bileske: 'composition', composition: 'composition',
-}
-
-function commandName(name: string): NamedCommand | undefined {
-  const normalized = normalizedName(name)
-  return Object.hasOwn(commandNames, normalized) ? commandNames[normalized] : undefined
-}
-
 function enclosed(source: string): boolean {
   if (!source.startsWith('(') || !source.endsWith(')')) return false
   let depth = 0
@@ -80,11 +52,35 @@ function reference(source: string): string {
   return source
 }
 
+const identifier = /^[\p{L}_][\p{L}\p{N}_]*$/u
+
+/** An optional `start, end` search range from `args[from]`. */
+function range(args: string[], from: number): { start?: NumberArgument; end?: NumberArgument } {
+  if (args.length <= from) return {}
+  return { start: numberArgument(args[from]!), end: numberArgument(args[from + 1]!) }
+}
+
+/**
+ * Constants are evaluated here. An expression with unknown names may use parameters;
+ * the document resolves it when the command is prepared.
+ */
+function numberArgument(source: string): NumberArgument {
+  try {
+    return parseNumericExpression(source)
+  } catch (error) {
+    if (!(error instanceof ReferenceError)) throw error
+    // Variables are never parameters, so such a number is rejected without the document.
+    const variable = source.match(/(?<![\p{L}\p{N}_])[xyn](?![\p{L}\p{N}_])/u)
+    if (variable) throw new Error(`Sayısal değer ${variable[0]} değişkenini içeremez.`)
+    return { expression: source.trim() }
+  }
+}
+
 function pointArgument(source: string): PointArgument {
   if (enclosed(source)) {
     const args = splitTopLevel(source.slice(1, -1))
     requireCount(args, 2)
-    return { kind: 'coordinates', a: parseNumericExpression(args[0]!), b: parseNumericExpression(args[1]!) }
+    return { kind: 'coordinates', a: numberArgument(args[0]!), b: numberArgument(args[1]!) }
   }
   return { kind: 'reference', name: reference(source) }
 }
@@ -98,13 +94,12 @@ function namedCommand(kind: NamedCommand, args: string[]): Command {
       if (enclosed(args[1]!) && splitTopLevel(args[1]!.slice(1, -1)).length === 2) {
         return { kind: 'circle2', A, B: pointArgument(args[1]!) }
       }
-      let radius: number
-      try {
-        radius = parseNumericExpression(args[1]!)
-      } catch {
+      const radius = numberArgument(args[1]!)
+      // A bare name is a point here; preparation turns it into a radius if it names a parameter.
+      if (typeof radius !== 'number' && identifier.test(radius.expression)) {
         return { kind: 'circle2', A, B: pointArgument(args[1]!) }
       }
-      if (radius < 0) throw new Error('Yarıçap negatif olamaz.')
+      if (typeof radius === 'number' && radius < 0) throw new Error('Yarıçap negatif olamaz.')
       return { kind: 'circleRadius', center: A, radius }
     }
     case 'line': case 'segment': case 'distance':
@@ -117,8 +112,32 @@ function namedCommand(kind: NamedCommand, args: string[]): Command {
       requireCount(args, 2)
       return { kind, point: pointArgument(args[0]!), center: pointArgument(args[1]!) }
     case 'intersect':
+      if (args.length !== 2 && args.length !== 4) throw new Error('Kesiştir iki nesne ve isteğe bağlı bir aralık alır.')
+      return { kind, first: reference(args[0]!), second: reference(args[1]!), ...range(args, 2) }
+    case 'root': case 'extremum': case 'inflection':
+      if (args.length !== 1 && args.length !== 3) throw new Error('Bu komut bir fonksiyon ve isteğe bağlı bir aralık alır.')
+      return { kind, function: reference(args[0]!), ...range(args, 1) }
+    case 'midpoint': case 'ray': case 'bisector':
       requireCount(args, 2)
-      return { kind, first: reference(args[0]!), second: reference(args[1]!) }
+      return { kind, A: pointArgument(args[0]!), B: pointArgument(args[1]!) }
+    case 'perpendicular': case 'parallel':
+      requireCount(args, 2)
+      return { kind, point: pointArgument(args[0]!), line: reference(args[1]!) }
+    case 'angleBisector':
+      requireCount(args, 3)
+      return { kind, A: pointArgument(args[0]!), B: pointArgument(args[1]!), C: pointArgument(args[2]!) }
+    case 'polygon':
+      if (args.length < 3) throw new Error('Çokgen en az üç nokta gerektirir.')
+      return { kind, points: args.map(pointArgument) }
+    case 'rotate':
+      requireCount(args, 3)
+      return { kind, point: pointArgument(args[0]!), angle: numberArgument(args[1]!), center: pointArgument(args[2]!) }
+    case 'translate':
+      requireCount(args, 3)
+      return { kind, point: pointArgument(args[0]!), from: pointArgument(args[1]!), to: pointArgument(args[2]!) }
+    case 'integral':
+      requireCount(args, 3)
+      return { kind, function: reference(args[0]!), start: numberArgument(args[1]!), end: numberArgument(args[2]!) }
     case 'arc':
       requireCount(args, 2)
       return { kind, A: reference(args[0]!), B: reference(args[1]!) }
@@ -127,23 +146,38 @@ function namedCommand(kind: NamedCommand, args: string[]): Command {
       return { kind, circle: reference(args[0]!), point: pointArgument(args[1]!) }
     case 'sequence': {
       requireCount(args, 3)
-      const start = parseNumericExpression(args[1]!)
-      const end = parseNumericExpression(args[2]!)
-      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 1 || end < start) {
+      const start = numberArgument(args[1]!)
+      const end = numberArgument(args[2]!)
+      if (typeof start === 'number' && typeof end === 'number'
+        && (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 1 || end < start)) {
         throw new Error('Dizi indisleri artan sırada pozitif tam sayılar olmalı.')
       }
       return { kind, expression: args[0]!, start, end }
     }
     case 'limit': case 'tangent': case 'tangentH': case 'tangentX':
       requireCount(args, 2)
-      return { kind, expression: args[0]!, at: parseNumericExpression(args[1]!) }
+      return { kind, expression: args[0]!, at: numberArgument(args[1]!) }
     case 'derivative':
       requireCount(args, 1)
       return { kind, expression: args[0]! }
     case 'composition':
       if (!args.length) throw new Error('Bileşke en az bir fonksiyon gerektirir.')
       return { kind, expressions: args }
+    case 'piecewise':
+      // Sections are split by ';' first, so the raw argument text is parsed below.
+      throw new Error('Parçalı fonksiyon bölümleri ayrıca çözümlenir.')
   }
+}
+
+/** `ifade, aralık; ifade, aralık; ...` — the text inside ParçalıFonksiyon(...). */
+function piecewise(source: string): Command {
+  const sections = splitTopLevel(source, ';').map(segment => {
+    const parts = splitTopLevel(segment)
+    requireCount(parts, 2)
+    return section(parts[0]!, parts[1]!)
+  })
+  if (!sections.length) throw new Error('Parçalı fonksiyon en az bir bölüm gerektirir.')
+  return { kind: 'piecewise', source: source.trim(), sections }
 }
 
 interface Comparison { operands: string[]; operators: string[] }
@@ -244,7 +278,9 @@ function parse(source: string): Command {
         else if (source[index] === ')' && --depth === 0) { end = index; break }
       }
       if (end !== source.length - 1) throw new Error('Komuttan sonra fazladan ifade bulunuyor.')
-      return namedCommand(kind, splitTopLevel(source.slice(opening + 1, -1)))
+      const inner = source.slice(opening + 1, -1)
+      if (kind === 'piecewise') return piecewise(inner)
+      return namedCommand(kind, splitTopLevel(inner))
     }
   } else if (commandName(source)) {
     throw new Error('Komut parametrelerini parantez içinde yazın.')
@@ -258,21 +294,15 @@ function parse(source: string): Command {
     }
   }
 
-  const segments = splitTopLevel(source, ';')
-  if (segments.length > 1 || splitTopLevel(source).length > 1) {
-    const sections = segments.map(segment => {
-      const parts = splitTopLevel(segment)
-      requireCount(parts, 2)
-      return section(parts[0]!, parts[1]!)
-    })
-    return { kind: 'piecewise', source, sections }
-  }
+  // The bare form without ParçalıFonksiyon(...) is still accepted.
+  if (splitTopLevel(source, ';').length > 1 || splitTopLevel(source).length > 1) return piecewise(source)
 
   const equation = equationSides(source)
   if (equation) {
     const [left, right] = equation
     if (left === 'y' || right === 'y') return { kind: 'function', expression: left === 'y' ? right : left }
-    if (left === 'x' || right === 'x') return { kind: 'verticalLine', x: parseNumericExpression(left === 'x' ? right : left) }
+    if (left === 'x' || right === 'x') return { kind: 'verticalLine', x: numberArgument(left === 'x' ? right : left) }
+    if (identifier.test(left)) return { kind: 'parameter', name: left, value: numberArgument(right) }
     throw new Error('Denklem y veya x için yazılmalı.')
   }
   return { kind: 'function', expression: source }

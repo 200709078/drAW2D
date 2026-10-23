@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import type { RadialToolAction } from '../src/ui/toolbar-types'
+import type { ToolAction } from '../src/ui/tool-registry'
 
 interface ObjectRow { id: string; input: string; output: string }
 interface CanvasPoint { x: number; y: number }
@@ -12,7 +12,6 @@ test.beforeEach(async ({ page }) => {
   page.on('pageerror', error => failures.push(error.message))
   await page.goto('/')
   await expect(page.locator('#giris')).toBeVisible()
-  await page.locator('#btnAcordeon').click()
 })
 
 test.afterEach(({ page }) => {
@@ -36,10 +35,10 @@ async function objectRows(page: Page): Promise<ObjectRow[]> {
   }))
 }
 
-async function selectTool(page: Page, action: RadialToolAction): Promise<void> {
+async function selectTool(page: Page, action: ToolAction): Promise<void> {
   await page.evaluate(action => {
-    if (!window.drAW2DRadialToolbar) throw new Error('Araç çubuğu başlatılmadı')
-    window.drAW2DRadialToolbar.selectToolByAction(action, { showToast: false })
+    if (!window.drAW2DToolbar) throw new Error('Araç çubuğu başlatılmadı')
+    window.drAW2DToolbar.selectToolByAction(action, { showToast: false })
   }, action)
 }
 

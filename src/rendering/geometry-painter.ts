@@ -15,6 +15,8 @@ import type {
   GeometryCircle,
   GeometryPoint,
   LineSegment,
+  Polygon,
+  Ray,
   LineWithPoints,
   RadiusCircle,
 } from '../geometry/types'
@@ -143,6 +145,42 @@ export function paintLineWithPoints(
   if (visible && !line.temp) lineLabel(frame, primitives, visible, label(line), stroke.color)
 }
 
+function paintRay(frame: PainterFrame, primitives: DrawingPrimitives, ray: Ray): void {
+  if (!ray.visibility) return
+  const stroke: StrokeStyle = { color: color(ray), width: width(frame, ray) }
+  const visible = primitives.line({ type: 'ray', A: ray.A, B: ray.B }, stroke)
+  if (visible) lineLabel(frame, primitives, visible, label(ray), stroke.color)
+}
+
+/** Translucent interior, edges and the name at the vertex centroid. */
+function paintPolygon(frame: PainterFrame, primitives: DrawingPrimitives, polygon: Polygon): void {
+  if (!polygon.visibility) return
+  const vertices = polygon.points.map(point => numericPoint(point))
+  if (vertices.some(vertex => vertex === null) || vertices.length < 3) return
+  const { ctx, transform } = frame
+  ctx.save()
+  ctx.beginPath()
+  vertices.forEach((vertex, index) => {
+    const x = transform.xToPixel(vertex!.a)
+    const y = transform.yToPixel(vertex!.b)
+    if (index === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  })
+  ctx.closePath()
+  ctx.fillStyle = `${color(polygon)}33`
+  ctx.fill()
+  ctx.restore()
+  const stroke: StrokeStyle = { color: color(polygon), width: width(frame, polygon) }
+  vertices.forEach((vertex, index) => {
+    primitives.line({ type: 'lineSegment', A: vertex!, B: vertices[(index + 1) % vertices.length]! }, stroke)
+  })
+  const center = {
+    a: vertices.reduce((sum, vertex) => sum + vertex!.a, 0) / vertices.length,
+    b: vertices.reduce((sum, vertex) => sum + vertex!.b, 0) / vertices.length,
+  }
+  primitives.text(center, label(polygon), { color: stroke.color })
+}
+
 export function paintLineSegment(frame: PainterFrame, primitives: DrawingPrimitives, segment: LineSegment): void {
   if (!segment.visibility) return
   const stroke: StrokeStyle = {
@@ -234,6 +272,8 @@ export function paintGeometryObject(
     case 'lineWithEquation': paintEquationLine(frame, primitives, object); break
     case 'lineWithPoints': paintLineWithPoints(frame, primitives, object); break
     case 'lineSegment': paintLineSegment(frame, primitives, object); break
+    case 'ray': paintRay(frame, primitives, object); break
+    case 'polygon': paintPolygon(frame, primitives, object); break
     case 'distanceSegment': paintDistanceSegment(frame, primitives, object); break
     case 'circleTangent': paintCircleTangent(frame, primitives, object); break
     case 'angle': paintAngle(frame, primitives, object); break

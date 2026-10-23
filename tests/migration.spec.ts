@@ -54,16 +54,13 @@ test('panel, radial tools, help examples and drawing remain usable', async ({ pa
   await expect(page.locator('#rightWrapper')).not.toHaveClass(/\bhide\b/);
 
   const emptyCanvas = await canvasHash(page);
-  await page.locator('#radialToolbar .center-button').hover();
-  // Slice buttons overlap; their SVG icons are the actual visible click targets.
-  await page.locator('#btnPoint .tool-icon').click();
-  await expect(page.locator('#radialToolbar .center-button')).toHaveAttribute('data-action', 'point');
+  // The point group's button chooses its default tool, the point.
+  await page.locator('#toolgroup-point').click();
+  await expect(page.locator('#mainToolbar')).toHaveAttribute('data-action', 'point');
   await page.locator('#canvas').click({ position: { x: 800, y: 250 } });
   await expect.poll(() => objectRows(page)).toEqual([{ input: 'A=(3,2.50)', output: '' }]);
   expect(await canvasHash(page), 'The point must be rendered on the canvas').not.toBe(emptyCanvas);
 
-  await page.locator('#btnAcordeon').click();
-  await expect(page.locator('#btnAcordeon')).toHaveAttribute('aria-expanded', 'true');
   await page.locator('#helpMenuButton').click();
   await expect(page.locator('#help-popup')).toBeVisible();
   await page.locator('#helpSearch').fill('türev');
@@ -76,7 +73,6 @@ test('panel, radial tools, help examples and drawing remain usable', async ({ pa
 });
 
 test('legacy command outputs, canvas rendering and undo/redo/clear are preserved', async ({ page }) => {
-  await page.locator('#btnAcordeon').click();
   await expect(page.locator('#undo')).toBeDisabled();
   await expect(page.locator('#redo')).toBeDisabled();
   await expect(page.locator('#clear')).toBeDisabled();

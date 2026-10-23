@@ -13,7 +13,7 @@ export interface PointLike {
 }
 
 export type LineLike =
-  | { type: 'lineWithPoints' | 'lineSegment' | 'distanceSegment'; A: PointLike; B: PointLike }
+  | { type: 'lineWithPoints' | 'lineSegment' | 'distanceSegment' | 'ray'; A: PointLike; B: PointLike }
   | { type: 'verLine'; x: number }
   | {
     type: 'lineWithEquation'
@@ -164,6 +164,8 @@ export function getLineDescriptor(line: LineLike): LineDescriptor | { status: fa
       ? { status: true, origin: A, direction: { a: 1, b: 0 }, min: 0, max: 0, limited }
       : { status: false }
   }
+  // A ray starts at A and continues through B without end.
+  if (line.type === 'ray') return { status: true, origin: A, direction: vector.direction, min: 0, max: Infinity, limited }
   if (limited && !Number.isFinite(vector.length)) return { status: false }
   return {
     status: true, origin: A, direction: vector.direction,

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { RadialToolAction } from '../src/ui/toolbar-types';
+import type { ToolAction } from '../src/ui/tool-registry';
 
 interface RenderProbe {
   mainComposites: number;
@@ -26,10 +26,10 @@ async function settlePaint(page: Page): Promise<void> {
   }));
 }
 
-async function selectTool(page: Page, action: RadialToolAction): Promise<void> {
+async function selectTool(page: Page, action: ToolAction): Promise<void> {
   await page.evaluate(action => {
-    if (!window.drAW2DRadialToolbar) throw new Error('The toolbar is not initialized');
-    window.drAW2DRadialToolbar.selectToolByAction(action, { showToast: false });
+    if (!window.drAW2DToolbar) throw new Error('The toolbar is not initialized');
+    window.drAW2DToolbar.selectToolByAction(action, { showToast: false });
   }, action);
 }
 
@@ -145,7 +145,6 @@ test('a pointer burst paints one preview frame and reuses the coordinate grid', 
 test('partial-domain functions draw their real branches without invalid-domain bridges', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#giris')).toBeVisible();
-  await page.locator('#btnAcordeon').click();
   const samples = [
     { command: 'sqrt(x)', y: Math.sqrt(1.37), gap: { x: 360, y: 380, width: 8, height: 8 } },
     { command: 'log(x)', y: Math.log(1.37), gap: { x: 360, y: 465, width: 8, height: 8 } },
@@ -171,16 +170,18 @@ test('partial-domain functions draw their real branches without invalid-domain b
 test('tangent slider bursts update the equation synchronously and paints do not create history', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#giris')).toBeVisible();
-  await page.locator('#btnAcordeon').click();
   await page.locator('#giris').fill('Teğet(x^2,1)');
   await page.locator('#giris').press('Enter');
-  const row = page.locator('#objectsContainer .expr-block');
-  await expect(row).toHaveCount(1);
-  await expect(row.locator('input[readonly]')).toHaveValue('Teğet(x^2,1)');
-  await expect(row.locator('output')).toHaveText('f: y = 2x-1');
+  // The tangent (id 1) is defined by the slider parameter a (id 0) created for x = 1.
+  const tangent = page.locator('#objectsContainer .expr-block').filter({ has: page.locator('input[id="1-input"]') });
+  const parameter = page.locator('[id="0-input"]');
+  await expect(page.locator('#objectsContainer .expr-block')).toHaveCount(2);
+  await expect(tangent.locator('input[readonly]')).toHaveValue('Teğet(x^2,a)');
+  await expect(tangent.locator('output')).toHaveText('f: y = 2x-1');
+  await expect(parameter).toHaveValue('a = 1');
   await settlePaint(page);
 
-  const slider = page.locator('#objectsContainer .sliders input[type="range"]').first();
+  const slider = page.locator('[id="0-sliderA"]');
   // Both edits and the commit happen before any animation frame can paint.
   const immediateEquation = await slider.evaluate((element: HTMLInputElement) => {
     element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
@@ -189,12 +190,12 @@ test('tangent slider bursts update the equation synchronously and paints do not 
       element.dispatchEvent(new Event('input', { bubbles: true }));
     }
     element.dispatchEvent(new Event('change', { bubbles: true }));
-    return element.closest('.sliders')!.parentElement!.querySelector('output')!.value;
+    return (document.getElementById('1-output') as HTMLOutputElement).value;
   });
   expect(immediateEquation).toBe('f: y = 6x-9');
   await settlePaint(page);
-  await expect(row.locator('input[readonly]')).toHaveValue('Teğet(x^2,3)');
-  await expect(row.locator('output')).toHaveText('f: y = 6x-9');
+  await expect(parameter).toHaveValue('a = 3');
+  await expect(tangent.locator('output')).toHaveText('f: y = 6x-9');
 
   // An unchanged slider interaction spanning a paint must not add an undo step.
   await slider.evaluate((element: HTMLInputElement) => {
@@ -205,12 +206,12 @@ test('tangent slider bursts update the equation synchronously and paints do not 
   await slider.dispatchEvent('change');
 
   await page.locator('#undo').click();
-  await expect(row.locator('input[readonly]')).toHaveValue('Teğet(x^2,1)');
-  await expect(row.locator('output')).toHaveText('f: y = 2x-1');
+  await expect(parameter).toHaveValue('a = 1');
+  await expect(tangent.locator('output')).toHaveText('f: y = 2x-1');
   await settlePaint(page);
   await page.locator('#redo').click();
-  await expect(row.locator('input[readonly]')).toHaveValue('Teğet(x^2,3)');
-  await expect(row.locator('output')).toHaveText('f: y = 6x-9');
+  await expect(parameter).toHaveValue('a = 3');
+  await expect(tangent.locator('output')).toHaveText('f: y = 6x-9');
   await expect(page.locator('#redo')).toBeDisabled();
 });
 

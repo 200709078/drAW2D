@@ -5,12 +5,14 @@ import type {
   FunctionCurve,
   FunctionGeometryObject,
   FunctionSection,
+  Integral,
   Limit,
   SectionalFunctions,
   Sequence,
   Tangent,
   TangentHX,
 } from '../geometry/function-types'
+import { curveOf } from '../geometry/analysis'
 import { numericPoint } from '../geometry/primitives'
 import type { GeometryObject } from '../geometry/types'
 import { drawFunctionPlot } from './function-plotter'
@@ -124,17 +126,16 @@ function paintLimit(frame: PainterFrame, primitives: DrawingPrimitives, limit: L
   if (!limit.visibility) return
   plot(frame, limit)
   paintFunctionGuides(frame, primitives, limit.func, limit.approachVal, limit.color)
-  if (isActive(frame, limit)) {
-    paintFunctionGuides(frame, primitives, limit.func, limit.approachValRight, limit.color, true)
-    paintFunctionGuides(frame, primitives, limit.func, limit.approachValLeft, limit.color, true)
-  }
+  // The approach guides follow the limit's slider, which is edited on another card.
+  paintFunctionGuides(frame, primitives, limit.func, limit.approachValRight, limit.color, true)
+  paintFunctionGuides(frame, primitives, limit.func, limit.approachValLeft, limit.color, true)
 }
 
 function paintTangent(frame: PainterFrame, primitives: DrawingPrimitives, tangent: Tangent): void {
   if (!tangent.visibility) return
   plot(frame, tangent)
   paintFunctionGuides(frame, primitives, tangent.func, tangent.approachVal, tangent.color, true)
-  if (isActive(frame, tangent)) paintEquationLine(frame, primitives, tangent.tngLine)
+  paintEquationLine(frame, primitives, tangent.tngLine)
 }
 
 function paintTangentHxGuide(frame: PainterFrame, primitives: DrawingPrimitives, point: { a: number; b: number }): void {
@@ -199,6 +200,48 @@ function paintSectionalFunctions(frame: PainterFrame, primitives: DrawingPrimiti
   }
 }
 
+/** Shade between the source graph and the x axis on [start, end], split where it is undefined. */
+function paintIntegral(frame: PainterFrame, integral: Integral): void {
+  if (!integral.visibility) return
+  const source = frame.objects.find(object => object.id === integral.sourceId)
+  const curve = source ? curveOf(source) : null
+  if (curve?.kind !== 'graph') return
+  const { transform, ctx } = frame
+  const low = Math.max(Math.min(integral.start, integral.end), transform.bounds.left)
+  const high = Math.min(Math.max(integral.start, integral.end), transform.bounds.right)
+  if (!(high > low)) return
+  const axis = transform.yToPixel(0)
+  const first = transform.xToPixel(low)
+  const last = transform.xToPixel(high)
+  const limit = frame.height * 4
+  ctx.save()
+  ctx.beginPath()
+  let open: number | null = null
+  const close = () => {
+    if (open === null) return
+    ctx.lineTo(open, axis)
+    ctx.closePath()
+    open = null
+  }
+  for (let pixel = first; ; pixel = Math.min(last, pixel + 1)) {
+    const y = curve.evaluate(transform.pixelToX(pixel))
+    if (y === null) {
+      close()
+    } else {
+      // Keep huge values representable; the canvas clips them anyway.
+      const py = Math.max(-limit, Math.min(frame.height + limit, transform.yToPixel(y)))
+      if (open === null) ctx.moveTo(pixel, axis)
+      ctx.lineTo(pixel, py)
+      open = pixel
+    }
+    if (pixel >= last) break
+  }
+  close()
+  ctx.fillStyle = `${integral.color}55`
+  ctx.fill()
+  ctx.restore()
+}
+
 /** Paint one analysis object without accessing document, tools, grid or DOM state. */
 export function paintAnalysisObject(
   frame: PainterFrame,
@@ -214,6 +257,7 @@ export function paintAnalysisObject(
     case 'tangentHX': paintTangentHx(frame, primitives, object); break
     case 'derivative': paintDerivative(frame, primitives, object); break
     case 'sectionalFunctions': paintSectionalFunctions(frame, primitives, object); break
+    case 'integral': paintIntegral(frame, object); break
     case 'verLine': break
   }
 }

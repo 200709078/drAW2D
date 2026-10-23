@@ -1,7 +1,7 @@
 import type { GeometryNameGroup } from '../geometry/types'
 import type { FunctionNameGroup } from '../geometry/function-types'
 
-export type ObjectNameGroup = GeometryNameGroup | FunctionNameGroup
+export type ObjectNameGroup = GeometryNameGroup | FunctionNameGroup | 'parameter' | 'integral'
 
 /** Naming uses a supplied snapshot, so a rejected command reserves no names. */
 export function createObjectName(group: ObjectNameGroup, names: Iterable<string | null>): string {
@@ -11,9 +11,11 @@ export function createObjectName(group: ObjectNameGroup, names: Iterable<string 
     while (occupied.has(`denk${index}`)) index++
     return `denk${index}`
   }
+  // Parameters avoid the variables x, y and n and the constants e and i.
   const alphabet = group === 'point' ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    : group === 'parameter' ? 'abcdkmpqrstuvwz'
     : group === 'angle' ? 'αβθδ'
-      : ['circleR', 'lineSegment', 'distanceSegment', 'sequence', 'arcMeasure'].includes(group)
+      : ['circleR', 'lineSegment', 'distanceSegment', 'sequence', 'arcMeasure', 'integral', 'polygon'].includes(group)
         ? 'abcdefghijklmnopqrstuvwxyz' : 'fghpqr'
   for (let index = 0; ; index++) {
     const suffix = index < alphabet.length ? '' : String(Math.floor(index / alphabet.length))

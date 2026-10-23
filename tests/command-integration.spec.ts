@@ -11,7 +11,6 @@ test.beforeEach(async ({ page }) => {
   page.on('pageerror', error => failures.push(error.message))
   await page.goto('/')
   await expect(page.locator('#giris')).toBeVisible()
-  await page.locator('#btnAcordeon').click()
 })
 
 test.afterEach(({ page }) => {
@@ -195,4 +194,16 @@ test('tek noktalı parçalı fonksiyon tanım noktasında görünür', async ({ 
   await enterCommand(page, '-1,x<0; 1.83,x=1.37')
   await expect(page.locator('#objectsContainer .expr-block')).toHaveCount(1)
   expect(await canvasHash(page, region), 'x=1.37 dalı y=1.83 noktasını görünür kılmalı').not.toBe(empty)
+})
+
+test('ParçalıFonksiyon komutu ve yardım örneği parçalı fonksiyon çizer', async ({ page }) => {
+  const region = aroundWorldPoint(1.37, 1.37 ** 2)
+  const empty = await canvasHash(page, region)
+  await page.locator('#helpMenuButton').click()
+  await page.locator('#helpSearch').fill('parçalı')
+  await page.locator('.help-topic:not([hidden]) .example').click()
+  await expect(page.locator('#giris')).toHaveValue('ParçalıFonksiyon(2x+1, x<0; x^2, x>=0)')
+  await page.locator('#giris').press('Enter')
+  await expect(page.locator('#objectsContainer .expr-block input[readonly]')).toHaveValue('f(x) = {2x+1, x<0; x^2, x>=0}')
+  expect(await canvasHash(page, region), 'x^2 dalı x=1.37 için çizilmeli').not.toBe(empty)
 })

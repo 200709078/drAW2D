@@ -59,10 +59,19 @@ try {
   assert.equal(await page.locator('#objectsContainer output').evaluate(output => output.value), "f': y = cos(x+1)")
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined')
   assert.deepEqual(await page.evaluate(() => Object.keys(window.drAW2DDesktop ?? {})), ['windowControls'])
-  assert.equal(await page.evaluate(() => typeof window.drAW2DRadialToolbar?.getActiveTool), 'function')
+  assert.equal(await page.evaluate(() => typeof window.drAW2DToolbar?.getActiveTool), 'function')
 
   const failedAssets = await page.evaluate(async () => {
-    const results = await Promise.all([...document.images].map(async image => {
+    // CSS background images (e.g. the card delete icon) resolve against the stylesheet, not the page.
+    const backgrounds = [...document.querySelectorAll('*')]
+      .map(element => getComputedStyle(element).backgroundImage)
+      .flatMap(value => [...value.matchAll(/url\("?([^")]+)"?\)/g)].map(match => match[1]))
+    const images = [...document.images, ...[...new Set(backgrounds)].map(source => {
+      const image = new Image()
+      image.src = source
+      return image
+    })]
+    const results = await Promise.all(images.map(async image => {
       try {
         await image.decode()
         return null
@@ -79,7 +88,9 @@ try {
     }))
     return results.filter(Boolean)
   })
-  assert.deepEqual(failedAssets, [], 'Simgeler ve ses paket içinde bulunmalı')
+  assert.deepEqual(failedAssets, [], 'Simgeler, CSS arka plan görselleri ve ses paket içinde bulunmalı')
+  assert.ok(await page.locator('#objectsContainer .sil').evaluate(button => getComputedStyle(button).backgroundImage.includes('clear.svg')),
+    'Kart silme simgesi CSS ile yüklenmeli')
   assert.deepEqual(errors, [], 'Electron içinde JavaScript veya varlık yükleme hatası olmamalı')
   await page.screenshot({ path: path.join('test-results', 'electron.png') })
   console.log('Electron kontrolü geçti: file:// açılış, başlık çubuğu, türev, araç çubuğu, varlıklar ve renderer yalıtımı.')

@@ -4,7 +4,7 @@ test('stiller betikten önce yüklenir; betik çalışmadan da panel simgeleri k
   // Without any script the page shows its first, unscripted paint.
   await page.route(/\.(?:js|ts)(?:\?.*)?$/, route => route.abort())
   await page.goto('/')
-  for (const id of ['btnimgCalc', 'btnimgAcordeon']) {
+  for (const id of ['btnimgCalc', 'btnimgHelpMenu']) {
     const box = await page.locator(`#${id}`).boundingBox()
     expect(box, id).not.toBeNull()
     expect(box!.width, id).toBeLessThanOrEqual(34)

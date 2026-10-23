@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import type { RadialToolAction } from '../src/ui/toolbar-types'
+import type { ToolAction } from '../src/ui/tool-registry'
 
 interface PaintedPoint { x: number; y: number }
 interface PaintedEllipse { x: number; y: number; radiusX: number; radiusY: number }
@@ -58,10 +58,10 @@ async function paintProbe(page: Page): Promise<GeometryPaintProbe> {
   return page.evaluate(() => (window as ProbedWindow).__geometryPaintProbe)
 }
 
-async function selectTool(page: Page, action: RadialToolAction): Promise<void> {
+async function selectTool(page: Page, action: ToolAction): Promise<void> {
   await page.evaluate(action => {
-    if (!window.drAW2DRadialToolbar) throw new Error('Araç çubuğu başlatılmadı')
-    window.drAW2DRadialToolbar.selectToolByAction(action, { showToast: false })
+    if (!window.drAW2DToolbar) throw new Error('Araç çubuğu başlatılmadı')
+    window.drAW2DToolbar.selectToolByAction(action, { showToast: false })
   }, action)
 }
 
@@ -123,7 +123,6 @@ test('çembere bağlı nokta kart yuvarlamasından bağımsız tam hassasiyetle 
 })
 
 test('çember teğetlerinin temas noktaları ayrı ad alır ve geçmişte aynı geometriye döner', async ({ page }) => {
-  await page.locator('#btnAcordeon').click()
   await enterCommand(page, 'Çember((0,0),2)')
   await enterCommand(page, 'TeğetC(a,(3,2))')
   const expectedRows = [
@@ -159,15 +158,16 @@ test('çember teğetlerinin temas noktaları ayrı ad alır ve geçmişte aynı 
 })
 
 test('çember doğru kesişimi teğet, iki nokta ve boş küme arasında bağımlı olarak güncellenir', async ({ page }) => {
+  // The line's intercept is the slider parameter k.
   await enterCommand(page, 'Çember((0,0),2)')
-  await enterCommand(page, '2')
+  await enterCommand(page, 'k=2')
+  await enterCommand(page, 'y=k')
   await enterCommand(page, 'Kesiştir(a,f)')
   const rows = page.locator('#objectsContainer .expr-block')
-  await expect(rows).toHaveCount(4)
+  await expect(rows).toHaveCount(5)
   await expect(rows.first().locator('output')).toHaveText('B=(0,2)')
 
-  await rows.nth(1).locator('input[readonly]').click()
-  const intercept = rows.nth(1).locator('..').locator('.sliders input[type="range"]').nth(1)
+  const intercept = page.locator('[id="2-sliderA"]')
   const setIntercept = async (value: string) => {
     await intercept.evaluate((element: HTMLInputElement, value) => {
       element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
@@ -186,7 +186,7 @@ test('çember doğru kesişimi teğet, iki nokta ve boş küme arasında bağım
   await expect(rows.first().locator('output')).toHaveText('B=(0,2)')
   await setIntercept('3')
   await expect(rows.first().locator('output')).toHaveText('∅')
-  await expect(rows).toHaveCount(4)
+  await expect(rows).toHaveCount(5)
 })
 
 

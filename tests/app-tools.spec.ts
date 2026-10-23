@@ -26,6 +26,7 @@ function setup() {
     document,
     models,
     prepare: command => prepareCommand(command, document.objects, { nextId: document.nextId, randomColor }),
+    visibleRange: () => ({ start: -5, end: 5 }),
   })
   const run = (source: string) => {
     const parsed = parseCommand(source)

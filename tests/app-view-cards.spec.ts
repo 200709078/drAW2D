@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { parseCommand } from '../src/commands/parser'
 import { prepareCommand } from '../src/commands/prepare'
-import { applySliderValues, describeCard, formatLine } from '../src/app/object-cards'
+import { describeCard, formatLine } from '../src/app/object-cards'
 import { ViewportState } from '../src/app/viewport-state'
 import type { GeometryDocumentObject } from '../src/geometry/function-types'
 
@@ -17,8 +17,7 @@ function build(...sources: string[]): GeometryDocumentObject[] {
   return objects
 }
 
-const context = (objects: GeometryDocumentObject[]) =>
-  ({ objects, bounds: { left: -5, right: 5, top: 5, bottom: -5 }, unitX: 1, unitY: 1 })
+const context = (objects: GeometryDocumentObject[]) => ({ objects })
 
 test('tekerlek yakınlaştırması imlecin altındaki matematik noktasını sabit tutar', () => {
   const view = new ViewportState()
@@ -63,7 +62,7 @@ test('kaydırma başlangıçtan itibaren piksel farkı kadar taşır', () => {
   expect(after.originY).toBeCloseTo(start.originY - 30, 9)
 })
 
-test('kartlar doğru denklemlerini, uzaklığı ve kaydırıcıları tek yerden üretir', () => {
+test('kartlar doğru denklemlerini ve uzaklığı üretir; kaydırıcı yalnız parametrelerdedir', () => {
   expect(formatLine(2, -3, ' ')).toBe('2x - 3')
   expect(formatLine(-1, 0.5)).toBe('-x+0.50')
   expect(formatLine(0, 4)).toBe('4')
@@ -75,22 +74,32 @@ test('kartlar doğru denklemlerini, uzaklığı ve kaydırıcıları tek yerden 
   const distance = build('Uzaklık((0,0),(3,4))')
   expect(describeCard(distance[2]!, context(distance)).output).toEqual(['a=5'])
 
-  const points = build('(1,2)')
-  const card = describeCard(points[0]!, context(points))
-  expect(card.sliders.map(slider => [slider.min, slider.max, slider.value, slider.label]))
-    .toEqual([[-6, 6, 1, 'a = 1'], [-6, 6, 2, 'b = 2']])
+  // Points and lines are edited by dragging and by their definition, not by sliders.
+  for (const source of ['(1,2)', '2x+1', 'x=3', 'Çember((0,0),2)']) {
+    const objects = build(source)
+    expect(objects.every(object => describeCard(object, context(objects)).sliders.length === 0), source).toBe(true)
+  }
+
+  const slider = build('a=2')
+  expect(describeCard(slider[0]!, context(slider))).toEqual({
+    input: 'a = 2', output: [], sliders: [{ min: -5, max: 5, step: 0.1, value: 2, label: '' }],
+    parameter: { min: -5, max: 5, step: 0.1 },
+  })
 })
 
-test('kaydırıcı değerleri modele uygulanır, hesaplanamayan teğet modeli değiştirmez', () => {
-  const [line] = build('2x+1')
-  expect(applySliderValues(line!, [3, -1], { updateTangent() {}, updateTangentHX() {} })).toEqual({ ok: true })
-  expect(line).toMatchObject({ m: 3, n: -1 })
-
-  const [tangent] = build('Teğet(x^2,1)')
-  const before = structuredClone(tangent)
-  const failing = { updateTangent() { throw new Error('tanımsız') }, updateTangentHX() {} }
-  expect(applySliderValues(tangent!, [2], failing)).toEqual({ ok: false, error: 'Bu konumda sonlu bir gerçek teğet hesaplanamıyor.' })
-  expect(tangent).toEqual(before)
+test('tanımı olan nesnelerin kartı tanımı, çıktısı değeri gösterir', () => {
+  const objects = build('a=2', 'b=a+1', '(a,1)', 'Çember((0,0),a)', 'a*x+1', 'x^a', 'Teğet(x^2,a)')
+  const cards = objects.map(object => describeCard(object, context(objects)))
+  expect(cards.map(card => [card.input, card.output])).toEqual([
+    ['a = 2', []],
+    ['b = a+1', ['b = 3']],
+    ['A=(a,1)', ['A=(2,1)']],
+    ['B=(0,0)', []],
+    ['c: Çember(B,a)', ['r = 2']],
+    ['f: y = a*x+1', ['y = 2x+1']],
+    ['g: y = x^a', []],
+    ['Teğet(x^2,a)', ['h: y = 4x-4']],
+  ])
 })
 
 test('sürekli yakınlaştırma ve iki parmak hareketi tutulan noktayı orta noktada tutar', () => {

@@ -3,23 +3,49 @@ import { createFunctionModels } from '../geometry/function-models'
 import { getCircleDescriptor, getLineDescriptor, getAngleMeasure, getReflectedPoint,
   isPointOnCircleData, numericPoint } from '../geometry/primitives'
 import { getObjectIntersection, isIntersectableLine, isIntersectableCircle } from '../geometry/intersections'
+import { analysisPoints, curveOf, isGraphObject } from '../geometry/analysis'
 import { getCircleTangentLines } from '../geometry/tangents'
-import type { GeometryCircle, GeometryPoint } from '../geometry/types'
-import type { FunctionSection, GeometryDocumentObject } from '../geometry/function-types'
+import { constructedLocation, isLineObject } from '../geometry/constructions'
+import type {
+  AnalysisKind, GeometryCircle, GeometryPoint, LineConstructionKind, LineWithPoints, ObjectReference, PointConstraint,
+} from '../geometry/types'
+import type { FunctionSection, GeometryDocumentObject, Parameter } from '../geometry/function-types'
+import { definitionNames } from './definition'
 import { createObjectName } from './names'
-import { classifyAffineExpression, parseFunctionExpression, resolveComposition } from './expressions'
-import type { Command, PointArgument } from './types'
+import {
+  classifyAffineExpression, evaluateNumericExpression, isReservedName, parameterValues, parseFunctionExpression,
+  resolveComposition,
+} from './expressions'
+import type { Command, NumberArgument, PointArgument } from './types'
 import { parseCommand } from './parser'
 
 export interface CommandPreparationOptions {
   /** First unused identifier. Neither this value nor the document is mutated. */
   nextId: number
   randomColor(): string
+  /** Where analysis commands without a range search; the visible x range in the app. */
+  range?: { start: number; end: number }
 }
+
+const DEFAULT_RANGE = { start: -10, end: 10 }
+const ANALYSIS_KINDS = { root: 'root', extremum: 'extremum', inflection: 'inflection', intersect: 'intersection' } as const
 
 export type PreparedCommand =
   | { ok: true; objects: GeometryDocumentObject[]; activeId: number; nextId: number }
   | { ok: false; error: string }
+
+interface ParameterRange {
+  min: number
+  max: number
+  step: number
+}
+
+const PARAMETER_NAME = /^[\p{L}][\p{L}\p{N}_]*$/u
+
+/** A slider covers -5…5 in steps of 0.1 and grows to include its starting value. */
+function defaultRange(value: number): ParameterRange {
+  return { min: Math.min(-5, Math.floor(value)), max: Math.max(5, Math.ceil(value)), step: 0.1 }
+}
 
 /** Prepare a complete construction before the caller commits it to the document. */
 export function prepareCommand(command: Command, document: readonly GeometryDocumentObject[], options: CommandPreparationOptions): PreparedCommand {
@@ -47,18 +73,119 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
     objects.push(object)
     return object
   }
+  /** Parameters created for this command; their presence always records a definition. */
+  let createdParameters = false
+  function value(argument: NumberArgument): number {
+    return typeof argument === 'number' ? argument
+      : evaluateNumericExpression(argument.expression, { references: allObjects() }).value
+  }
+  function isParameterName(name: string): boolean {
+    return allObjects().some(object => object.type === 'parameter' && object.name === name)
+  }
+  function addParameter(start: number, preferredName: string | null, range: ParameterRange): Parameter {
+    const occupied = new Set(allObjects().map(object => object.name))
+    const name = preferredName !== null && !occupied.has(preferredName) ? preferredName : context.createName('parameter')
+    createdParameters = true
+    return add({
+      type: 'parameter', name, id: context.nextId(), color: options.randomColor(),
+      visibility: true, size: 1, temp: false, value: start,
+      min: Math.min(range.min, start), max: Math.max(range.max, start), step: range.step,
+    })
+  }
+  /** A typed constant becomes a slider the construction depends on; an expression stays as typed. */
+  function sliderArgument(argument: NumberArgument | undefined, start: number, preferredName: string | null,
+    range: ParameterRange): NumberArgument {
+    if (argument !== undefined && typeof argument !== 'number') return argument
+    const parameter = addParameter(argument ?? start, preferredName, range)
+    return { expression: parameter.name! }
+  }
   function resolvePoint(argument: PointArgument, reuseCoordinates = false): GeometryPoint {
     if (argument.kind === 'reference') {
       const point = allObjects().find(object => object.type === 'point' && object.name === argument.name)
       if (!point || point.type !== 'point' || !numericPoint(point)) throw new Error(`Nokta bulunamadı: ${argument.name}`)
       return point
     }
-    if (reuseCoordinates) {
+    const a = value(argument.a)
+    const b = value(argument.b)
+    const definition: Command = { kind: 'point', point: { a: argument.a, b: argument.b } }
+    const dependent = definitionNames(definition, allObjects()).size > 0
+    if (reuseCoordinates && !dependent) {
       const point = allObjects().find(object => object.type === 'point' && object.geometryValid !== false
-        && Number(object.a) === argument.a && Number(object.b) === argument.b)
+        && Number(object.a) === a && Number(object.b) === b)
       if (point && point.type === 'point') return point
     }
-    return add(new models.mPoint(argument.a, argument.b))
+    const point: GeometryPoint = add(new models.mPoint(a, b))
+    if (dependent) point.definition = definition
+    return point
+  }
+  const reference = (point: GeometryPoint): PointArgument => ({ kind: 'reference', name: point.name! })
+  function searchRange(start: NumberArgument | undefined, end: NumberArgument | undefined): { start: number; end: number } {
+    const range = start === undefined || end === undefined ? options.range ?? DEFAULT_RANGE : { start: value(start), end: value(end) }
+    if (!(range.end > range.start)) throw new Error('Arama aralığının başlangıcı bitişinden küçük olmalı.')
+    return range
+  }
+  function graphObject(name: string): GeometryDocumentObject {
+    const object = namedObject(name)
+    if (!isGraphObject(object)) throw new Error(`Bir fonksiyon girin: ${name}`)
+    return object
+  }
+  const lookup = (id: ObjectReference | undefined) => allObjects().find(object => object.id === id)
+  /** A constructed point placed where its constraint puts it. */
+  function constructedPoint(constraint: PointConstraint): GeometryPoint {
+    const location = constructedLocation(constraint, lookup)
+    const point: GeometryPoint = add(new models.mPoint(location?.a ?? NaN, location?.b ?? NaN))
+    if (!location) point.geometryValid = false
+    point.onOther.push(constraint)
+    return point
+  }
+  /** A hidden, unnamed point that only gives a constructed line its position or direction. */
+  function helperPoint(constraint: PointConstraint): GeometryPoint {
+    const point = constructedPoint(constraint)
+    point.name = null
+    point.hideInLabels = true
+    point.visibility = false
+    return point
+  }
+  function primeName(source: GeometryPoint): string {
+    const names = new Set(allObjects().map(object => object.name))
+    const base = `${source.name}'`
+    let name = base
+    for (let index = 1; names.has(name); index++) name = base + index
+    return name
+  }
+  /** A line through `A` and the hidden helper(s), which belong to it. */
+  function constructedLine(A: GeometryPoint, B: GeometryPoint, kind: LineConstructionKind,
+    refs: ObjectReference[], helpers: GeometryPoint[]): GeometryDocumentObject {
+    const line: LineWithPoints = new models.mLineWithPoints(A, B)
+    line.construction = { kind, refs }
+    for (const helper of helpers) {
+      const constraint = helper.onOther[0]
+      if (constraint?.type === 'lineHelper' || constraint?.type === 'midpoint') constraint.ownerId = line.id
+    }
+    if (!getLineDescriptor(line).status) throw new Error('Doğru tanımlanamadı.')
+    return add(line)
+  }
+
+  /** One point per result, ordered by x; at least one, which stays undefined until a result exists. */
+  function analysisPointsFor(analysis: AnalysisKind, sources: GeometryDocumentObject[], range: { start: number; end: number }): GeometryPoint {
+    const found = analysisPoints(analysis, sources.map(curveOf), range.start, range.end)
+    const points: GeometryPoint[] = []
+    for (let index = 0; index < Math.max(1, found.length); index++) {
+      const location = found[index]
+      const point: GeometryPoint = add(new models.mPoint(location?.a ?? NaN, location?.b ?? NaN))
+      if (!location) point.geometryValid = false
+      if (index === 0) {
+        point.intersectionOwner = true
+        point.intersectionStatus = found.length ? 'points' : 'empty'
+      } else {
+        point.hideInLabels = true
+      }
+      point.onOther.push({ type: 'analysisPoint', analysis, sourceIds: sources.map(source => source.id), pointIndex: index,
+        start: range.start, end: range.end, ...(index > 0 ? { ownerId: points[0]!.id } : {}) })
+      points.push(point)
+    }
+    points[0]!.intersectionPointIds = points.map(point => point.id)
+    return points[0]!
   }
   function namedObject(name: string): GeometryDocumentObject {
     const object = allObjects().find(object => object.name === name)
@@ -76,26 +203,64 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
     if (depth > 16) throw new Error('Bileşke çok fazla iç içe geçmiş.')
     const parsed = parseCommand(source)
     if (parsed.ok && parsed.command.kind === 'composition') {
-      return resolveComposition(parsed.command.expressions.map(part => expression(part, depth + 1)), { references: document }).expression
+      return resolveComposition(parsed.command.expressions.map(part => expression(part, depth + 1)), { references: allObjects() }).expression
     }
-    return parseFunctionExpression(source, { references: document })
+    return parseFunctionExpression(source, { references: allObjects() })
   }
+  /** Affine in x for every parameter value: decided with the parameters kept as symbols. */
+  function affine(source: string) {
+    const symbolic = parseFunctionExpression(source, { references: allObjects(), keepParameters: true })
+    return classifyAffineExpression(symbolic, parameterValues(allObjects()))
+  }
+  function circleRadius(A: GeometryPoint, radius: NumberArgument): { circle: GeometryDocumentObject; definition: Command } {
+    const r = value(radius)
+    if (r < 0) throw new Error('Yarıçap negatif olamaz.')
+    return { circle: add(new models.mCircleR(A, r)), definition: { kind: 'circleRadius', center: reference(A), radius } }
+  }
+
   let active: GeometryDocumentObject
+  /** Normalized command for objects whose values can depend on parameters or functions. */
+  let definition: Command | null = null
   try {
     switch (command.kind) {
-      case 'point':
-        active = add(new models.mPoint(command.point.a, command.point.b))
+      case 'point': {
+        const point = resolvePoint({ kind: 'coordinates', a: command.point.a, b: command.point.b })
+        active = point
+        definition = point.definition ?? null
         break
+      }
+      case 'parameter': {
+        const { name } = command
+        if (!PARAMETER_NAME.test(name) || isReservedName(name)) throw new Error(`Parametre adı olarak kullanılamaz: ${name}`)
+        if (allObjects().some(object => object.name === name)) throw new Error(`Bu ad başka bir nesnede kullanılıyor: ${name}`)
+        const start = value(command.value)
+        const parameter = addParameter(start, name, defaultRange(start))
+        active = parameter
+        definition = command
+        // Only a computed parameter keeps a definition; a slider is its own value.
+        createdParameters = false
+        break
+      }
       case 'verticalLine':
-        active = add(new functions.mVerLine(command.x))
+        active = add(new functions.mVerLine(value(command.x)))
+        definition = command
         break
       case 'circleRadius': {
         const A = resolvePoint(command.center)
-        active = add(new models.mCircleR(A, command.radius))
+        const result = circleRadius(A, command.radius)
+        active = result.circle
+        definition = result.definition
         break
       }
       case 'circle2': {
         const A = resolvePoint(command.A)
+        // Çember(A, r) with a parameter r is a radius, not a second point.
+        if (command.B.kind === 'reference' && isParameterName(command.B.name)) {
+          const result = circleRadius(A, { expression: command.B.name })
+          active = result.circle
+          definition = result.definition
+          break
+        }
         const B = resolvePoint(command.B)
         const circle = new models.mCircle2(A, B)
         if (!getCircleDescriptor(circle).status) throw new Error('Çember tanımlanamadı.')
@@ -131,7 +296,87 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         active = add(angle)
         break
       }
+      case 'midpoint': {
+        const A = resolvePoint(command.A)
+        const B = resolvePoint(command.B)
+        active = constructedPoint({ type: 'midpoint', firstId: A.id, secondId: B.id })
+        break
+      }
+      case 'ray': {
+        const A = resolvePoint(command.A)
+        const B = resolvePoint(command.B)
+        const ray: GeometryDocumentObject = { type: 'ray', name: context.createName('line'), id: context.nextId(), A, B,
+          color: options.randomColor(), visibility: true, size: 2, temp: false }
+        if (!getLineDescriptor(ray).status) throw new Error('İki farklı nokta gereklidir.')
+        active = add(ray)
+        break
+      }
+      case 'perpendicular':
+      case 'parallel': {
+        const P = resolvePoint(command.point)
+        const line = namedObject(command.line)
+        if (!isLineObject(line)) throw new Error(`Bir doğru girin: ${command.line}`)
+        const refs = [P.id, line.id]
+        const helper = helperPoint({ type: 'lineHelper', construction: command.kind, refs })
+        active = constructedLine(P, helper, command.kind, refs, [helper])
+        break
+      }
+      case 'bisector': {
+        const A = resolvePoint(command.A)
+        const B = resolvePoint(command.B)
+        const refs = [A.id, B.id]
+        const middle = helperPoint({ type: 'midpoint', firstId: A.id, secondId: B.id })
+        const helper = helperPoint({ type: 'lineHelper', construction: 'bisector', refs })
+        active = constructedLine(middle, helper, 'bisector', refs, [middle, helper])
+        break
+      }
+      case 'angleBisector': {
+        const A = resolvePoint(command.A)
+        const B = resolvePoint(command.B)
+        const C = resolvePoint(command.C)
+        const refs = [A.id, B.id, C.id]
+        const helper = helperPoint({ type: 'lineHelper', construction: 'angleBisector', refs })
+        active = constructedLine(B, helper, 'angleBisector', refs, [helper])
+        break
+      }
+      case 'polygon': {
+        const points = command.points.map(argument => resolvePoint(argument))
+        if (new Set(points).size !== points.length) throw new Error('Çokgenin köşeleri farklı olmalı.')
+        active = add({ type: 'polygon', name: context.createName('polygon'), id: context.nextId(), points,
+          color: options.randomColor(), visibility: true, size: 2, temp: false })
+        break
+      }
+      case 'rotate': {
+        const source = resolvePoint(command.point, true)
+        const center = resolvePoint(command.center, true)
+        const angle = sliderArgument(command.angle, 90, null, { min: 0, max: 360, step: 1 })
+        const point = constructedPoint({ type: 'rotate', sourceId: source.id, centerId: center.id, angle: value(angle) })
+        point.name = primeName(source)
+        active = point
+        definition = { kind: 'rotate', point: reference(source), angle, center: reference(center) }
+        break
+      }
+      case 'translate': {
+        const source = resolvePoint(command.point, true)
+        const from = resolvePoint(command.from, true)
+        const to = resolvePoint(command.to, true)
+        const point = constructedPoint({ type: 'translate', sourceId: source.id, fromId: from.id, toId: to.id })
+        point.name = primeName(source)
+        active = point
+        break
+      }
       case 'reflect': {
+        // Yansıt(P, d) reflects across a line; Yansıt(P, M) through a point.
+        const mirror = command.center.kind === 'reference'
+          ? allObjects().find(object => object.name === (command.center as { name: string }).name) : undefined
+        if (isLineObject(mirror)) {
+          const source = resolvePoint(command.point, true)
+          const point = constructedPoint({ type: 'reflectLine', sourceId: source.id, lineId: mirror!.id })
+          if (point.geometryValid === false) throw new Error('Yansıma tanımlanamadı.')
+          point.name = primeName(source)
+          active = point
+          break
+        }
         const source = resolvePoint(command.point, true)
         const center = resolvePoint(command.center, true)
         const coordinates = getReflectedPoint(source, center)
@@ -146,9 +391,29 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         active = add(point)
         break
       }
+      case 'root':
+      case 'extremum':
+      case 'inflection':
+        active = analysisPointsFor(ANALYSIS_KINDS[command.kind], [graphObject(command.function)], searchRange(command.start, command.end))
+        break
+      case 'integral': {
+        const source = graphObject(command.function)
+        active = add({
+          type: 'integral', name: context.createName('integral'), id: context.nextId(), color: options.randomColor(),
+          visibility: true, size: 1, temp: false, sourceId: source.id, start: value(command.start), end: value(command.end),
+        })
+        definition = command
+        break
+      }
       case 'intersect': {
         const first = namedObject(command.first)
         const second = namedObject(command.second)
+        // A curve that is not a line is intersected numerically, with anything that is a curve.
+        const curveOnly = (object: GeometryDocumentObject) => isGraphObject(object) && object.type !== 'lineWithEquation'
+        if (first.id !== second.id && (curveOnly(first) || curveOnly(second)) && curveOf(first) && curveOf(second)) {
+          active = analysisPointsFor('intersection', [first, second], searchRange(command.start, command.end))
+          break
+        }
         if (first.id === second.id || !(isIntersectableLine(first) || isIntersectableCircle(first))
           || !(isIntersectableLine(second) || isIntersectableCircle(second))) throw new Error('İki farklı doğru veya çember gereklidir.')
         const intersection = getObjectIntersection(first, second)
@@ -196,37 +461,69 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         active = tangent
         break
       }
-      case 'sequence':
-        active = add(new functions.mSequence(parseFunctionExpression(command.expression, { variable: 'n', references: document }), command.start, command.end))
+      case 'sequence': {
+        const start = value(command.start)
+        const end = value(command.end)
+        if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 1 || end < start) {
+          throw new Error('Dizi indisleri artan sırada pozitif tam sayılar olmalı.')
+        }
+        const source = parseFunctionExpression(command.expression, { variable: 'n', references: allObjects() })
+        active = add(new functions.mSequence(source, start, end))
+        definition = command
         break
-      case 'limit':
-        active = add(new functions.mLimit(expression(command.expression), command.at))
+      }
+      case 'limit': {
+        const source = expression(command.expression)
+        const at = value(command.at)
+        const delta = sliderArgument(command.delta, 0.4, 'δ', { min: 0, max: 2, step: 0.01 })
+        const distance = value(delta)
+        const limit = add(new functions.mLimit(source, at))
+        limit.approachValRight = at + distance
+        limit.approachValLeft = at - distance
+        active = limit
+        definition = { ...command, delta }
         break
-      case 'tangent':
-        active = add(new functions.mTangent(expression(command.expression), command.at))
+      }
+      case 'tangent': {
+        const source = expression(command.expression)
+        const at = sliderArgument(command.at, 0, null, defaultRange(typeof command.at === 'number' ? command.at : 0))
+        active = add(new functions.mTangent(source, value(at)))
+        definition = { ...command, at }
         break
+      }
       case 'tangentH':
-      case 'tangentX':
-        active = add(new functions.mTangentHX(expression(command.expression), command.at, command.kind === 'tangentH'))
+      case 'tangentX': {
+        const source = expression(command.expression)
+        const at = sliderArgument(command.at, 0, null, defaultRange(typeof command.at === 'number' ? command.at : 0))
+        const haveH = command.kind === 'tangentH'
+        const h = sliderArgument(command.h, 2, haveH ? 'h' : null, haveH ? { min: 0, max: 10, step: 0.1 } : defaultRange(2))
+        const tangent = add(new functions.mTangentHX(source, value(at), haveH))
+        functions.updateTangentHX(tangent, value(at), value(h))
+        active = tangent
+        definition = { ...command, at, h }
         break
+      }
       case 'derivative':
         active = add(new functions.mDerivative(expression(command.expression)))
+        definition = command
         break
       case 'composition': {
-        const composed = resolveComposition(command.expressions.map(part => expression(part)), { references: document })
+        const composed = resolveComposition(command.expressions.map(part => expression(part)), { references: allObjects() })
         active = add(new functions.mFunctionComposition(composed.expressions))
+        definition = command
         break
       }
       case 'function': {
         const source = expression(command.expression)
-        const line = classifyAffineExpression(source)
+        const line = affine(command.expression)
         active = add(line ? new functions.mLineWithEquation(line.m, line.n) : new functions.mFunction(source))
+        definition = command
         break
       }
       case 'piecewise': {
         const sections: FunctionSection[] = command.sections.map(section => {
           const source = expression(section.expression)
-          const line = classifyAffineExpression(source)
+          const line = affine(section.expression)
           const curve = line
             ? new functions.mLineWithEquation(line.m, line.n, true, section.startX, section.endX)
             : new functions.mFunction(source, true, section.startX, section.endX)
@@ -235,10 +532,19 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
           return curve
         })
         active = add(new functions.mSectionalFunctions(command.source, sections))
+        definition = command
         break
       }
     }
     if (active.id === null) throw new Error('Kalıcı nesne oluşturulamadı.')
+    // Keep a definition only where values can change: it names a parameter or function,
+    // or this command created the sliders it depends on.
+    if (definition && (createdParameters || definitionNames(definition, allObjects()).size > 0)) {
+      if (command.kind === 'parameter' && definitionNames(definition, allObjects()).has(command.name)) {
+        throw new Error('Parametre kendisine başvuramaz.')
+      }
+      active.definition = definition
+    }
     return { ok: true, objects, activeId: active.id, nextId }
   } catch (error) {
     return { ok: false, error: 'İfade oluşturulamadı. ' + (error instanceof Error ? error.message : 'Girdi geçersiz.') }

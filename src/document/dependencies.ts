@@ -1,4 +1,7 @@
+import { definitionNames } from '../commands/definition'
 import type { GeometryDocumentObject } from '../geometry/function-types'
+import { analysisPoints, curveOf } from '../geometry/analysis'
+import { constructedLocation } from '../geometry/constructions'
 import { getObjectIntersection, type IntersectionResult } from '../geometry/intersections'
 import {
   getCircleDescriptor, getProjectionOnAngle, getProjectionOnCircle, getProjectionOnLine, getReflectedPoint,
@@ -17,9 +20,11 @@ export function pointConstraint<Type extends PointConstraint['type']>(
   return (object.onOther.find(constraint => constraint.type === type) as ConstraintOf<Type> | undefined) ?? null
 }
 
-/** A dependent point's value is derived; tools and sliders must not edit it directly. */
+/** A dependent point's value is derived; tools and dragging must not edit it directly. */
 export function isDerivedPoint(point: GeometryPoint): boolean {
-  return point.onOther.some(constraint => constraint.type === 'reflectPoint'
+  return point.definition !== undefined || point.onOther.some(constraint => constraint.type === 'reflectPoint'
+    || constraint.type === 'analysisPoint' || constraint.type === 'midpoint' || constraint.type === 'reflectLine'
+    || constraint.type === 'rotate' || constraint.type === 'translate' || constraint.type === 'lineHelper'
     || constraint.type === 'intersectLines' || constraint.type === 'circleTangentTouchPoint')
 }
 
@@ -32,6 +37,13 @@ function constraintReferences(constraint: PointConstraint): (ObjectId | null | u
     case 'reflectPoint': return [constraint.sourceId, constraint.centerId]
     case 'intersectLines': return [constraint.line1Id, constraint.line2Id, constraint.ownerId]
     case 'circleTangentTouchPoint': return [constraint.tangentId]
+    case 'analysisPoint': return [...constraint.sourceIds, constraint.ownerId]
+    case 'onFunction': return [constraint.functionId]
+    case 'midpoint': return [constraint.firstId, constraint.secondId, constraint.ownerId]
+    case 'reflectLine': return [constraint.sourceId, constraint.lineId]
+    case 'rotate': return [constraint.sourceId, constraint.centerId]
+    case 'translate': return [constraint.sourceId, constraint.fromId, constraint.toId]
+    case 'lineHelper': return [...constraint.refs, constraint.ownerId]
   }
 }
 
@@ -41,19 +53,31 @@ export function directReferences(object: GeometryDocumentObject): ObjectId[] {
   if (object.type === 'point') {
     for (const constraint of object.onOther) references.push(...constraintReferences(constraint))
   }
+  if (object.type === 'integral') references.push(object.sourceId)
+  if (object.type === 'polygon') references.push(...object.points.map(point => point.id))
   for (const key of ['A', 'B', 'C', 'circle'] as const) {
     if (key in object) references.push((object as Partial<Record<typeof key, { id: ObjectId | null }>>)[key]?.id)
   }
   return references.filter((id): id is ObjectId => typeof id === 'number')
 }
 
-/** The given objects and everything that transitively depends on them. */
+/** The given objects and everything that transitively depends on them, by reference or by name. */
 export function collectDependents(objects: readonly GeometryDocumentObject[], roots: Iterable<ObjectId>): Set<ObjectId> {
   const result = new Set(roots)
-  // Objects are appended after their dependencies, so one ordered pass is a topological walk.
-  for (const object of objects) {
-    if (object.id !== null && !result.has(object.id) && directReferences(object).some(id => result.has(id))) {
-      result.add(object.id)
+  const ids = new Map<string, ObjectId>()
+  for (const object of objects) if (object.name !== null && object.id !== null) ids.set(object.name, object.id)
+  const references = new Map(objects.map(object => [object, [
+    ...directReferences(object),
+    ...(object.definition ? [...definitionNames(object.definition, objects)].flatMap(name => ids.get(name) ?? []) : []),
+  ]]))
+  // A redefined parameter may use a later object, so repeat until nothing is added.
+  for (let added = true; added;) {
+    added = false
+    for (const object of objects) {
+      if (object.id !== null && !result.has(object.id) && references.get(object)!.some(id => result.has(id))) {
+        result.add(object.id)
+        added = true
+      }
     }
   }
   return result
@@ -94,7 +118,7 @@ export function resolveConstraints(objects: readonly GeometryDocumentObject[]): 
         }
         case 'onLine': {
           const line = get(constraint.lineId)
-          if (line && (line.type === 'lineWithPoints' || line.type === 'lineSegment' || line.type === 'distanceSegment'
+          if (line && (line.type === 'lineWithPoints' || line.type === 'lineSegment' || line.type === 'distanceSegment' || line.type === 'ray'
             || line.type === 'verLine' || line.type === 'lineWithEquation')) result = getProjectionOnLine(line, a, b)
           break
         }
@@ -127,6 +151,30 @@ export function resolveConstraints(objects: readonly GeometryDocumentObject[]): 
           const location = intersection.points[constraint.pointIndex ?? 0]
           if (location) result = { status: true, ...location, distance: 0 }
           point.intersectionStatus = intersection.reason
+          break
+        }
+        case 'analysisPoint': {
+          const location = analysisPoints(constraint.analysis, constraint.sourceIds.map(id => {
+            const source = get(id)
+            return source ? curveOf(source) : null
+          }), constraint.start, constraint.end)[constraint.pointIndex]
+          if (location) result = { status: true, ...location, distance: 0 }
+          break
+        }
+        case 'midpoint':
+        case 'reflectLine':
+        case 'rotate':
+        case 'translate':
+        case 'lineHelper': {
+          const location = constructedLocation(constraint, get)
+          if (location) result = { status: true, ...location, distance: 0 }
+          break
+        }
+        case 'onFunction': {
+          const source = get(constraint.functionId)
+          const curve = source ? curveOf(source) : null
+          const y = curve?.kind === 'graph' && Number.isFinite(a) ? curve.evaluate(a) : null
+          if (y !== null) result = { status: true, a, b: y, distance: 0 }
           break
         }
         case 'circleTangentTouchPoint': {

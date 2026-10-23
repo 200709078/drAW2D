@@ -5,7 +5,17 @@ import { composeExpressions } from '../math/function-algebra'
 
 export interface ExpressionOptions {
   variable?: 'x' | 'n'
+  /** Named functions and parameters an expression may use. */
   references?: readonly GeometryDocumentObject[]
+  /** Validate parameter names but keep them as symbols instead of their values. */
+  keepParameters?: boolean
+}
+
+/** An expression with the parameters and named functions it was resolved from. */
+export interface ResolvedExpression<Value> {
+  value: Value
+  /** Names of document objects the expression depends on. */
+  names: ReadonlySet<string>
 }
 
 type ScalarType = 'number' | 'boolean'
@@ -104,6 +114,22 @@ function replaceVariable(node: MathNode, variable: string, replacement: MathNode
   })
 }
 
+const reservedNames = new Set(['x', 'y', 'n', 'e', 'i', 'pi', 'E', 'PI', 'tau', 'true', 'false', 'ln'])
+
+/** Names that expressions already give a meaning to and parameters cannot take. */
+export function isReservedName(name: string): boolean {
+  return reservedNames.has(name) || Object.hasOwn(functions, name)
+}
+
+/** Current parameter values by name. */
+export function parameterValues(objects: readonly GeometryDocumentObject[]): Map<string, number> {
+  const values = new Map<string, number>()
+  for (const object of objects) {
+    if (object.type === 'parameter' && object.name !== null) values.set(object.name, object.value)
+  }
+  return values
+}
+
 function referenceExpressions(objects: readonly GeometryDocumentObject[]): Map<string, ReferenceExpression> {
   const result = new Map<string, ReferenceExpression>()
   for (const object of objects) {
@@ -129,9 +155,11 @@ function referenceExpressions(objects: readonly GeometryDocumentObject[]): Map<s
   return result
 }
 
-function resolve(source: string, options: ExpressionOptions, numeric: boolean): { node: MathNode; changed: boolean } {
+function resolve(source: string, options: ExpressionOptions, numeric: boolean): { node: MathNode; changed: boolean; names: Set<string> } {
   const variable = options.variable ?? 'x'
   const references = referenceExpressions(options.references ?? [])
+  const parameters = parameterValues(options.references ?? [])
+  const names = new Set<string>()
   let visits = 0
   let changed = false
 
@@ -144,6 +172,7 @@ function resolve(source: string, options: ExpressionOptions, numeric: boolean): 
     const resolved = visit(parse(reference.expression), reference.variable, nextStack, depth + 1)
     if (resolved.type !== 'number') throw new TypeError('Fonksiyon sayısal bir ifade olmalıdır.')
     changed = true
+    names.add(name)
     return replaceVariable(resolved.node, reference.variable, argument)
   }
 
@@ -168,6 +197,15 @@ function resolve(source: string, options: ExpressionOptions, numeric: boolean): 
       if (node.name === 'tau') {
         changed = true
         return { node: new math.OperatorNode('*', 'multiply', [new math.ConstantNode(2), new math.SymbolNode('pi')]), type: 'number' }
+      }
+      const parameter = parameters.get(node.name)
+      if (parameter !== undefined) {
+        names.add(node.name)
+        if (options.keepParameters) return { node, type: 'number' }
+        // The model stores the evaluated expression; the definition keeps the name.
+        changed = true
+        const constant = new math.ConstantNode(parameter)
+        return { node: parameter < 0 || Object.is(parameter, -0) ? new math.ParenthesisNode(constant) : constant, type: 'number' }
       }
       if (!numeric && references.has(node.name)) {
         return { node: resolveReference(node.name, new math.SymbolNode(activeVariable), stack, depth), type: 'number' }
@@ -226,32 +264,54 @@ function resolve(source: string, options: ExpressionOptions, numeric: boolean): 
   const resolved = visit(parse(source), variable, new Set(), 0)
   if (resolved.type !== 'number') throw new TypeError('İfade sayısal bir sonuç üretmelidir.')
   nodeSize(resolved.node)
-  return { node: resolved.node, changed }
+  return { node: resolved.node, changed, names }
 }
 
-/** Parse constants without allocating a geometry object or evaluating variable domains. */
-export function parseNumericExpression(source: string): number {
-  const { node } = resolve(source, {}, true)
+/** Evaluate a constant, possibly naming parameters, without allocating a geometry object. */
+export function evaluateNumericExpression(source: string, options: ExpressionOptions = {}): ResolvedExpression<number> {
+  const { node, names } = resolve(source, options, true)
   try {
-    return finiteReal(node.compile().evaluate())
+    return { value: finiteReal(node.compile().evaluate()), names }
   } catch (error) {
     if (error instanceof RangeError) throw error
     throw new RangeError('Sayısal ifade değerlendirilemedi.', { cause: error })
   }
 }
 
-/** Validate scalar AST structure; restricted domains remain valid curve expressions. */
-export function parseFunctionExpression(source: string, options: ExpressionOptions = {}): string {
+/** Parse constants without allocating a geometry object or evaluating variable domains. */
+export function parseNumericExpression(source: string, options: ExpressionOptions = {}): number {
+  return evaluateNumericExpression(source, options).value
+}
+
+/**
+ * Validate scalar AST structure and substitute parameter values and named functions.
+ * Restricted domains remain valid curve expressions.
+ */
+export function resolveFunctionExpression(source: string, options: ExpressionOptions = {}): ResolvedExpression<string> {
   const expression = sourceText(source)
   const resolved = resolve(expression, options, false)
-  return resolved.changed ? expressionString(resolved.node) : expression
+  return { value: resolved.changed ? expressionString(resolved.node) : expression, names: resolved.names }
+}
+
+export function parseFunctionExpression(source: string, options: ExpressionOptions = {}): string {
+  return resolveFunctionExpression(source, options).value
 }
 
 interface Affine { m: number; n: number }
 
-/** Classify by algebra rather than sampling, which confuses x² with x at 0 and 1. */
-export function classifyAffineExpression(expression: string): Affine | null {
-  const node = parse(parseFunctionExpression(expression))
+/**
+ * Classify by algebra rather than sampling, which confuses x² with x at 0 and 1.
+ * Parameters count as constants, but never as an exponent or divisor: the result must
+ * not depend on their current values, or a slider could turn a line into a curve.
+ */
+export function classifyAffineExpression(expression: string, parameters: ReadonlyMap<string, number> = new Map()): Affine | null {
+  const node = parse(sourceText(expression))
+  const scope = Object.fromEntries(parameters)
+  const mentionsParameter = (current: MathNode) => {
+    let found = false
+    current.traverse(child => { if (math.isSymbolNode(child) && parameters.has(child.name)) found = true })
+    return found
+  }
   function affine(current: MathNode): Affine | null {
     if (math.isParenthesisNode(current)) return affine(current.content)
     if (math.isSymbolNode(current) && current.name === 'x') return { m: 1, n: 0 }
@@ -261,9 +321,10 @@ export function classifyAffineExpression(expression: string): Affine | null {
         && !(parent && math.isFunctionNode(parent) && path === 'fn')) containsVariable = true
     })
     if (!containsVariable) {
-      try { return { m: 0, n: finiteReal(current.compile().evaluate()) } } catch { return null }
+      try { return { m: 0, n: finiteReal(current.compile().evaluate({ ...scope })) } } catch { return null }
     }
     if (!math.isOperatorNode(current)) return null
+    if ((current.fn === 'pow' || current.fn === 'divide') && current.args[1] && mentionsParameter(current.args[1])) return null
     const left = affine(current.args[0]!)
     if (!left) return null
     if (current.fn === 'unaryPlus') return left

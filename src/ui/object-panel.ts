@@ -6,6 +6,10 @@ export interface PanelEntry {
   color: string
   visible: boolean
   card: CardModel
+  /** A parameter whose value is currently being animated. */
+  animating?: boolean
+  /** Text shown while the card is edited; null when the object cannot be edited. */
+  editText: string | null
 }
 
 export interface ObjectPanelHandlers {
@@ -16,6 +20,11 @@ export interface ObjectPanelHandlers {
   sliderStart(): void
   sliderInput(id: ObjectId, values: number[]): void
   sliderCommit(): void
+  /** New slider bounds typed on a parameter card. */
+  parameterRange(id: ObjectId, min: number, max: number, step: number): void
+  toggleAnimation(id: ObjectId): void
+  /** Apply an edited card; true when accepted, false to keep editing (an error was shown). */
+  redefine(id: ObjectId, text: string): boolean
 }
 
 interface CardView {
@@ -26,7 +35,17 @@ interface CardView {
   labels: HTMLLabelElement[]
   ranges: HTMLInputElement[]
   outputKey: string
+  settings: HTMLDivElement
+  bounds: HTMLInputElement[]
+  play: HTMLButtonElement
+  edit: HTMLButtonElement
+  /** Latest display text; restored when editing ends. */
+  display: string
+  editText: string | null
+  editing: boolean
 }
+
+const BOUND_FIELDS = [['min', 'En küçük'], ['max', 'En büyük'], ['step', 'Adım']] as const
 
 const SLIDER_COUNT = 2
 
@@ -94,19 +113,96 @@ export class ObjectPanel {
       ranges.push(range)
       sliders.append(label, range)
     }
-    input.addEventListener('click', () => this.handlers.select(id))
+    // Parameter cards: editable slider bounds and an animation toggle, shown while selected.
+    const settings = element('div', 'parameter-settings')
+    settings.hidden = true
+    const bounds = BOUND_FIELDS.map(([field, title]) => {
+      const label = element('label', 'parameter-bound')
+      const caption = element('span')
+      caption.textContent = title
+      const bound = element('input')
+      bound.type = 'number'
+      bound.id = `${id}-${field}`
+      bound.addEventListener('change', () => {
+        const [min, max, step] = bounds.map(item => Number(item.value))
+        this.handlers.parameterRange(id, min!, max!, step!)
+      })
+      label.append(caption, bound)
+      settings.append(label)
+      return bound
+    })
+    const play = element('button', 'btn parameter-play')
+    play.type = 'button'
+    play.id = `${id}-play`
+    play.addEventListener('click', () => this.handlers.toggleAnimation(id))
+    settings.append(play)
+
+    const edit = element('button', 'btn duzenle')
+    edit.type = 'button'
+    edit.id = `${id}-edit`
+    edit.title = 'Düzenle'
+    edit.setAttribute('aria-label', 'Düzenle')
+
+    input.addEventListener('click', () => { if (!view.editing) this.handlers.select(id) })
+    input.addEventListener('dblclick', () => this.startEdit(view))
+    // Keep the input focused when the button is pressed, so blur does not end the edit first.
+    edit.addEventListener('mousedown', event => event.preventDefault())
+    edit.addEventListener('click', () => {
+      this.handlers.select(id)
+      if (view.editing) this.endEdit(view)
+      else this.startEdit(view)
+    })
+    input.addEventListener('keydown', event => {
+      if (!view.editing) {
+        if (event.key === 'Enter' || event.key === 'F2') this.startEdit(view)
+        return
+      }
+      if (event.key === 'Enter' && !event.isComposing) {
+        event.preventDefault()
+        event.stopPropagation()
+        if (this.handlers.redefine(id, input.value)) this.endEdit(view)
+      } else if (event.key === 'Escape') {
+        event.stopPropagation()
+        this.endEdit(view)
+      }
+    })
+    input.addEventListener('blur', () => { if (view.editing) this.endEdit(view) })
     hide.addEventListener('click', () => this.handlers.toggleVisibility(id))
     remove.addEventListener('click', () => this.handlers.remove(id))
-    block.append(input, output, hide, remove)
-    root.append(block, sliders, element('hr'))
-    const view = { root, input, output, hide, labels, ranges, outputKey: '' }
+    block.append(input, output, edit, hide, remove)
+    root.append(block, sliders, settings, element('hr'))
+    const view: CardView = {
+      root, input, output, hide, labels, ranges, outputKey: '', settings, bounds, play, edit,
+      display: '', editText: null, editing: false,
+    }
     this.views.set(id, view)
     return view
   }
 
+  private startEdit(view: CardView): void {
+    if (view.editing || view.editText === null) return
+    view.editing = true
+    view.input.readOnly = false
+    view.input.value = view.editText
+    view.root.classList.add('is-editing')
+    view.input.focus()
+    view.input.select()
+  }
+
+  private endEdit(view: CardView): void {
+    view.editing = false
+    view.input.readOnly = true
+    view.input.value = view.display
+    view.root.classList.remove('is-editing')
+  }
+
   private update(view: CardView, entry: PanelEntry, active: boolean): void {
     const { card } = entry
-    setIfChanged(view.input, 'value', card.input)
+    view.display = card.input
+    view.editText = entry.editText
+    view.edit.hidden = entry.editText === null
+    // The text being typed is left alone until the edit ends.
+    if (!view.editing) setIfChanged(view.input, 'value', card.input)
     const outputKey = card.output.join('\n')
     if (view.outputKey !== outputKey) {
       view.output.replaceChildren(...card.output.flatMap((line, index) => index ? [element('br'), line] : [line]))
@@ -116,12 +212,14 @@ export class ObjectPanel {
     view.output.style.backgroundColor = active ? '#f2f7ff' : ''
     view.hide.title = entry.visible ? 'Gizle' : 'Göster'
     view.hide.style.background = entry.visible ? entry.color : 'transparent'
+    // A parameter's slider is its main control and stays visible; others show when selected.
+    const pinned = card.parameter !== undefined
     view.ranges.forEach((range, index) => {
       const spec = card.sliders[index]
       const label = view.labels[index]!
-      const hidden = !spec || !active
+      const hidden = !spec || !(active || pinned)
       setIfChanged(range, 'hidden', hidden)
-      setIfChanged(label, 'hidden', hidden)
+      setIfChanged(label, 'hidden', hidden || !spec?.label)
       if (!spec) return
       // Bounds before value, so the browser does not clamp the value to stale bounds.
       setIfChanged(range, 'min', String(spec.min))
@@ -130,5 +228,17 @@ export class ObjectPanel {
       setIfChanged(range, 'value', String(spec.value))
       setIfChanged(label, 'textContent', spec.label)
     })
+    const settings = card.parameter
+    setIfChanged(view.settings, 'hidden', !settings || !active)
+    if (settings) {
+      view.bounds.forEach((bound, index) => {
+        // Do not overwrite a bound while it is being typed.
+        if (document.activeElement !== bound) setIfChanged(bound, 'value', String(settings[BOUND_FIELDS[index]![0]]))
+      })
+      const label = entry.animating ? 'Durdur' : 'Oynat'
+      setIfChanged(view.play, 'title', label)
+      setIfChanged(view.play, 'textContent', entry.animating ? '⏸' : '▶')
+      view.play.setAttribute('aria-label', label)
+    }
   }
 }

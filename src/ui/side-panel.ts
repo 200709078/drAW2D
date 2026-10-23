@@ -7,9 +7,13 @@ const MAX_SHEET_RATIO = 0.85
 /** Narrow screens show the panel as a bottom sheet instead of a right column. */
 export const NARROW_LAYOUT_QUERY = '(max-width: 700px)'
 
+export type PanelTab = 'algebra' | 'tools'
+
 export interface SidePanel {
   readonly isHidden: boolean
   setHidden(hidden: boolean): void
+  /** The bottom sheet's tab (narrow layout); the column always shows the objects. */
+  showTab(tab: PanelTab): void
 }
 
 function required<Element extends HTMLElement>(id: string): Element {
@@ -18,17 +22,18 @@ function required<Element extends HTMLElement>(id: string): Element {
   return element as Element
 }
 
-/** The object panel, its collapse button, the tool accordion and the size handle. */
+/** The object panel, its collapse button, its tabs and the size handle. */
 export function createSidePanel(onToggle: () => void): SidePanel {
   const wrapper = required<HTMLElement>('rightWrapper')
-  const toolbar = required<HTMLElement>('rightToolbar')
+  const toolbar = required<HTMLElement>('mainToolbar')
   const toggle = required<HTMLButtonElement>('btnCalc')
   const toggleIcon = document.getElementById('btnimgCalc')
-  const accordion = document.getElementById('btnAcordeon')
   const narrow = window.matchMedia(NARROW_LAYOUT_QUERY)
+  const tabs = { algebra: required<HTMLButtonElement>('tabAlgebra'), tools: required<HTMLButtonElement>('tabTools') }
+  const pages = { algebra: required<HTMLElement>('scrollWrapper'), tools: required<HTMLElement>('toolsPanel') }
 
-  // In the column layout the floating buttons follow the panel's left edge; over a
-  // bottom sheet they stay in the canvas corner (CSS).
+  // In the column layout the toolbar ends at the panel's left edge; over a bottom
+  // sheet it spans the screen (CSS).
   const alignToolbar = () => {
     if (narrow.matches) toolbar.style.right = ''
     else toolbar.style.right = wrapper.classList.contains('hide') ? '0px' : `${wrapper.getBoundingClientRect().width}px`
@@ -42,18 +47,19 @@ export function createSidePanel(onToggle: () => void): SidePanel {
       toggle.title = hidden ? 'Paneli Göster' : 'Paneli Gizle'
       alignToolbar()
     },
+    showTab(tab) {
+      for (const name of ['algebra', 'tools'] as const) {
+        tabs[name].setAttribute('aria-selected', String(name === tab))
+        pages[name].hidden = name !== tab
+      }
+    },
   }
+  tabs.algebra.addEventListener('click', () => panel.showTab('algebra'))
+  tabs.tools.addEventListener('click', () => panel.showTab('tools'))
 
   toggle.addEventListener('click', () => {
     onToggle()
     panel.setHidden(!panel.isHidden)
-  })
-
-  accordion?.addEventListener('click', () => {
-    const open = !toolbar.classList.contains('is-open')
-    toolbar.classList.toggle('is-open', open)
-    accordion.setAttribute('aria-expanded', String(open))
-    accordion.title = open ? 'Araçları gizle' : 'Araçları göster'
   })
 
   // The handle resizes the column's width or the sheet's height, with mouse, pen or finger.
@@ -97,6 +103,8 @@ export function createSidePanel(onToggle: () => void): SidePanel {
   narrow.addEventListener('change', () => {
     wrapper.style.width = ''
     wrapper.style.height = ''
+    // The column has no tools tab: the toolbar shows the tools there.
+    if (!narrow.matches) panel.showTab('algebra')
     alignToolbar()
   })
   new ResizeObserver(alignToolbar).observe(wrapper)

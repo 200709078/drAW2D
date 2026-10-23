@@ -1,9 +1,10 @@
 import { createObjectName, type ObjectNameGroup } from '../commands/names'
 import { parseCommand } from '../commands/parser'
 import { prepareCommand } from '../commands/prepare'
-import { collectDependents, resolveConstraints } from '../document/dependencies'
+import { collectDependents, isDerivedPoint, resolveConstraints } from '../document/dependencies'
+import { recomputeDefinitions, redefineParameter, setParameterRange } from '../document/definitions'
+import { redefineObject } from '../document/redefine'
 import { GeometryDocument } from '../document/geometry-document'
-import { createFunctionModels } from '../geometry/function-models'
 import { createGeometryModels } from '../geometry/models'
 import { numericPoint, type NumericPoint } from '../geometry/primitives'
 import type { GeometryPoint, ObjectId } from '../geometry/types'
@@ -15,14 +16,16 @@ import type { PainterFrame } from '../rendering/painter-types'
 import { paintDocumentScene } from '../rendering/scene-painter'
 import { createTransientPainter } from '../rendering/transient-painter'
 import { bindCommandInput } from '../ui/command-input'
+import { bindCommandTemplates } from '../ui/command-templates'
+import { createMathKeyboard } from '../ui/math-keyboard'
 import { createHelpPopup } from '../ui/help-popup'
 import { ObjectPanel } from '../ui/object-panel'
-import { radialToolbarApi } from '../ui/radial-toolbar'
+import { createToolbar } from '../ui/main-toolbar'
 import { createSidePanel, NARROW_LAYOUT_QUERY } from '../ui/side-panel'
 import { createToast } from '../ui/toast'
-import type { RadialToolAction } from '../ui/toolbar-types'
+import type { ToolAction } from '../ui/tool-registry'
 import { HIT_TOLERANCE_PX, hitTest } from './hit-test'
-import { applySliderValues, describeCard } from './object-cards'
+import { describeCard, editText } from './object-cards'
 import { ToolController, type ToolInput } from './tools'
 import { ViewportState, type PixelPoint, type ViewAxis } from './viewport-state'
 
@@ -30,6 +33,8 @@ const AXIS_GRAB_PX = 8
 const TOUCH_AXIS_GRAB_PX = 16
 const TOUCH_HIT_TOLERANCE_PX = 22
 const TRACKPAD_ZOOM_RATE = 0.01
+/** An animated parameter sweeps from its minimum to its maximum in this time, then back. */
+const ANIMATION_SWEEP_MS = 4000
 
 function required<Element extends HTMLElement>(id: string): Element {
   const element = document.getElementById(id)
@@ -72,14 +77,20 @@ export function startApp(): void {
   const createName = (group: ObjectNameGroup) => createObjectName(group, geometry.objects.map(object => object.name))
   const nextId = () => geometry.allocateId()
   const models = createGeometryModels({ createName, nextId, randomColor })
-  const functionModels = createFunctionModels({
-    createName, nextId, randomColor,
-    createPoint: (a, b, temp) => new models.mPoint(a, b, temp),
-    createLineWithPoints: (A, B, temp) => new models.mLineWithPoints(A, B, temp),
-  })
+  /** The visible x range, rounded outwards to hundredths: the default analysis search range. */
+  const visibleRange = () => {
+    const { left, right } = transform().bounds
+    return { start: Math.floor(left * 100) / 100, end: Math.ceil(right * 100) / 100 }
+  }
   const prepare = (command: Parameters<typeof prepareCommand>[0]) =>
-    prepareCommand(command, geometry.objects, { nextId: geometry.nextId, randomColor })
-  const tools = new ToolController({ document: geometry, models, prepare })
+    prepareCommand(command, geometry.objects, { nextId: geometry.nextId, randomColor, range: visibleRange() })
+  const tools = new ToolController({ document: geometry, models, prepare, visibleRange })
+  /** Recompute what depends on the changed parameters or functions. */
+  const recompute = (changed: Iterable<string>) => recomputeDefinitions(geometry.objects, prepare, changed)
+  const parameterById = (id: ObjectId) => {
+    const object = geometry.objects.find(item => item.id === id)
+    return object?.type === 'parameter' ? object : null
+  }
 
   let cursor: ToolInput | null = null
   let pointDrag: PointDrag | null = null
@@ -127,6 +138,7 @@ export function startApp(): void {
     },
     remove(id) {
       commitSlider()
+      stopAnimation(id, false)
       resetInteraction()
       // Dependent constructions go with the object; one history step restores all of them.
       for (const dependent of collectDependents(geometry.objects, [id])) geometry.remove(dependent)
@@ -135,23 +147,122 @@ export function startApp(): void {
     },
     sliderStart: () => geometry.beginEdit(),
     sliderInput(id, values) {
-      const object = geometry.objects.find(item => item.id === id)
-      if (!object) return
+      const parameter = parameterById(id)
+      const [value] = values
+      if (!parameter || parameter.definition || value === undefined || !Number.isFinite(value)) return
       if (!geometry.isEditing) geometry.beginEdit()
-      const result = applySliderValues(object, values, functionModels)
-      if (!result.ok) showToast('Teğet', result.error)
+      parameter.value = value
+      recompute([parameter.name!])
       refresh()
     },
     sliderCommit: commitSlider,
+    parameterRange(id, min, max, step) {
+      const parameter = parameterById(id)
+      if (!parameter) return
+      commitSlider()
+      const result = setParameterRange(parameter, min, max, step)
+      if (result.ok) {
+        recompute([parameter.name!])
+        commit()
+      } else {
+        showToast('Kaydırıcı', result.error)
+      }
+      refresh()
+    },
+    toggleAnimation(id) {
+      if (animations.has(id)) stopAnimation(id)
+      else startAnimation(id)
+    },
+    redefine(id, text) {
+      const target = geometry.objects.find(object => object.id === id)
+      const current = target ? editText(target, { objects: geometry.objects }) : null
+      if (!target || current === null) return true
+      commitSlider()
+      if (tools.action !== 'select' || geometry.hasDraft) resetInteraction()
+      const result = redefineObject(geometry.objects, target, text, current, prepare)
+      if (!result.ok) {
+        showToast('Düzenle', result.error.replace(/^İfade oluşturulamadı\.\s*/, ''))
+        return false
+      }
+      for (const removed of result.remove) geometry.remove(removed)
+      geometry.append(...result.append)
+      recompute(result.changedNames)
+      geometry.activeId = id
+      commit()
+      refresh()
+      return true
+    },
   })
+
+  // --- Parameter animation -------------------------------------------------------
+  /** Animated parameters: the unsnapped position and the sweep direction. */
+  const animations = new Map<ObjectId, { position: number; direction: 1 | -1 }>()
+  let animationFrame: number | null = null
+  let lastFrameTime: number | null = null
+
+  function startAnimation(id: ObjectId): void {
+    const parameter = parameterById(id)
+    if (!parameter || parameter.definition) return
+    commitSlider()
+    animations.set(id, { position: parameter.value, direction: parameter.value >= parameter.max ? -1 : 1 })
+    if (animationFrame === null) animationFrame = requestAnimationFrame(animate)
+    refresh()
+  }
+
+  /** Stop one animation; the values it reached become one undoable step. */
+  function stopAnimation(id: ObjectId, record = true): void {
+    if (!animations.delete(id)) return
+    if (record) {
+      commit()
+      refresh()
+    }
+  }
+
+  /** Undo, redo and clear replace the document: animations end without a history step. */
+  function stopAllAnimations(): void {
+    animations.clear()
+  }
+
+  function animate(time: number): void {
+    animationFrame = null
+    const elapsed = lastFrameTime === null ? 0 : Math.min(100, time - lastFrameTime)
+    lastFrameTime = time
+    const changed: string[] = []
+    for (const [id, state] of animations) {
+      const parameter = parameterById(id)
+      if (!parameter || parameter.definition) {
+        animations.delete(id)
+        continue
+      }
+      const { min, max, step } = parameter
+      state.position += state.direction * (max - min) * elapsed / ANIMATION_SWEEP_MS
+      if (state.position >= max) [state.position, state.direction] = [max, -1]
+      else if (state.position <= min) [state.position, state.direction] = [min, 1]
+      // Values stay on the slider's step grid; rounding removes float noise from the grid.
+      const snapped = Number((min + Math.round((state.position - min) / step) * step).toPrecision(12))
+      if (snapped !== parameter.value) {
+        parameter.value = Math.min(max, Math.max(min, snapped))
+        changed.push(parameter.name!)
+      }
+    }
+    if (changed.length) {
+      recompute(changed)
+      refresh()
+    }
+    if (animations.size) animationFrame = requestAnimationFrame(animate)
+    else lastFrameTime = null
+  }
 
   /** Bring dependent geometry, cards, history buttons and the next frame up to date. */
   function refresh(): void {
     resolveConstraints(geometry.objects)
-    const { bounds } = transform()
-    const context = { objects: geometry.objects, bounds, unitX: view.unitX, unitY: view.unitY }
+    const context = { objects: geometry.objects }
     const entries = geometry.objects.filter(object => !(object.type === 'point' && object.hideInLabels)).reverse()
-      .map(object => ({ id: object.id!, color: object.color, visible: object.visibility, card: describeCard(object, context) }))
+      .map(object => ({
+        id: object.id!, color: object.color, visible: object.visibility,
+        card: describeCard(object, context), animating: animations.has(object.id!),
+        editText: editText(object, context),
+      }))
     panel.render(entries, geometry.activeId)
     undoButton.disabled = !geometry.canUndo
     redoButton.disabled = !geometry.canRedo
@@ -184,7 +295,7 @@ export function startApp(): void {
     tools.reset()
     endDrag()
     geometry.activeId = null
-    radialToolbarApi.selectToolByAction('select', { showToast: false })
+    toolbar.select('select', { showToast: false })
   }
 
   function cancelInteraction(): void {
@@ -192,7 +303,7 @@ export function startApp(): void {
     refresh()
   }
 
-  function activateTool(action: RadialToolAction): void {
+  function activateTool(action: ToolAction): void {
     if (action === tools.action) return
     commitSlider()
     endDrag()
@@ -213,6 +324,23 @@ export function startApp(): void {
     commitSlider()
     resetInteraction()
     const parsed = parseCommand(source)
+    // `a=3` for an existing parameter changes it instead of creating a new object.
+    if (parsed.ok && parsed.command.kind === 'parameter') {
+      const name = parsed.command.name
+      const existing = geometry.objects.find(object => object.name === name)
+      if (existing?.type === 'parameter') {
+        const result = redefineParameter(geometry.objects, existing, parsed.command.value)
+        if (result.ok) {
+          recompute([name])
+          geometry.activeId = existing.id
+          commit()
+        } else {
+          showToast('GİRİŞ', result.error)
+        }
+        refresh()
+        return
+      }
+    }
     const prepared = parsed.ok ? prepare(parsed.command) : parsed
     if (prepared.ok) {
       geometry.append(...prepared.objects)
@@ -272,7 +400,7 @@ export function startApp(): void {
       // Return to selection, keeping the new construction selected. The finishing
       // press does not also start a drag, because it began with another tool.
       const created = geometry.activeId
-      if (action !== 'point') radialToolbarApi.selectToolByAction('select', { showToast: false })
+      if (action !== 'point') toolbar.select('select', { showToast: false })
       geometry.activeId = created
     }
     refresh()
@@ -282,7 +410,8 @@ export function startApp(): void {
     const { hit } = input
     if (hit) geometry.activeId = hit.object.id
     grabbing = true
-    const origin = hit?.kind === 'point' ? numericPoint(hit.object) : null
+    // Points computed from other objects or parameters are selected, not dragged.
+    const origin = hit?.kind === 'point' && !isDerivedPoint(hit.object) ? numericPoint(hit.object) : null
     if (hit?.kind === 'point' && origin) {
       pointDrag = { point: hit.object, cursor: input.position, origin, raw: { a: hit.object.a, b: hit.object.b } }
       geometry.beginEdit()
@@ -435,16 +564,19 @@ export function startApp(): void {
   })
 
   undoButton.addEventListener('click', () => {
+    stopAllAnimations()
     geometry.undo()
     resetInteraction()
     refresh()
   })
   redoButton.addEventListener('click', () => {
+    stopAllAnimations()
     geometry.redo()
     resetInteraction()
     refresh()
   })
   clearButton.addEventListener('click', () => {
+    stopAllAnimations()
     resetInteraction()
     if (geometry.clear()) {
       commit()
@@ -472,12 +604,26 @@ export function startApp(): void {
     },
   })
   document.getElementById('helpMenuButton')?.addEventListener('click', () => help.open())
-  bindCommandInput(commandInput, submitCommand)
+  createMathKeyboard(commandInput, required('rightWrapper'), required<HTMLButtonElement>('keyboardToggle'))
+  // Template suggestions handle their keys before the input submits.
+  const templates = bindCommandTemplates(commandInput)
+  bindCommandInput(commandInput, submitCommand, () => {
+    const placeholder = templates.selectUnfilled()
+    if (placeholder) showToast('GİRİŞ', `Şablondaki ${placeholder} alanını doldurun.`)
+  })
 
-  required('radialToolbar').addEventListener('radial-tool-change', event => {
-    const { action, toast, title, showToast: announce } = event.detail
-    activateTool(action)
-    if (announce) showToast(toast || title)
+  const toolbar = createToolbar({
+    groups: required('toolGroups'),
+    currentTool: required<HTMLButtonElement>('currentTool'),
+    panel: required('toolsPanel'),
+    onChange(tool, announce) {
+      activateTool(tool.action)
+      if (announce) showToast(tool.label, tool.instruction)
+    },
+    onOpenTools() {
+      if (sidePanel.isHidden) sidePanel.setHidden(false)
+      sidePanel.showTab('tools')
+    },
   })
 
   // Layout changes (window, panel, DPR) resize the canvas; card slider ranges follow the view.
@@ -494,6 +640,5 @@ export function startApp(): void {
     view.setOrigin(-surface.width / 2 / scaleY, -surface.height / 2 / scaleX)
   }
   view.saveStandard()
-  activateTool(radialToolbarApi.getActiveTool().action)
   refresh()
 }

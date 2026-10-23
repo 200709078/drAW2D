@@ -9,7 +9,6 @@ test.beforeEach(async ({ page }) => {
   page.on('pageerror', error => failures.push(error.message));
   await page.goto('/');
   await expect(page.locator('#giris')).toBeVisible();
-  await page.locator('#btnAcordeon').click();
 });
 
 test.afterEach(({ page }) => {
@@ -99,9 +98,10 @@ test('custom base-first logarithms differentiate correctly in derivatives and ta
   const tangentX = 2.37;
   const tangentRegion = aroundSample(tangentX, (tangentX - 1) / Math.log(5));
   const emptyTangentSample = await canvasHash(page, tangentRegion);
+  // The tangent and the slider parameter for its approach value.
   await enterCommand(page, 'Teğet(log(5,x),1)');
-  await expect(row).toHaveCount(1);
-  await expect(row.locator('output')).toHaveText('f: y = 0.62x-0.62');
+  await expect(row).toHaveCount(2);
+  await expect(row.first().locator('output')).toHaveText('f: y = 0.62x-0.62');
   expect(await canvasHash(page, tangentRegion), 'The tangent must use the base-first derivative').not.toBe(emptyTangentSample);
 });
 
@@ -127,10 +127,13 @@ test('a derivative with a missing named function leaves the document and undo hi
 test('an unchanged secant slider preserves the picture and creates no undo step', async ({ page }) => {
   await enterCommand(page, 'TeğetH(x^2,1)');
   const row = page.locator('#objectsContainer .expr-block');
-  await expect(row).toHaveCount(1);
-  await expect(row.locator('output')).toHaveText('[f(1+h) - f(1)] / h = 4');
+  // The secant, then its sliders h (id 1) and a (id 0), newest first.
+  await expect(row).toHaveCount(3);
+  await expect(row.first().locator('output')).toHaveText('[f(1+h) - f(1)] / h = 4');
+  await expect(row.nth(1).locator('input[readonly]')).toHaveValue('h = 2');
   const originalPicture = await canvasHash(page);
-  const slider = page.locator('#objectsContainer .sliders input[type="range"]').first();
+  const slider = page.locator('[id="1-sliderA"]');
+  await expect(slider).toBeVisible();
   await slider.evaluate((element: HTMLInputElement) => {
     element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
     element.dispatchEvent(new Event('input', { bubbles: true }));
@@ -142,8 +145,8 @@ test('an unchanged secant slider preserves the picture and creates no undo step'
   await expect(row).toHaveCount(0);
   await expect(page.locator('#undo')).toBeDisabled();
   await page.locator('#redo').click();
-  await expect(row).toHaveCount(1);
-  await expect(row.locator('input[readonly]')).toHaveValue('TeğetH(x^2,1)');
-  await expect(row.locator('output')).toHaveText('[f(1+h) - f(1)] / h = 4');
+  await expect(row).toHaveCount(3);
+  await expect(row.first().locator('input[readonly]')).toHaveValue('TeğetH(x^2,a)');
+  await expect(row.first().locator('output')).toHaveText('[f(1+h) - f(1)] / h = 4');
   await expect(page.locator('#redo')).toBeDisabled();
 });

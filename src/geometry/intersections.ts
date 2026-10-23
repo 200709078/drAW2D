@@ -43,7 +43,7 @@ export function isIntersectableLine(value: unknown): value is LineLike {
     return typeof value.m === 'number' && typeof value.n === 'number'
       && isOptionalNumber(value.startX) && isOptionalNumber(value.endX)
   }
-  return (value.type === 'lineWithPoints' || value.type === 'lineSegment' || value.type === 'distanceSegment')
+  return (value.type === 'lineWithPoints' || value.type === 'lineSegment' || value.type === 'distanceSegment' || value.type === 'ray')
     && isPointLike(value.A) && isPointLike(value.B)
 }
 

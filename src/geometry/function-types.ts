@@ -5,6 +5,7 @@ import type {
   GeometryPoint,
   LineWithPoints,
   ObjectId,
+  ObjectReference,
 } from './types'
 
 export type FunctionNameGroup =
@@ -98,6 +99,21 @@ export interface SectionalFunctions extends GeometryObject<'sectionalFunctions'>
   secFuncs: FunctionSection[]
 }
 
+/** A named number: a slider, or a value computed from other parameters (`definition`). */
+export interface Parameter extends GeometryObject<'parameter'> {
+  value: number
+  min: number
+  max: number
+  step: number
+}
+
+/** The area between a function's graph and the x axis from `start` to `end`; its value is computed. */
+export interface Integral extends GeometryObject<'integral'> {
+  sourceId: ObjectReference
+  start: number
+  end: number
+}
+
 export type FunctionGeometryObject =
   | VerticalLine
   | EquationLine
@@ -109,5 +125,6 @@ export type FunctionGeometryObject =
   | TangentHX
   | Derivative
   | SectionalFunctions
+  | Integral
 
-export type GeometryDocumentObject = BasicGeometryObject | FunctionGeometryObject
+export type GeometryDocumentObject = BasicGeometryObject | FunctionGeometryObject | Parameter

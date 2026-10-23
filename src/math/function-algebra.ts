@@ -132,6 +132,23 @@ function realResult(value: unknown): number {
   return numeric
 }
 
+/** A compiled f(x) that returns null where the expression is undefined or not finite. */
+export function realEvaluator(expression: string): (x: number) => number | null {
+  const source = expressionText(expression)
+  let compiled = compiledExpressions.get(source)
+  if (compiled === undefined) compiled = remember(compiledExpressions, source, math.compile(source))
+  const scope = { x: 0 }
+  return x => {
+    if (!Number.isFinite(x)) return null
+    scope.x = x
+    try {
+      return realResult(compiled.evaluate(scope))
+    } catch {
+      return null
+    }
+  }
+}
+
 export function evaluateReal(expression: string, x: number): number {
   const source = expressionText(expression)
   const value = normalizeReal(x)

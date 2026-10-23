@@ -99,13 +99,14 @@ test('huge sequences and a limit with an undefined center leave drawing and inpu
   // factorial(-x) is undefined at x=1, but its negative-x branch is finite.
   const branch = aroundWorldPoint(-1.5, 3 * Math.sqrt(Math.PI) / 4)
   const beforeLimit = await canvasHash(page, branch)
+  // The limit and its δ slider parameter.
   await enterCommand(page, 'Limit(factorial(-x),1)')
-  await expect(page.locator('#objectsContainer .expr-block')).toHaveCount(3)
+  await expect(page.locator('#objectsContainer .expr-block')).toHaveCount(4)
   expect(await canvasHash(page, branch), 'An undefined limit center must not prevent valid branches from painting')
     .not.toBe(beforeLimit)
 
   await enterCommand(page, 'x=-1')
-  await expect(page.locator('#objectsContainer .expr-block')).toHaveCount(4)
+  await expect(page.locator('#objectsContainer .expr-block')).toHaveCount(5)
   await expect(page.locator('#objectsContainer .expr-block input[readonly]').first())
     .toHaveValue(/^denk2:\s*x\s*=\s*-1$/)
 })

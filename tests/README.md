@@ -8,6 +8,10 @@ logaritma fixture'ındaki kart metni bu ortak AST gösterimine göre güncellenm
 
 `command-parser.spec.ts` iç içe argümanları, sayısal parametreleri, komut
 çeşitlerini ve parçalı fonksiyon koşullarını tarayıcı açmadan denetler.
+`ParçalıFonksiyon(ifade, aralık; ...)` biçimi çıplak biçimle aynı komutu üretir;
+`command-integration.spec.ts` yardım örneğinden bu komutun çizilmesini sınar.
+`ParçalıFonksiyon(ifade, aralık; ...)` biçimi çıplak biçimle aynı komutu üretir;
+`command-integration.spec.ts` yardım örneğinden bu komutun çizilmesini sınar.
 `command-expressions.spec.ts` skaler AST doğrulamasını, kısmi tanım alanlarını,
 adlı fonksiyon başvurularını/çağrılarını, bileşke karmaşıklık sınırlarını ve
 afin katsayıların cebirsel hesabını sınar.
@@ -77,6 +81,18 @@ oluşturma, reddedilen teğet adayının kimlik ayırmaması, yay ölçüsünün
 piksel cinsinden en yakın nesne seçimi. `app-view-cards.spec.ts` imleç merkezli
 yakınlaştırmayı, eksen sürüklemeyi, kaydırmayı, kart metinlerini/kaydırıcı
 aralıklarını ve reddedilen kaydırıcı değerinin modeli değiştirmemesini denetler.
+`parameters.spec.ts` parametreleri tarayıcı açmadan sınar: bilinmeyen adlı sayıların
+ifade olarak hazırlamaya bırakılması, kaydırıcıyla nokta/çember/fonksiyon/dik doğru
+ve başka fonksiyonu kullanan tanımların yeniden hesaplanırken kimliklerini ve
+başvurularını koruması, doğru/eğri ayrımının parametre değerinden bağımsız olması,
+öğretim komutlarının kaydırıcıları, değerlendirilemeyen tanımın son değeri koruyup
+toparlanması, bağımlı parametreler, yeniden tanımlama ve döngü engeli, aralık
+doğrulaması, zincirleme silme ve değeri değişmeyen yeniden hesaplamanın belge
+grafiğini (dolayısıyla geçmişi) değiştirmemesi. `app-integration.spec.ts`
+kaydırıcıyı, `a=7` ile yeniden tanımlamayı, kartta aralık düzenlemeyi, animasyonun
+tek geçmiş adımı olmasını ve parametreye bağlı noktanın sürüklenmemesini arayüzde
+denetler. Komut matrisinde `Teğet`, `TeğetH/X` ve `Limit` satırları oluşan
+kaydırıcıları da içerir.
 `touch-integration.spec.ts` 390 × 844 dokunmatik telefon görünümünde gerçek dokunma
 olaylarını Chromium CDP arabirimiyle gönderir: panelin kapalı başlaması, başlangıç
 noktasının ortada olması, alttan açılan panelin tutamakla büyütülmesi, yapı aracında
@@ -85,6 +101,42 @@ yakınlaştırma/kaydırma ve ikinci parmağın süren nokta sürüklemesini ge�
 bırakmadan geri alması sınanır. `app-view-cards.spec.ts` sürekli yakınlaştırmayı ve
 iki parmak hareketinin hesabını tarayıcı açmadan denetler. Fare olaylarını kodla
 gönderen çizim testleri artık `PointerEvent` kullanır.
+`constructions.spec.ts` yeni yapıları sınar: orta nokta, ışının yalnız bir yönde
+kesişmesi, çokgen alanı ve köşe değişince güncellenmesi, dik/paralel doğru, kenar
+orta dikmesi ve açıortayın denklemleri ve noktaları izlemesi, gizli yardımcıların
+doğruyla silinmesi, doğruya göre yansıtma, döndürme (açı kaydırıcısıyla) ve öteleme;
+ayrıca dik doğru, çokgen ve öteleme araçları.
+`analysis.spec.ts` sayısal analizi tarayıcı açmadan sınar: kökler (çift kök, kutup ve
+sıçramanın kök sayılmaması), `Kök`/`Ekstremum`/`Dönüm` noktalarının sırası ve kartı,
+aralık doğrulaması, fonksiyonların fonksiyon/doğru/dik doğru/çemberle kesişimi,
+parametre değişince noktaların izlemesi ve çözümsüzde `∅`, belirli integral ve
+parametreli sınırlar, fonksiyon üzerindeki noktanın izlemesi ve zincirleme silme.
+`app-integration.spec.ts` Kök aracını, eğriye bağlı noktanın sürüklenmesini ve
+integral taramasını arayüzde denetler.
+`math-keyboard.spec.ts` matematik klavyesini sınar: düğmeyle açma/kapama ve
+`inputmode`, fonksiyon tuşunun imleci parantezin içine koyması ve ⏎ ile gönderme,
+komut şablonunun klavyeden doldurulması (⇥ ve eksik alan uyarısı dahil), ⌫ ve ok
+tuşları, parantez eşleme ve Türkçe harfler; dokunmatik ekranda ilk dokunuşta açılma.
+`command-templates.spec.ts` dil tablosunu (her komut adının ayrıştırılması, her yardım
+örneğinin çözümlenmesi, her şablonun kendi komutunu adlandırması) ve girişteki
+önerileri sınar: komut adı yazınca öneri, Enter/Tab/tıklama ile şablon yerleştirme,
+Tab ile yer tutucular arası geçiş, doldurulmamış yer tutucuyla göndermede uyarı, ok
+tuşları, Esc, aksansız eşleşme, seçili yer tutucuya parantez yazma ve tek harf,
+ifade veya yazılmış çağrıda öneri çıkmaması.
+`redefine.spec.ts` karttan yeniden tanımlamayı tarayıcı açmadan sınar: düzenleme
+metninin ad ve tanıma ayrılması, her kart türünün düzenleme metninin aynı nesneyi
+yeniden üretmesi, ad değişikliğinin tanımlardaki başvurulara yansıması, nokta, çember,
+doğru ve fonksiyonun yerinde değişip bağımlıların izlemesi, bağlı yapılarda tür
+değişikliğinin reddi, nesneye bağlı noktanın koordinatla taşınması, kesişim ve teğet
+yardımcı noktalarının kimliklerini koruması, döngüsel ve geçersiz girişlerin belgeyi
+değiştirmemesi ve düzenlenen `TeğetH` kaydırıcılarının korunması.
+`app-integration.spec.ts` kalem düğmesi, Enter, Esc, hata sonrası düzeltme, ad
+değiştirme ve tek geri alma adımını arayüzde denetler.
+`toolbar.spec.ts` araç kaydının her aracı bir kez bir gruba koymasını, grup
+düğmesinin son aracını seçip menüsünü açmasını, menüden seçilen aracın grubun yüzü
+olmasını, menünün dışarı tıklama ve Esc ile kapanmasını, çubuktan seçilen araçla
+çizimi ve dar ekranda araçların alt paneldeki "Araçlar" sekmesinden seçilmesini
+sınar. Diğer arayüz testleri aracı `window.drAW2DToolbar` üzerinden seçer.
 `page-shell.spec.ts` bütün betikler engellendiğinde de panel simgelerinin küçük
 kaldığını (stillerin `index.html` içinden ilk çizimden önce yüklendiğini) ve
 tarayıcıda özel başlık çubuğu eklenmediğini denetler.
@@ -180,7 +232,8 @@ Bu kontrol derlenmiş uygulamayı `file://` üzerinden açar; türev çıktısı
 çubuğunu, simge/ses yüklemesini ve renderer'ın Node.js erişiminin kapalı olmasını
 denetler. Başlık çubuğunun sürümlü başlığı, düğmeleri, tuval ile panelin çubuğun
 altında başlaması ve Büyüt düğmesinin pencere durumunu değiştirmesi de sınanır;
-preload yalnızca `drAW2DDesktop.windowControls` nesnesini açar. Hazır Linux paket klasöründeki çalıştırılabilir dosya da aynı kontrolle
+preload yalnızca `drAW2DDesktop.windowControls` nesnesini açar. `<img>` öğelerinin yanında CSS
+arka plan görselleri (kart silme simgesi gibi) de paketten yüklenebilmelidir. Hazır Linux paket klasöründeki çalıştırılabilir dosya da aynı kontrolle
 açılabilir:
 
 ```sh

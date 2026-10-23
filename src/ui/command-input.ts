@@ -1,3 +1,5 @@
+import { PLACEHOLDER } from '../commands/language'
+
 const PAIRS: Readonly<Record<string, string>> = { '(': ')', '[': ']', '{': '}' }
 
 /** Insert the closing bracket around the selection; Backspace removes an empty pair. */
@@ -8,8 +10,11 @@ function handleBrackets(event: KeyboardEvent, input: HTMLInputElement): void {
   const close = PAIRS[event.key]
   if (close) {
     event.preventDefault()
-    input.value = value.slice(0, start) + event.key + value.slice(start, end) + close + value.slice(end)
-    input.setSelectionRange(start + 1, end + 1)
+    // A selected template placeholder is replaced, not wrapped.
+    const selected = value.slice(start, end)
+    const inner = new RegExp(`^${PLACEHOLDER.source}$`, 'u').test(selected) ? '' : selected
+    input.value = value.slice(0, start) + event.key + inner + close + value.slice(end)
+    input.setSelectionRange(start + 1, start + 1 + inner.length)
     return
   }
   if (event.key === 'Backspace' && start === end) {
@@ -22,8 +27,12 @@ function handleBrackets(event: KeyboardEvent, input: HTMLInputElement): void {
   }
 }
 
-/** Enter submits non-empty text; IME composition and modified keys keep their native meaning. */
-export function bindCommandInput(input: HTMLInputElement, submit: (source: string) => void): void {
+/**
+ * Enter submits non-empty text; IME composition and modified keys keep their native meaning.
+ * Text that still has a template placeholder is not submitted: `incomplete` reports it.
+ */
+export function bindCommandInput(input: HTMLInputElement, submit: (source: string) => void,
+  incomplete: () => void = () => undefined): void {
   input.addEventListener('keydown', event => {
     // keyCode 229 marks composition in browsers that do not set isComposing.
     if (event.isComposing || event.keyCode === 229) return
@@ -32,6 +41,10 @@ export function bindCommandInput(input: HTMLInputElement, submit: (source: strin
     if (event.key !== 'Enter') return
     event.preventDefault()
     if (!input.value.trim()) return
+    if (input.value.match(PLACEHOLDER)) {
+      incomplete()
+      return
+    }
     submit(input.value)
     input.value = ''
   })

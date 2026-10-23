@@ -1,10 +1,4 @@
-const MAX_SUGGESTIONS = 8
-
-interface Suggestion {
-  command: string
-  topic: string
-  searchText: string
-}
+import { HELP_TOPICS, LANGUAGE } from '../commands/language'
 
 const normalize = (text: string) => text.trim().toLocaleLowerCase('tr-TR')
 
@@ -14,16 +8,39 @@ export interface HelpPopupOptions {
   onExample(command: string): void
 }
 
-/**
- * The help popup turns its static H4 sections into searchable accordions on first open.
- * The same examples feed the command input's suggestions.
- */
+/** Topics and examples from the language table, as H4 headings followed by their entries. */
+function renderTopics(section: HTMLElement): void {
+  for (const topic of HELP_TOPICS) {
+    const entries = LANGUAGE.filter(entry => entry.topic === topic.title)
+    const heading = document.createElement('h4')
+    heading.textContent = topic.title
+    section.append(heading)
+    if (topic.note) {
+      const note = document.createElement('h6')
+      note.textContent = topic.note
+      section.append(note)
+    }
+    for (const entry of entries) {
+      const block = document.createElement('pre')
+      if (entry.syntax) block.append(entry.syntax, '\n')
+      for (const example of entry.examples) {
+        const code = document.createElement('code')
+        code.className = 'example'
+        code.textContent = example
+        block.append(code)
+      }
+      section.append(block)
+    }
+  }
+}
+
+/** The help popup renders its topics and turns them into searchable accordions on first open. */
 export function createHelpPopup({ input, onExample }: HelpPopupOptions): { open(): void; close(): void } {
   const popup = document.getElementById('help-popup')
   const header = document.getElementById('help-header')
   const section = document.querySelector<HTMLElement>('.help-section')
   let search: HTMLInputElement | null = null
-  let suggestions: Suggestion[] | null = null
+  if (section) renderTopics(section)
 
   const close = () => {
     if (popup) popup.style.display = 'none'
@@ -84,68 +101,6 @@ export function createHelpPopup({ input, onExample }: HelpPopupOptions): { open(
       search.focus()
     }
   }
-
-  function suggestionItems(): Suggestion[] {
-    if (suggestions) return suggestions
-    const unique = new Map<string, Suggestion>()
-    for (const example of document.querySelectorAll('code.example')) {
-      const command = example.textContent?.trim() ?? ''
-      if (!command || unique.has(command)) continue
-      // Before the accordion exists, the nearest preceding H4 names the topic.
-      let heading: Element | null = example.closest('pre')
-      while (heading && heading.tagName !== 'H4') heading = heading.previousElementSibling
-      const topic = (example.closest('.help-topic')?.querySelector('summary') ?? heading)?.textContent?.trim() ?? ''
-      unique.set(command, { command, topic, searchText: normalize(`${command} ${topic}`) })
-    }
-    suggestions = Array.from(unique.values())
-    return suggestions
-  }
-
-  const box = document.createElement('div')
-  box.id = 'commandSuggestions'
-  box.className = 'command-suggestions'
-  box.hidden = true
-  input.insertAdjacentElement('afterend', box)
-
-  function renderSuggestions(): void {
-    const query = normalize(input.value)
-    const matches = query ? suggestionItems().filter(item => item.searchText.includes(query)).slice(0, MAX_SUGGESTIONS) : []
-    if (!matches.length) {
-      box.hidden = true
-      return
-    }
-    box.replaceChildren(...matches.map(item => {
-      const button = document.createElement('button')
-      button.type = 'button'
-      button.className = 'command-suggestion'
-      const command = document.createElement('span')
-      command.textContent = item.command
-      button.append(command)
-      if (item.topic) {
-        const topic = document.createElement('small')
-        topic.textContent = item.topic
-        button.append(topic)
-      }
-      // Keep focus in the input while choosing.
-      button.addEventListener('mousedown', event => event.preventDefault())
-      button.addEventListener('click', () => {
-        input.value = item.command
-        box.hidden = true
-        input.focus()
-      })
-      return button
-    }))
-    box.hidden = false
-  }
-
-  input.addEventListener('input', renderSuggestions)
-  input.addEventListener('focus', renderSuggestions)
-  input.addEventListener('keydown', event => {
-    if (event.key === 'Escape' || event.key === 'Enter') box.hidden = true
-  })
-  document.addEventListener('click', event => {
-    if (event.target !== input && !(event.target instanceof Element && event.target.closest('#commandSuggestions'))) box.hidden = true
-  })
 
   document.querySelector('.help-close')?.addEventListener('click', close)
   for (const example of document.querySelectorAll('.example')) {
