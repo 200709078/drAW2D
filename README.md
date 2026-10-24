@@ -6,6 +6,16 @@ made by **mADEMatik Solutions** — [madematik.com](https://www.madematik.com/dr
 
 İlgili proje: [drAW3D](https://github.com/200709078/drAW3D)
 
+## İndir
+
+Masaüstü uygulamasının son sürümü (bağlantılar her zaman en yeni sürümü indirir):
+
+- **Windows 10/11 (64-bit):** [drAW2D-win-x64.exe](https://github.com/200709078/drAW2D/releases/latest/download/drAW2D-win-x64.exe)
+- **Linux DEB (Pardus, Debian, Ubuntu):** [drAW2D-linux-amd64.deb](https://github.com/200709078/drAW2D/releases/latest/download/drAW2D-linux-amd64.deb)
+- **Linux AppImage:** [drAW2D-linux-x86_64.AppImage](https://github.com/200709078/drAW2D/releases/latest/download/drAW2D-linux-x86_64.AppImage)
+
+Bütün sürümler, kurulum adımları ve SHA-256 değerleri: [Releases](https://github.com/200709078/drAW2D/releases).
+
 ## Özellikler
 
 - **Geometrik araçlar**: nokta, orta nokta, doğru, doğru parçası, ışın, dik ve paralel doğru, kenar orta dikmesi, açıortay, çokgen (alanıyla), çember (merkez + nokta / üç nokta), çembere teğet, açı, yay ölçüsü
@@ -86,6 +96,12 @@ npm run dist:win      # Windows için NSIS .exe kurulum paketi
 Paketler `release/` altında oluşur. Linux paketlerini Linux üzerinde, Windows paketini
 Windows üzerinde üretmek önerilir; Linux'ta Windows için çapraz derleme ek Wine
 araçları gerektirebilir. Pardus uyumluluğu hedeflenen Pardus sürümünde ayrıca denenmelidir.
+
+Sürüm paketleri GitHub Actions ile üretilir (`.github/workflows/release.yml`): Linux paketleri
+Ubuntu'da, Windows `.exe` Windows'ta derlenir ve GitHub sürümüne yüklenir. Yeni sürüm için
+`npm version patch` ardından `git push --follow-tags`; mevcut sürümün paketlerini yenilemek için
+Actions sekmesinde **Run workflow**. Dosya adlarında sürüm yoktur, böylece
+`releases/latest/download/<ad>` bağlantıları değişmez.
 
 ## Kontroller
 
