@@ -50,9 +50,9 @@ test('kökler işaret değişimi ve çift kökle bulunur; kutup ve sıçrama kö
 
 test('Kök, Ekstremum ve Dönüm noktaları x sırasıyla oluşur ve tek kartta listelenir', () => {
   const doc = documentWith('x^2-4', 'Kök(f)', 'x^3-3x', 'Ekstremum(g)', 'Dönüm(g)')
-  expect(doc.card('A')).toEqual({ input: 'A=Kök(f)', output: ['A=(-2,0)', 'B=(2,0)'], sliders: [] })
-  expect(doc.card('C')).toEqual({ input: 'C=Ekstremum(g)', output: ['C=(-1,2)', 'D=(1,-2)'], sliders: [] })
-  expect(doc.card('E')).toEqual({ input: 'E=Dönüm(g)', output: ['E=(0,0)'], sliders: [] })
+  expect(doc.card('A')).toEqual({ input: 'A=Kök(f)', output: ['A=(-2,0)', 'B=(2,0)'], valueFirst: true, sliders: [] })
+  expect(doc.card('C')).toEqual({ input: 'C=Ekstremum(g)', output: ['C=(-1,2)', 'D=(1,-2)'], valueFirst: true, sliders: [] })
+  expect(doc.card('E')).toEqual({ input: 'E=Dönüm(g)', output: ['E=(0,0)'], valueFirst: true, sliders: [] })
   expect(editText(doc.named('A'), { objects: doc.objects })).toBe('A = Kök(f,-10,10)')
   // An explicit range limits the search.
   const ranged = documentWith('sin(x)', 'Kök(f,0.5,7)')
@@ -94,7 +94,7 @@ test('belirli integral alanı hesaplar; sınırlar parametre olabilir', () => {
   expect(definiteIntegral(realEvaluator('x'), 2, 0)).toBeCloseTo(-2, 9)
   expect(definiteIntegral(realEvaluator('sqrt(x)'), -1, 1)).toBeNull()
   const doc = documentWith('b=3', 'x^2', 'İntegral(f,0,b)')
-  expect(doc.card('a')).toEqual({ input: 'a = İntegral(f,0,b)', output: ['a = 9'], sliders: [] })
+  expect(doc.card('a')).toEqual({ input: 'a = İntegral(f,0,b)', output: ['a = 9'], valueFirst: true, sliders: [] })
   doc.set('b', 1)
   expect(doc.card('a').output).toEqual(['a = 0.33'])
   expect(editText(doc.named('a'), { objects: doc.objects })).toBe('a = İntegral(f,0,b)')

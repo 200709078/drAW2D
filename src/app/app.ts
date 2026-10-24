@@ -1,18 +1,18 @@
 import { createObjectName, type ObjectNameGroup } from '../commands/names'
 import { parseCommand } from '../commands/parser'
 import { prepareCommand } from '../commands/prepare'
-import { collectDependents, isDerivedPoint, resolveConstraints } from '../document/dependencies'
+import { collectDependents, resolveConstraints } from '../document/dependencies'
 import { recomputeDefinitions, redefineParameter, setParameterRange } from '../document/definitions'
 import { redefineObject } from '../document/redefine'
 import { GeometryDocument } from '../document/geometry-document'
 import { createGeometryModels } from '../geometry/models'
 import { numericPoint, type NumericPoint } from '../geometry/primitives'
-import type { GeometryPoint, ObjectId } from '../geometry/types'
+import type { ObjectId } from '../geometry/types'
 import { createCanvasSurface } from '../rendering/canvas-surface'
 import { createGridRenderer } from '../rendering/coordinate-grid'
 import { createFrameRenderer, createSceneOrder } from '../rendering/frame-renderer'
 import { createFunctionEvaluator } from '../rendering/function-evaluator'
-import type { PainterFrame } from '../rendering/painter-types'
+import type { PainterFrame, PointTrace } from '../rendering/painter-types'
 import { paintDocumentScene } from '../rendering/scene-painter'
 import { createTransientPainter } from '../rendering/transient-painter'
 import { bindCommandInput } from '../ui/command-input'
@@ -25,7 +25,8 @@ import { createSidePanel, NARROW_LAYOUT_QUERY } from '../ui/side-panel'
 import { createToast } from '../ui/toast'
 import type { ToolAction } from '../ui/tool-registry'
 import { HIT_TOLERANCE_PX, hitTest } from './hit-test'
-import { describeCard, editText } from './object-cards'
+import { applyStyle, describeCard, editText, styleSpec } from './object-cards'
+import { beginObjectDrag, moveObjectDrag, type ObjectDrag } from './object-drag'
 import { ToolController, type ToolInput } from './tools'
 import { ViewportState, type PixelPoint, type ViewAxis } from './viewport-state'
 
@@ -35,6 +36,8 @@ const TOUCH_HIT_TOLERANCE_PX = 22
 const TRACKPAD_ZOOM_RATE = 0.01
 /** An animated parameter sweeps from its minimum to its maximum in this time, then back. */
 const ANIMATION_SWEEP_MS = 4000
+/** Positions kept per traced point; the oldest are dropped first. */
+const TRACE_LIMIT = 20000
 
 function required<Element extends HTMLElement>(id: string): Element {
   const element = document.getElementById(id)
@@ -46,13 +49,6 @@ function required<Element extends HTMLElement>(id: string): Element {
 function randomColor(): string {
   const channel = () => Math.round(Math.random() * 255 * 0.75).toString(16).padStart(2, '0')
   return `#${channel()}${channel()}${channel()}`
-}
-
-interface PointDrag {
-  point: GeometryPoint
-  cursor: NumericPoint
-  origin: NumericPoint
-  raw: Pick<GeometryPoint, 'a' | 'b'>
 }
 
 /** Composition root: owns the document, the view and every DOM binding of the application. */
@@ -93,7 +89,9 @@ export function startApp(): void {
   }
 
   let cursor: ToolInput | null = null
-  let pointDrag: PointDrag | null = null
+  let objectDrag: ObjectDrag | null = null
+  /** Positions passed by traced points, in plane coordinates; not part of the document. */
+  const traces = new Map<ObjectId, NumericPoint[]>()
   let grabbing = false
   /** Pressed pointers on the canvas, in press order. */
   const pointers = new Map<number, PixelPoint>()
@@ -120,9 +118,37 @@ export function startApp(): void {
       activeId: geometry.activeId,
       objects: sceneOrder.get(geometry.objects),
       evaluator,
+      traces: traceFrames(),
     }
     paintDocumentScene(frame)
     tools.paintPreview(createTransientPainter(frame), cursor)
+  }
+
+  function traceFrames(): PointTrace[] {
+    const frames: PointTrace[] = []
+    for (const object of geometry.objects) {
+      const points = object.id === null ? undefined : traces.get(object.id)
+      if (points?.length) frames.push({ color: object.color, radius: object.size, points })
+    }
+    return frames
+  }
+
+  /** Add the current positions of traced points; forget traces that were switched off. */
+  function recordTraces(): void {
+    const traced = new Set<ObjectId>()
+    for (const object of geometry.objects) {
+      if (object.type !== 'point' || !object.trace || object.id === null) continue
+      traced.add(object.id)
+      const position = object.visibility ? numericPoint(object) : null
+      if (!position) continue
+      const trail = traces.get(object.id) ?? []
+      const last = trail.at(-1)
+      if (last?.a === position.a && last.b === position.b) continue
+      trail.push(position)
+      if (trail.length > TRACE_LIMIT) trail.splice(0, trail.length - TRACE_LIMIT)
+      traces.set(object.id, trail)
+    }
+    for (const id of traces.keys()) if (!traced.has(id)) traces.delete(id)
   }
 
   const panel = new ObjectPanel(required('objectsContainer'), {
@@ -192,6 +218,16 @@ export function startApp(): void {
       refresh()
       return true
     },
+    styleInput(id, patch) {
+      const object = geometry.objects.find(item => item.id === id)
+      if (!object) return
+      if (!geometry.isEditing) geometry.beginEdit()
+      if (applyStyle(object, patch)) refresh()
+    },
+    styleCommit() {
+      commitSlider()
+      refresh()
+    },
   })
 
   // --- Parameter animation -------------------------------------------------------
@@ -256,12 +292,13 @@ export function startApp(): void {
   /** Bring dependent geometry, cards, history buttons and the next frame up to date. */
   function refresh(): void {
     resolveConstraints(geometry.objects)
+    recordTraces()
     const context = { objects: geometry.objects }
     const entries = geometry.objects.filter(object => !(object.type === 'point' && object.hideInLabels)).reverse()
       .map(object => ({
         id: object.id!, color: object.color, visible: object.visibility,
         card: describeCard(object, context), animating: animations.has(object.id!),
-        editText: editText(object, context),
+        editText: editText(object, context), style: styleSpec(object),
       }))
     panel.render(entries, geometry.activeId)
     undoButton.disabled = !geometry.canUndo
@@ -283,7 +320,7 @@ export function startApp(): void {
 
   function endDrag(): void {
     grabbing = false
-    pointDrag = null
+    objectDrag = null
     aiming = null
     view.endDrag()
   }
@@ -378,17 +415,12 @@ export function startApp(): void {
 
   const axisCursor = (axis: ViewAxis) => axis === 'xAxis' ? 'ew-resize' : 'ns-resize'
 
-  function moveDraggedPoint(position: NumericPoint): void {
-    if (!pointDrag) return
-    const { point, origin, raw, cursor: start } = pointDrag
-    // Back at the start, restore the stored values exactly so history sees no change.
-    if (position.a === start.a && position.b === start.b) {
-      point.a = raw.a
-      point.b = raw.b
-      return
-    }
-    point.a = origin.a + (position.a - start.a)
-    point.b = origin.b + (position.b - start.b)
+  function moveDragged(position: NumericPoint): void {
+    if (!objectDrag) return
+    moveObjectDrag(objectDrag, position)
+    // A moved equation line is used by name in other definitions.
+    const name = objectDrag.line?.object.name
+    if (name) recompute([name])
   }
 
   function pressTool(input: ToolInput): void {
@@ -410,10 +442,9 @@ export function startApp(): void {
     const { hit } = input
     if (hit) geometry.activeId = hit.object.id
     grabbing = true
-    // Points computed from other objects or parameters are selected, not dragged.
-    const origin = hit?.kind === 'point' && !isDerivedPoint(hit.object) ? numericPoint(hit.object) : null
-    if (hit?.kind === 'point' && origin) {
-      pointDrag = { point: hit.object, cursor: input.position, origin, raw: { a: hit.object.a, b: hit.object.b } }
+    // Objects computed from others or from parameters are selected, not dragged.
+    objectDrag = hit ? beginObjectDrag(hit.object, geometry.objects, input.position) : null
+    if (objectDrag) {
       geometry.beginEdit()
       canvas.style.cursor = 'grabbing'
     } else if (!hit) {
@@ -427,7 +458,7 @@ export function startApp(): void {
 
   /** A second pointer turns any single-pointer gesture into a pinch; the first one is abandoned. */
   function beginPinch(): void {
-    if (pointDrag) geometry.cancelEdit()
+    if (objectDrag) geometry.cancelEdit()
     endDrag()
     aiming = null
     primary = null
@@ -458,11 +489,11 @@ export function startApp(): void {
       else refresh()
       return
     }
-    if (pointDrag) {
+    if (objectDrag) {
       if (cancelled) {
         geometry.cancelEdit()
       } else {
-        moveDraggedPoint(pointerInput(pixel, touch).position)
+        moveDragged(pointerInput(pixel, touch).position)
         resolveConstraints(geometry.objects)
         geometry.commitEdit()
       }
@@ -523,8 +554,8 @@ export function startApp(): void {
       frameRenderer.request()
       return
     }
-    if (pointDrag) {
-      moveDraggedPoint(input.position)
+    if (objectDrag) {
+      moveDragged(input.position)
       refresh()
       return
     }
@@ -533,7 +564,8 @@ export function startApp(): void {
       return
     }
     const axis = tools.action === 'select' && !input.hit ? axisAt(pixel, touch) : null
-    canvas.style.cursor = input.hit ? 'pointer' : axis ? axisCursor(axis) : 'default'
+    const movable = tools.action === 'select' && input.hit && beginObjectDrag(input.hit.object, geometry.objects, input.position)
+    canvas.style.cursor = movable ? 'grab' : input.hit ? 'pointer' : axis ? axisCursor(axis) : 'default'
     if (tools.isConstructing) frameRenderer.request()
   })
 

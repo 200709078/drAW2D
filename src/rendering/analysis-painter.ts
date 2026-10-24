@@ -17,9 +17,12 @@ import { numericPoint } from '../geometry/primitives'
 import type { GeometryObject } from '../geometry/types'
 import { drawFunctionPlot } from './function-plotter'
 import { paintEquationLine } from './geometry-painter'
+import { lineDash } from './line-style'
 import type { DrawingPrimitives, PainterFrame, StrokeStyle } from './painter-types'
 
 const TEMP_COLOR = '#000000'
+/** A sequence's guide curve; its terms are the points. */
+const SEQUENCE_DASH = [2, 5]
 const SEQUENCE_INDEX = /(?<![a-zA-Z0-9_])n(?![a-zA-Z0-9_])/g
 
 interface PlotObject extends GeometryObject<string> {
@@ -34,13 +37,14 @@ function isActive(frame: PainterFrame, object: GeometryObject<string>): boolean 
   return frame.activeId !== null && object.id === frame.activeId
 }
 
-function plotWidth(frame: PainterFrame, object: GeometryObject<string>, override: number | null = null): number {
-  return override ?? (object.size + (isActive(frame, object) ? 1 : 0))
+function plotWidth(frame: PainterFrame, object: GeometryObject<string>): number {
+  return object.size + (isActive(frame, object) ? 1 : 0)
 }
 
 interface PlotOptions {
-  dashed?: boolean
-  lineWidth?: number | null
+  /** The card object whose color, width and line style an embedded curve is drawn with. */
+  style?: GeometryObject<string>
+  dash?: readonly number[]
   expression?: string
   startX?: number | null
   endX?: number | null
@@ -48,20 +52,22 @@ interface PlotOptions {
 
 function plot(frame: PainterFrame, object: PlotObject, options: PlotOptions = {}): void {
   if (!object.visibility) return
+  const style = options.style ?? object
   const startX = options.startX === undefined ? object.startX : options.startX
   const endX = options.endX === undefined ? object.endX : options.endX
+  const lineWidth = plotWidth(frame, style)
   drawFunctionPlot(frame.ctx, {
     expression: options.expression ?? object.func,
     transform: frame.transform,
     width: frame.width,
     height: frame.height,
-    color: object.color,
-    lineWidth: plotWidth(frame, object, options.lineWidth ?? null),
+    color: style.color,
+    lineWidth,
     startX: startX === null || startX === undefined ? null : Number(startX),
     endX: endX === null || endX === undefined ? null : Number(endX),
     startInclusive: object.startInclusive,
     endInclusive: object.endInclusive,
-    dashed: options.dashed ?? false,
+    dash: options.dash ?? lineDash(style.lineStyle, lineWidth),
   }, frame.evaluator)
 }
 
@@ -73,9 +79,8 @@ function paintSequence(frame: PainterFrame, primitives: DrawingPrimitives, seque
   if (!sequence.visibility) return
   const expression = sequenceExpression(sequence)
   plot(frame, sequence, {
-    dashed: true,
+    dash: SEQUENCE_DASH,
     expression,
-    lineWidth: plotWidth(frame, sequence),
     startX: sequence.start,
     endX: sequence.end,
   })
@@ -95,7 +100,7 @@ function paintSequence(frame: PainterFrame, primitives: DrawingPrimitives, seque
     primitives.point({ a: n, b: y }, {
       color: sequence.color,
       radius,
-      label: `${sequence.name ?? ''}${n}`,
+      label: sequence.labelHidden ? null : `${sequence.name ?? ''}${n}`,
     })
   }
 }
@@ -135,7 +140,7 @@ function paintTangent(frame: PainterFrame, primitives: DrawingPrimitives, tangen
   if (!tangent.visibility) return
   plot(frame, tangent)
   paintFunctionGuides(frame, primitives, tangent.func, tangent.approachVal, tangent.color, true)
-  paintEquationLine(frame, primitives, tangent.tngLine)
+  paintEquationLine(frame, primitives, tangent.tngLine, tangent)
 }
 
 function paintTangentHxGuide(frame: PainterFrame, primitives: DrawingPrimitives, point: { a: number; b: number }): void {
@@ -157,13 +162,13 @@ function paintTangentHx(frame: PainterFrame, primitives: DrawingPrimitives, tang
   paintTangentHxGuide(frame, primitives, A)
   paintTangentHxGuide(frame, primitives, B)
   primitives.line({ type: 'lineWithPoints', A, B }, { color: TEMP_COLOR, width: 3 })
-  if (A.a === B.a && A.b === B.b) paintEquationLine(frame, primitives, tangent.tngLine)
+  if (A.a === B.a && A.b === B.b) paintEquationLine(frame, primitives, tangent.tngLine, tangent)
 }
 
 function paintDerivative(frame: PainterFrame, _primitives: DrawingPrimitives, derivative: Derivative): void {
   if (!derivative.visibility) return
-  plot(frame, derivative.derFunc)
-  if (isActive(frame, derivative)) plot(frame, derivative.func, { dashed: true })
+  plot(frame, derivative.derFunc, { style: derivative })
+  if (isActive(frame, derivative)) plot(frame, derivative.func, { style: derivative, dash: SEQUENCE_DASH })
 }
 
 interface EndpointMarker {
@@ -172,22 +177,21 @@ interface EndpointMarker {
   color: string
 }
 
-function collectEndpointMarkers(frame: PainterFrame, section: FunctionSection, markers: EndpointMarker[]): void {
+function collectEndpointMarkers(frame: PainterFrame, section: FunctionSection, color: string, markers: EndpointMarker[]): void {
   for (const [x, inclusive] of [[section.startX, section.startInclusive], [section.endX, section.endInclusive]] as const) {
     if (x === null || inclusive === undefined || x < frame.transform.bounds.left || x > frame.transform.bounds.right) continue
     const y = frame.evaluator.evaluate(section.func, x)
     if (y === null || y < frame.transform.bounds.bottom || y > frame.transform.bounds.top) continue
-    markers.push({ point: { a: x, b: y }, inclusive, color: section.color })
+    markers.push({ point: { a: x, b: y }, inclusive, color })
   }
 }
 
 function paintSectionalFunctions(frame: PainterFrame, primitives: DrawingPrimitives, sectional: SectionalFunctions): void {
   if (!sectional.visibility) return
   const markers: EndpointMarker[] = []
-  const lineWidth = plotWidth(frame, sectional)
   for (const section of sectional.secFuncs) {
-    plot(frame, section, { lineWidth })
-    collectEndpointMarkers(frame, section, markers)
+    plot(frame, section, { style: sectional })
+    collectEndpointMarkers(frame, section, sectional.color, markers)
   }
   // Closed endpoints are painted last, so an open endpoint cannot erase a shared closed one.
   markers.sort((first, second) => Number(first.inclusive) - Number(second.inclusive))

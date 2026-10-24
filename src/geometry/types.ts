@@ -23,6 +23,8 @@ export interface GeometryModelContext {
   randomColor(): string
 }
 
+export type LineStyle = 'solid' | 'dashed' | 'dotted'
+
 export interface GeometryObject<Type extends string> {
   type: Type
   name: string | null
@@ -31,6 +33,12 @@ export interface GeometryObject<Type extends string> {
   visibility: boolean
   size: number
   temp: boolean
+  /** Absent means a solid stroke. */
+  lineStyle?: LineStyle
+  /** The name is not drawn on the plane. */
+  labelHidden?: boolean
+  /** A point leaves a trace of the positions it passes through. */
+  trace?: boolean
   /**
    * The command as typed, with created points replaced by references. Present when the
    * values depend on parameters or named functions; they are recomputed from it.

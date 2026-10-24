@@ -69,7 +69,7 @@ test('kartlar doğru denklemlerini ve uzaklığı üretir; kaydırıcı yalnız 
 
   const horizontal = build('Doğru((-1,2),(3,2))')
   expect(describeCard(horizontal[2]!, context(horizontal))).toEqual({
-    input: 'f: Doğru((-1,2), (3,2))', output: ['y = 2'], sliders: [],
+    input: 'f: Doğru((-1,2), (3,2))', output: ['f: y = 2'], valueFirst: true, sliders: [],
   })
   const distance = build('Uzaklık((0,0),(3,4))')
   expect(describeCard(distance[2]!, context(distance)).output).toEqual(['a=5'])
@@ -82,23 +82,25 @@ test('kartlar doğru denklemlerini ve uzaklığı üretir; kaydırıcı yalnız 
 
   const slider = build('a=2')
   expect(describeCard(slider[0]!, context(slider))).toEqual({
-    input: 'a = 2', output: [], sliders: [{ min: -5, max: 5, step: 0.1, value: 2, label: '' }],
+    input: 'a = 2', output: [], valueFirst: false, sliders: [{ min: -5, max: 5, step: 0.1, value: 2, label: '' }],
     parameter: { min: -5, max: 5, step: 0.1 },
   })
 })
 
-test('tanımı olan nesnelerin kartı tanımı, çıktısı değeri gösterir', () => {
-  const objects = build('a=2', 'b=a+1', '(a,1)', 'Çember((0,0),a)', 'a*x+1', 'x^a', 'Teğet(x^2,a)')
+test('tanımı olan nesnelerin kartı tanımı, çıktısı adıyla değeri gösterir; değer öne çıkar', () => {
+  const objects = build('a=2', 'b=a+1', '(a,1)', 'Çember((0,0),a)', 'a*x+1', 'x^a', 'Teğet(x^2,a)', 'Türev(x^2)')
   const cards = objects.map(object => describeCard(object, context(objects)))
-  expect(cards.map(card => [card.input, card.output])).toEqual([
-    ['a = 2', []],
-    ['b = a+1', ['b = 3']],
-    ['A=(a,1)', ['A=(2,1)']],
-    ['B=(0,0)', []],
-    ['c: Çember(B,a)', ['r = 2']],
-    ['f: y = a*x+1', ['y = 2x+1']],
-    ['g: y = x^a', []],
-    ['Teğet(x^2,a)', ['h: y = 4x-4']],
+  expect(cards.map(card => [card.input, card.output, card.valueFirst])).toEqual([
+    ['a = 2', [], false],
+    ['b = a+1', ['b = 3'], true],
+    ['A=(a,1)', ['A=(2,1)'], true],
+    ['B=(0,0)', [], false],
+    ['c: Çember(B,a)', ['c: Çember(B,2)'], true],
+    ['f: y = a*x+1', ['f: y = 2x+1'], true],
+    ['g: y = x^a', [], false],
+    ['Teğet(x^2,a)', ['h: y = 4x-4'], true],
+    // Both lines of a derivative are graphs of their own.
+    ['p: y = x^2', ["p': y = 2*x"], false],
   ])
 })
 

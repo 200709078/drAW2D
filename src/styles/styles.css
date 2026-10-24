@@ -202,9 +202,20 @@ canvas {
 	font-size: 10px;
 }
 
+/*
+ * A card is one row, or two: the definition and its values. When the value leads
+ * (`.value-first`), the definition is a small grey second row shown while selected.
+ */
 .expr-block {
 	position: relative;
+	display: flex;
+	flex-direction: column;
 	margin-bottom: 6px;
+	border: 1px solid #d8deea;
+	border-radius: 7px;
+	background-color: #ffffff;
+	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+	overflow: hidden;
 }
 
 .expr-block input,
@@ -216,44 +227,58 @@ canvas {
 	line-height: 22px;
 	box-sizing: border-box;
 	margin: 0;
-	background-color: #ffffff;
-	border: 1px solid #d8deea;
+	background-color: transparent;
+	border: 0;
 	color: #1f2937;
 	padding: 0 48px 0 25px;
 	outline: none;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
-
-.expr-block input {
-	border-radius: 7px 7px 0 0;
-	border-bottom-color: transparent;
 	font-weight: 600;
 }
 
-.expr-block output {
-	border-top: 0;
-	border-radius: 0 0 7px 7px;
-	color: #475569;
-	background-color: #fbfcff;
+/* The second row is quieter and separated by a line from the text column. */
+.expr-block output,
+.value-first .expr-block input {
+	color: #64748b;
 	font-size: 11px;
+	font-weight: 400;
+	background-image: linear-gradient(#d8deea, #d8deea);
+	background-size: calc(100% - 73px) 1px;
+	background-position: 25px 0;
+	background-repeat: no-repeat;
 }
 
-.expr-block::after {
-	content: "";
-	position: absolute;
-	top: 24px;
-	left: 25px;
-	right: 48px;
-	border-top: 1px solid #d8deea;
-	pointer-events: none;
+.expr-block output {
+	height: auto;
+}
+
+.expr-block output[hidden] {
+	display: none;
+}
+
+.value-first .expr-block output {
+	order: -1;
+	color: #1f2937;
+	font-size: inherit;
+	font-weight: 600;
+	background-image: none;
+}
+
+/* An unselected value card is the value alone. */
+.value-first:not(.is-active):not(.is-editing) .expr-block input {
+	display: none;
+}
+
+.is-active .expr-block {
+	background-color: #eaf3ff;
+	border-color: #b9cff0;
 }
 
 .expr-block .btn {
 	position: absolute;
-	top: 24px;
+	top: 12px;
 	background-color: transparent;
 	transform: translateY(-50%);
 	width: 18px;
@@ -269,42 +294,65 @@ canvas {
 	box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.16);
 }
 
-.expr-block .duzenle {
-	right: 25px;
-
-	background-image: url(/img/edit.svg);
+.expr-block .duzenle,
+.expr-block .ayarlar,
+.expr-block .sil {
 	background-size: 14px 14px;
 	background-repeat: no-repeat;
 	background-position: center;
 }
 
-.expr-block .duzenle[hidden] {
+.expr-block .duzenle {
+	right: 25px;
+	background-image: url(/img/edit.svg);
+}
+
+.expr-block .ayarlar {
+	display: none;
+	right: 45px;
+	background-image: url(/img/style.svg);
+}
+
+/* Appearance settings are offered on the selected card. */
+.is-active .expr-block .ayarlar {
+	display: block;
+}
+
+.is-active .expr-block input,
+.is-active .expr-block output {
+	padding-right: 68px;
+}
+
+.expr-block .ayarlar[aria-pressed="true"] {
+	background-color: #d5e3f8;
+}
+
+.expr-block .duzenle[hidden],
+.expr-block .ayarlar[hidden] {
 	display: none;
 }
 
-/* While edited, the card input is a normal text field. */
-.is-editing .expr-block input {
+/* While edited, the card input is a normal text field on the first row. */
+.is-editing .expr-block input,
+.is-editing.value-first .expr-block input {
+	order: -2;
 	background-color: #ffffff;
-	border-color: #5f8dd8;
-	box-shadow: 0 0 0 2px rgba(95, 141, 216, 0.18);
+	background-image: none;
+	box-shadow: inset 0 0 0 1px #5f8dd8;
+	color: #1f2937;
+	font-size: inherit;
 	font-weight: 500;
 	cursor: text;
 }
 
 .expr-block .sil {
 	right: 5px;
-
 	background-image: url(/img/clear.svg);
-	background-size: 14px 14px;
-	background-repeat: no-repeat;
-	background-position: center;
 }
 
-.expr-block .sil:hover {
-	background-color: #e8edf6;
-}
-
-.expr-block .duzenle:hover {
+.expr-block .sil:hover,
+.expr-block .duzenle:hover,
+.expr-block .ayarlar:hover {
 	background-color: #e8edf6;
 }
 
@@ -836,6 +884,63 @@ code.example:hover {
 	background: #e8edf6;
 }
 
+/* Appearance settings of the selected card. */
+.style-settings {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	align-items: center;
+	gap: 5px 8px;
+	margin: 2px 0 6px;
+	padding: 6px 8px;
+	border: 1px solid #d8deea;
+	border-radius: 7px;
+	background: #f8fafd;
+	color: #475569;
+	font-size: 11px;
+}
+
+.style-settings[hidden],
+.style-settings label[hidden],
+.style-settings .style-field[hidden] {
+	display: none;
+}
+
+.style-settings .style-field {
+	display: contents;
+}
+
+.style-settings input[type="color"] {
+	width: 40px;
+	height: 22px;
+	padding: 0 2px;
+	border: 1px solid #d8deea;
+	border-radius: 5px;
+	background: #ffffff;
+	cursor: pointer;
+}
+
+.style-settings select {
+	height: 24px;
+	border: 1px solid #d8deea;
+	border-radius: 5px;
+	background: #ffffff;
+	color: #1f2937;
+}
+
+.style-toggles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 14px;
+	grid-column: 1 / -1;
+}
+
+.style-toggles label {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	cursor: pointer;
+}
+
 /* Narrow screens: the object panel becomes a bottom sheet over the canvas. */
 @media (max-width: 700px) {
 	#rightWrapper {
@@ -911,34 +1016,62 @@ code.example:hover {
 		height: 32px;
 	}
 
-	/* Taller card rows with room for 28px hide/delete buttons beside the text. */
+	#rightWrapper .style-settings {
+		font-size: 13px;
+		gap: 8px 10px;
+	}
+
+	#rightWrapper .style-settings select,
+	#rightWrapper .style-settings input[type="color"] {
+		height: 32px;
+	}
+
+	#rightWrapper .style-toggles input[type="checkbox"] {
+		width: 20px;
+		height: 20px;
+	}
+
+	/* Taller card rows with room for 28px buttons beside the text. */
 	#rightWrapper .expr-block input,
 	#rightWrapper .expr-block output {
-		height: 32px;
 		min-height: 32px;
 		line-height: 30px;
 		padding-left: 40px;
 		padding-right: 72px;
 	}
 
-	#rightWrapper .expr-block::after {
-		top: 32px;
-		left: 40px;
-		right: 72px;
+	#rightWrapper .expr-block input {
+		height: 32px;
+	}
+
+	#rightWrapper .is-active .expr-block input,
+	#rightWrapper .is-active .expr-block output {
+		padding-right: 104px;
+	}
+
+	#rightWrapper .expr-block output,
+	#rightWrapper .value-first .expr-block input {
+		background-size: calc(100% - 112px) 1px;
+		background-position: 40px 0;
 	}
 
 	#rightWrapper .expr-block .duzenle {
 		right: 36px;
-		background-size: 18px 18px;
+	}
+
+	#rightWrapper .expr-block .ayarlar {
+		right: 67px;
 	}
 
 	#rightWrapper .expr-block .btn {
-		top: 32px;
+		top: 16px;
 		width: 28px;
 		height: 28px;
 	}
 
-	#rightWrapper .expr-block .sil {
+	#rightWrapper .expr-block .sil,
+	#rightWrapper .expr-block .duzenle,
+	#rightWrapper .expr-block .ayarlar {
 		background-size: 18px 18px;
 	}
 }

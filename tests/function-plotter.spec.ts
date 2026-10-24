@@ -200,7 +200,7 @@ test('dik sürekli eğri kırpılır ve çok büyük değerler Canvas koordinatl
 
 test('çizgi stili ve clip kaydedilir; hata durumunda da Canvas durumu geri yüklenir', () => {
   const ctx = new RecordingContext()
-  drawFunctionPlot(ctx, plotOptions({ dashed: true }), createFunctionEvaluator())
+  drawFunctionPlot(ctx, plotOptions({ dash: [2, 5] }), createFunctionEvaluator())
   expect(ctx.strokes).toEqual([{ strokeStyle: '#123456', lineWidth: 2, dash: [2, 5] }])
   expect(ctx.rectangles).toEqual([[0, 0, 10, 100]])
   expect(ctx.clips).toBe(1)

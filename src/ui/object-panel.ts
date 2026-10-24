@@ -1,5 +1,5 @@
-import type { CardModel } from '../app/object-cards'
-import type { ObjectId } from '../geometry/types'
+import type { CardModel, StylePatch, StyleSpec } from '../app/object-cards'
+import type { LineStyle, ObjectId } from '../geometry/types'
 
 export interface PanelEntry {
   id: ObjectId
@@ -10,6 +10,8 @@ export interface PanelEntry {
   animating?: boolean
   /** Text shown while the card is edited; null when the object cannot be edited. */
   editText: string | null
+  /** Appearance settings; null when the object is not drawn. */
+  style: StyleSpec | null
 }
 
 export interface ObjectPanelHandlers {
@@ -25,6 +27,9 @@ export interface ObjectPanelHandlers {
   toggleAnimation(id: ObjectId): void
   /** Apply an edited card; true when accepted, false to keep editing (an error was shown). */
   redefine(id: ObjectId, text: string): boolean
+  /** An appearance change; changes until `styleCommit` are one undoable step. */
+  styleInput(id: ObjectId, patch: StylePatch): void
+  styleCommit(): void
 }
 
 interface CardView {
@@ -39,13 +44,31 @@ interface CardView {
   bounds: HTMLInputElement[]
   play: HTMLButtonElement
   edit: HTMLButtonElement
+  styleButton: HTMLButtonElement
+  style: StyleView
+  styleOpen: boolean
   /** Latest display text; restored when editing ends. */
   display: string
   editText: string | null
   editing: boolean
 }
 
+interface StyleView {
+  root: HTMLDivElement
+  color: HTMLInputElement
+  size: HTMLInputElement
+  sizeCaption: HTMLSpanElement
+  lineStyle: HTMLSelectElement
+  label: HTMLInputElement
+  trace: HTMLInputElement
+}
+
 const BOUND_FIELDS = [['min', 'En küçük'], ['max', 'En büyük'], ['step', 'Adım']] as const
+
+/** Each option shows a sample of the stroke beside its name. */
+const LINE_STYLES: readonly [LineStyle, string, string][] = [
+  ['solid', 'Düz', '────────'], ['dashed', 'Kesikli', '– – – –'], ['dotted', 'Noktalı', '· · · · ·'],
+]
 
 const SLIDER_COUNT = 2
 
@@ -143,8 +166,23 @@ export class ObjectPanel {
     edit.title = 'Düzenle'
     edit.setAttribute('aria-label', 'Düzenle')
 
+    const styleButton = element('button', 'btn ayarlar')
+    styleButton.type = 'button'
+    styleButton.id = `${id}-style`
+    styleButton.title = 'Görünüm'
+    styleButton.setAttribute('aria-label', 'Görünüm')
+    styleButton.setAttribute('aria-pressed', 'false')
+    styleButton.addEventListener('click', () => {
+      view.styleOpen = !view.styleOpen
+      this.handlers.select(id)
+    })
+    const style = this.createStyle(id)
+
     input.addEventListener('click', () => { if (!view.editing) this.handlers.select(id) })
     input.addEventListener('dblclick', () => this.startEdit(view))
+    // A value card shows only its value until selected.
+    output.addEventListener('click', () => this.handlers.select(id))
+    output.addEventListener('dblclick', () => this.startEdit(view))
     // Keep the input focused when the button is pressed, so blur does not end the edit first.
     edit.addEventListener('mousedown', event => event.preventDefault())
     edit.addEventListener('click', () => {
@@ -169,14 +207,93 @@ export class ObjectPanel {
     input.addEventListener('blur', () => { if (view.editing) this.endEdit(view) })
     hide.addEventListener('click', () => this.handlers.toggleVisibility(id))
     remove.addEventListener('click', () => this.handlers.remove(id))
-    block.append(input, output, edit, hide, remove)
-    root.append(block, sliders, settings, element('hr'))
+    block.append(input, output, styleButton, edit, hide, remove)
+    root.append(block, sliders, settings, style.root, element('hr'))
     const view: CardView = {
-      root, input, output, hide, labels, ranges, outputKey: '', settings, bounds, play, edit,
-      display: '', editText: null, editing: false,
+      root, input, output, hide, labels, ranges, outputKey: '', settings, bounds, play, edit, styleButton, style,
+      styleOpen: false, display: '', editText: null, editing: false,
     }
     this.views.set(id, view)
     return view
+  }
+
+  private createStyle(id: ObjectId): StyleView {
+    const root = element('div', 'style-settings')
+    root.id = `${id}-settings`
+    root.hidden = true
+    const field = (caption: string, control: HTMLElement) => {
+      const wrapper = element('label', 'style-field')
+      const text = element('span')
+      text.textContent = caption
+      wrapper.append(text, control)
+      root.append(wrapper)
+      return text
+    }
+    const input = (type: string, field: string) => {
+      const control = element('input')
+      control.type = type
+      control.id = `${id}-${field}`
+      return control
+    }
+    const color = input('color', 'color')
+    color.addEventListener('input', () => this.handlers.styleInput(id, { color: color.value }))
+    color.addEventListener('change', () => this.handlers.styleCommit())
+    field('Renk', color)
+    const size = input('range', 'size')
+    size.addEventListener('input', () => this.handlers.styleInput(id, { size: Number(size.value) }))
+    size.addEventListener('change', () => this.handlers.styleCommit())
+    const sizeCaption = field('Kalınlık', size)
+    const lineStyle = element('select')
+    lineStyle.id = `${id}-lineStyle`
+    for (const [value, caption, sample] of LINE_STYLES) {
+      const option = element('option')
+      option.value = value
+      option.textContent = `${caption}\u2003${sample}`
+      lineStyle.append(option)
+    }
+    lineStyle.addEventListener('change', () => {
+      this.handlers.styleInput(id, { lineStyle: lineStyle.value as LineStyle })
+      this.handlers.styleCommit()
+    })
+    field('Çizgi', lineStyle)
+    const toggles = element('div', 'style-toggles')
+    const toggle = (field: string, caption: string, patch: (checked: boolean) => StylePatch) => {
+      const wrapper = element('label')
+      const control = input('checkbox', field)
+      control.addEventListener('change', () => {
+        this.handlers.styleInput(id, patch(control.checked))
+        this.handlers.styleCommit()
+      })
+      wrapper.append(control, caption)
+      toggles.append(wrapper)
+      return control
+    }
+    const label = toggle('label', 'Etiket', checked => ({ labelHidden: !checked }))
+    const trace = toggle('trace', 'İz bırak', checked => ({ trace: checked }))
+    root.append(toggles)
+    return { root, color, size, sizeCaption, lineStyle, label, trace }
+  }
+
+  private updateStyle(view: CardView, spec: StyleSpec | null, open: boolean): void {
+    const { style } = view
+    setIfChanged(view.styleButton, 'hidden', spec === null)
+    view.styleButton.setAttribute('aria-pressed', String(open))
+    setIfChanged(style.root, 'hidden', !open)
+    if (!spec || !open) return
+    setIfChanged(style.color, 'value', spec.color)
+    setIfChanged(style.size.parentElement!, 'hidden', spec.size === null)
+    if (spec.size) {
+      setIfChanged(style.sizeCaption, 'textContent', spec.size.caption)
+      setIfChanged(style.size, 'min', String(spec.size.min))
+      setIfChanged(style.size, 'max', String(spec.size.max))
+      setIfChanged(style.size, 'value', String(spec.size.value))
+    }
+    setIfChanged(style.lineStyle.parentElement!, 'hidden', spec.lineStyle === null)
+    if (spec.lineStyle) setIfChanged(style.lineStyle, 'value', spec.lineStyle)
+    setIfChanged(style.label.parentElement!, 'hidden', spec.label === null)
+    setIfChanged(style.label, 'checked', spec.label === true)
+    setIfChanged(style.trace.parentElement!, 'hidden', spec.trace === null)
+    setIfChanged(style.trace, 'checked', spec.trace === true)
   }
 
   private startEdit(view: CardView): void {
@@ -208,8 +325,12 @@ export class ObjectPanel {
       view.output.replaceChildren(...card.output.flatMap((line, index) => index ? [element('br'), line] : [line]))
       view.outputKey = outputKey
     }
-    view.input.style.backgroundColor = active ? '#eaf3ff' : ''
-    view.output.style.backgroundColor = active ? '#f2f7ff' : ''
+    // Nothing to show below the definition: the card is a single row.
+    setIfChanged(view.output, 'hidden', card.output.length === 0)
+    view.root.classList.toggle('value-first', card.valueFirst)
+    view.root.classList.toggle('is-active', active)
+    if (!active) view.styleOpen = false
+    this.updateStyle(view, entry.style, view.styleOpen && active)
     view.hide.title = entry.visible ? 'Gizle' : 'Göster'
     view.hide.style.background = entry.visible ? entry.color : 'transparent'
     // A parameter's slider is its main control and stays visible; others show when selected.

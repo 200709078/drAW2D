@@ -12,7 +12,8 @@ export interface FunctionPlotOptions {
   endX?: number | null
   startInclusive?: boolean
   endInclusive?: boolean
-  dashed?: boolean
+  /** Canvas dash pattern; solid when absent. */
+  dash?: readonly number[]
 }
 
 type PlotContext = Pick<CanvasRenderingContext2D,
@@ -288,7 +289,7 @@ export function drawFunctionPlot(ctx: PlotContext, options: FunctionPlotOptions,
     ctx.beginPath()
     ctx.strokeStyle = color
     ctx.lineWidth = lineWidth
-    ctx.setLineDash(options.dashed ? [2, 5] : [])
+    ctx.setLineDash(options.dash ? [...options.dash] : [])
 
     const samples = xs.map(evaluateAt)
     // A sample whose neighbours are collinear with it within tolerance needs no subdivision.

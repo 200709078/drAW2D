@@ -2,6 +2,7 @@
 // empty page; rows are complete user-visible card contents, newest first.
 // TeğetC now reserves distinct names for its two touch points; Uzaklık cards show the distance.
 // Teğet, TeğetH/X and Limit create slider parameters for their approach values.
+// Value rows name their object (`f: y = ...`), since a value row can be a card's main line.
 export const legacyCommandMatrix = [
   {
     name: 'dik doğru',
@@ -15,7 +16,7 @@ export const legacyCommandMatrix = [
     steps: [{
       command: 'Doğru((-1,0),(1,1))',
       rows: [
-        { input: 'f: Doğru((-1,0), (1,1))', output: 'y = 0.50x+0.50' },
+        { input: 'f: Doğru((-1,0), (1,1))', output: 'f: y = 0.50x+0.50' },
         { input: 'B=(1,1)', output: '' },
         { input: 'A=(-1,0)', output: '' },
       ],

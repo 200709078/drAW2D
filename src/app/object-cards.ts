@@ -7,7 +7,7 @@ import {
   createLineEquation, distanceAB, getAngleMeasure, getCircleDescriptor, getPositiveArcMeasure, numericPoint,
 } from '../geometry/primitives'
 import type {
-  AnalysisKind, Coordinate, GeometryCircle, GeometryPoint, LineConstruction, ObjectId, PointConstraint,
+  AnalysisKind, Coordinate, GeometryCircle, GeometryPoint, LineConstruction, LineStyle, ObjectId, PointConstraint,
 } from '../geometry/types'
 import { formatDisplayNumber, formatMeasure } from '../math/format-display'
 
@@ -27,12 +27,38 @@ export interface ParameterSettings {
 }
 
 export interface CardModel {
+  /** The definition: what was typed, with names for created objects. */
   input: string
-  /** Each entry is one output line. */
+  /** Each entry is one value line. */
   output: string[]
+  /**
+   * The value lines are the card's main line and the definition is shown under them only
+   * while the card is selected. Otherwise the definition leads and the values follow.
+   */
+  valueFirst: boolean
   sliders: SliderSpec[]
   /** Present on a slider parameter: its slider stays visible and its bounds are editable. */
   parameter?: ParameterSettings
+}
+
+/** Appearance settings a card offers; a null field is not offered for the object. */
+export interface StyleSpec {
+  color: string
+  /** Point radius or stroke width in CSS pixels. */
+  size: { value: number; min: number; max: number; caption: string } | null
+  lineStyle: LineStyle | null
+  /** Whether the name is drawn on the plane. */
+  label: boolean | null
+  trace: boolean | null
+}
+
+/** A change made with the appearance settings. */
+export interface StylePatch {
+  color?: string
+  size?: number
+  lineStyle?: LineStyle
+  labelHidden?: boolean
+  trace?: boolean
 }
 
 export interface CardContext {
@@ -94,7 +120,7 @@ function intersectionOutput(point: GeometryPoint, objects: readonly GeometryDocu
       || pointConstraint(object, 'analysisPoint')?.ownerId === point.id))
   const visible = members.filter(member => numericPoint(member))
   if (visible.length) return visible.map(member => `${member.name}=${pair(member)}`)
-  return [point.intersectionStatus === 'infinite' ? '∞' : EMPTY]
+  return [point.intersectionStatus === 'infinite' ? INFINITE : EMPTY]
 }
 
 const ANALYSIS_COMMANDS: Readonly<Record<AnalysisKind, string>> = {
@@ -147,14 +173,21 @@ const typed = (argument: NumberArgument | undefined, fallback: Coordinate) =>
 export function describeCard(item: GeometryDocumentObject, context: CardContext): CardModel {
   const card = describeValues(item, context)
   // A definition that cannot be evaluated keeps its last values, which are not shown.
-  return item.invalid ? { ...card, output: [EMPTY], sliders: [] } : card
+  if (item.invalid) return { ...card, output: [EMPTY], valueFirst: false, sliders: [] }
+  // Without a value, the definition says what the object is; both lines of a derivative
+  // or a secant are objects of their own.
+  const undefinedValue = card.output.every(line => line === EMPTY || line === INFINITE)
+  return { ...card, valueFirst: card.output.length > 0 && !undefinedValue && !BOTH_LINES.has(item.type) }
 }
+
+const INFINITE = '∞'
+const BOTH_LINES = new Set<GeometryDocumentObject['type']>(['derivative', 'tangentHX'])
 
 function describeValues(item: GeometryDocumentObject, context: CardContext): CardModel {
   const { objects } = context
   const nameOf = (id: ObjectId | null) => objects.find(object => object.id === id)?.name ?? '?'
   const card = (input: string, output: string | string[] = ''): CardModel =>
-    ({ input, output: Array.isArray(output) ? output : output ? [output] : [], sliders: [] })
+    ({ input, output: Array.isArray(output) ? output : output ? [output] : [], valueFirst: false, sliders: [] })
   const definition = item.definition
 
   switch (item.type) {
@@ -189,14 +222,17 @@ function describeValues(item: GeometryDocumentObject, context: CardContext): Car
       return card(`${item.name}=${pair(item)}`, item.geometryValid === false ? EMPTY : '')
     }
     case 'verLine':
-      if (definition?.kind === 'verticalLine') return card(`${item.name}: x = ${typed(definition.x, item.x)}`, `x = ${formatDisplayNumber(item.x)}`)
+      if (definition?.kind === 'verticalLine') {
+        return card(`${item.name}: x = ${typed(definition.x, item.x)}`, `${item.name}: x = ${formatDisplayNumber(item.x)}`)
+      }
       return card(`${item.name}: x = ${formatDisplayNumber(item.x)}`)
     case 'circleR':
     case 'circle2':
     case 'circle3': {
       const output = getCircleDescriptor(item).status ? '' : EMPTY
       if (item.type === 'circleR' && definition?.kind === 'circleRadius') {
-        return card(`${item.name}: Çember(${item.A.name},${typed(definition.radius, item.r)})`, output || `r = ${formatDisplayNumber(item.r)}`)
+        return card(`${item.name}: Çember(${item.A.name},${typed(definition.radius, item.r)})`,
+          output || `${item.name}: Çember(${item.A.name},${formatDisplayNumber(item.r)})`)
       }
       return card(circleInput(item), output)
     }
@@ -208,7 +244,7 @@ function describeValues(item: GeometryDocumentObject, context: CardContext): Car
       return card(`${item.name}: YayÖlçüsü(${item.A.name},${item.B.name})`, `${item.name}=${arc ? `${formatMeasure(arc.span)}°` : '?'}`)
     }
     case 'lineWithEquation':
-      if (definition?.kind === 'function') return card(`${item.name}: y = ${definition.expression}`, `y = ${formatLine(item.m, item.n)}`)
+      if (definition?.kind === 'function') return card(`${item.name}: y = ${definition.expression}`, `${item.name}: y = ${formatLine(item.m, item.n)}`)
       return card(`${item.name}: y = ${formatLine(item.m, item.n, ' ')}`)
     case 'lineWithPoints': {
       const input = item.construction
@@ -216,9 +252,9 @@ function describeValues(item: GeometryDocumentObject, context: CardContext): Car
       const A = numericPoint(item.A)
       const B = numericPoint(item.B)
       if (!A || !B || (A.a === B.a && A.b === B.b)) return card(input)
-      if (A.a === B.a) return card(input, `x = ${formatDisplayNumber(A.a)}`)
+      if (A.a === B.a) return card(input, `${item.name}: x = ${formatDisplayNumber(A.a)}`)
       const line = createLineEquation(A, B)
-      return card(input, `y = ${formatLine(line.m, line.c)}`)
+      return card(input, `${item.name}: y = ${formatLine(line.m, line.c)}`)
     }
     case 'lineSegment':
       return card(`${item.name}: DoğruParçası(${pair(item.A)}, ${pair(item.B)})`)
@@ -357,4 +393,63 @@ export function editText(item: GeometryDocumentObject, context: CardContext): st
     case 'integral':
       return integralInput(item, nameOf)
   }
+}
+
+type ObjectType = GeometryDocumentObject['type']
+
+/** Objects drawn as a stroke: they take a width and a line style. */
+const STROKED = new Set<ObjectType>([
+  'circleR', 'circle2', 'circle3', 'angle', 'lineWithEquation', 'lineWithPoints', 'lineSegment', 'circleTangent',
+  'verLine', 'ray', 'polygon', 'function', 'functioncomposition', 'derivative', 'sectionalFunctions', 'limit',
+  'tangent', 'tangentHX',
+])
+
+/** Objects whose name (or name and value) is written on the plane. */
+const LABELLED = new Set<ObjectType>([
+  'point', 'circleR', 'circle2', 'circle3', 'angle', 'arcMeasure', 'lineWithEquation', 'lineWithPoints',
+  'lineSegment', 'distanceSegment', 'circleTangent', 'verLine', 'ray', 'polygon', 'sequence', 'tangent', 'tangentHX',
+])
+
+const POINT_SIZE = { min: 1, max: 9, caption: 'Boyut' }
+const STROKE_SIZE = { min: 1, max: 8, caption: 'Kalınlık' }
+
+/** What the appearance settings of a card show; null for objects that are not drawn. */
+export function styleSpec(item: GeometryDocumentObject): StyleSpec | null {
+  if (item.type === 'parameter') return null
+  const sized = item.type === 'point' || item.type === 'sequence' || STROKED.has(item.type)
+  return {
+    color: item.color,
+    size: sized ? { value: item.size, ...(item.type === 'point' ? POINT_SIZE : STROKE_SIZE) } : null,
+    lineStyle: STROKED.has(item.type) ? item.lineStyle ?? 'solid' : null,
+    label: LABELLED.has(item.type) ? !item.labelHidden : null,
+    trace: item.type === 'point' ? item.trace === true : null,
+  }
+}
+
+/**
+ * Apply appearance settings. Defaults are stored as absent fields, so turning a setting
+ * back restores the original model exactly. True when something changed.
+ */
+export function applyStyle(item: GeometryDocumentObject, patch: StylePatch): boolean {
+  const spec = styleSpec(item)
+  if (!spec) return false
+  const before = [item.color, item.size, item.lineStyle, item.labelHidden, item.trace]
+  if (patch.color !== undefined && /^#[0-9a-f]{6}$/i.test(patch.color)) item.color = patch.color.toLowerCase()
+  if (patch.size !== undefined && spec.size && Number.isFinite(patch.size)) {
+    item.size = Math.min(spec.size.max, Math.max(spec.size.min, Math.round(patch.size)))
+  }
+  if (patch.lineStyle !== undefined && spec.lineStyle !== null) {
+    if (patch.lineStyle === 'solid') delete item.lineStyle
+    else item.lineStyle = patch.lineStyle
+  }
+  if (patch.labelHidden !== undefined && spec.label !== null) {
+    if (patch.labelHidden) item.labelHidden = true
+    else delete item.labelHidden
+  }
+  if (patch.trace !== undefined && spec.trace !== null) {
+    if (patch.trace) item.trace = true
+    else delete item.trace
+  }
+  const after = [item.color, item.size, item.lineStyle, item.labelHidden, item.trace]
+  return before.some((value, index) => value !== after[index])
 }

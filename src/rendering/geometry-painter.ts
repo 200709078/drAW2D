@@ -23,6 +23,7 @@ import type {
 import type { EquationLine, VerticalLine } from '../geometry/function-types'
 import { getCircleTangentLines } from '../geometry/tangents'
 import { formatDisplayNumber, formatMeasure } from '../math/format-display'
+import { lineDash } from './line-style'
 import type { DrawingPrimitives, PainterFrame, StrokeStyle, VisibleLine } from './painter-types'
 
 const TEMP_COLOR = '#000000'
@@ -35,12 +36,23 @@ function width(frame: PainterFrame, object: GeometryObject<string>, increment = 
   return object.size + (isActive(frame, object) ? increment : 0)
 }
 
-function color(object: GeometryObject<string>, useOwnColorForTemp = false): string {
-  return object.temp && !useOwnColorForTemp ? TEMP_COLOR : object.color
+function color(object: GeometryObject<string>): string {
+  return object.temp ? TEMP_COLOR : object.color
+}
+
+/** The object's stroke: its color, its width (wider while selected) and its line style. */
+function stroke(frame: PainterFrame, object: GeometryObject<string>, styleOf: GeometryObject<string> = object): StrokeStyle {
+  const lineWidth = width(frame, styleOf)
+  return { color: color(object), width: lineWidth, dash: lineDash(styleOf.lineStyle, lineWidth) }
 }
 
 function label(object: GeometryObject<string>): string {
-  return object.name ?? ''
+  return object.labelHidden ? '' : object.name ?? ''
+}
+
+/** `name=value`, or only the value when the name is hidden. */
+function captioned(object: GeometryObject<string>, value: string): string {
+  return object.temp || object.labelHidden ? value : `${object.name ?? ''}=${value}`
 }
 
 function lineLabel(frame: PainterFrame, primitives: DrawingPrimitives, visible: VisibleLine, text: string, color: string): void {
@@ -83,9 +95,9 @@ function paintCircle(frame: PainterFrame, primitives: DrawingPrimitives, circle:
   if (!circle.visibility) return
   const descriptor = getCircleDescriptor(circle)
   if (!descriptor.status) return
-  const stroke: StrokeStyle = { color: color(circle), width: width(frame, circle) }
-  if (!primitives.circle({ a: descriptor.m, b: descriptor.n }, descriptor.r, stroke)) return
-  if (!circle.temp) circleLabel(frame, primitives, { a: descriptor.m, b: descriptor.n }, descriptor.r, label(circle), stroke.color)
+  const style = stroke(frame, circle)
+  if (!primitives.circle({ a: descriptor.m, b: descriptor.n }, descriptor.r, style)) return
+  if (!circle.temp) circleLabel(frame, primitives, { a: descriptor.m, b: descriptor.n }, descriptor.r, label(circle), style.color)
 }
 
 function paintRadiusCircle(frame: PainterFrame, primitives: DrawingPrimitives, circle: RadiusCircle): void {
@@ -96,60 +108,50 @@ function paintRadiusCircle(frame: PainterFrame, primitives: DrawingPrimitives, c
   const radiusPoint = { a: center.a + descriptor.r, b: center.b }
   primitives.point(radiusPoint, { color: TEMP_COLOR, radius: 5 })
   primitives.line({ type: 'lineSegment', A: center, B: radiusPoint }, { color: TEMP_COLOR, width: 3 })
-  const stroke: StrokeStyle = { color: color(circle), width: width(frame, circle) }
-  if (!primitives.circle(center, descriptor.r, stroke)) return
-  if (!circle.temp) circleLabel(frame, primitives, center, descriptor.r, label(circle), stroke.color)
+  const style = stroke(frame, circle)
+  if (!primitives.circle(center, descriptor.r, style)) return
+  if (!circle.temp) circleLabel(frame, primitives, center, descriptor.r, label(circle), style.color)
   primitives.text({ a: (center.a + radiusPoint.a) / 2, b: center.b }, `r = ${formatDisplayNumber(descriptor.r)}`, {
-    color: stroke.color,
+    color: style.color,
   })
 }
 
 function paintVerticalLine(frame: PainterFrame, primitives: DrawingPrimitives, line: VerticalLine): void {
   if (!line.visibility) return
-  const stroke: StrokeStyle = { color: color(line), width: width(frame, line) }
-  const visible = primitives.line({ type: 'verLine', x: line.x }, stroke)
+  const style = stroke(frame, line)
+  const visible = primitives.line({ type: 'verLine', x: line.x }, style)
   if (visible && !line.temp) {
-    primitives.textPixel(frame.transform.xToPixel(line.x) + 10, 15, label(line), { color: stroke.color })
+    primitives.textPixel(frame.transform.xToPixel(line.x) + 10, 15, label(line), { color: style.color })
   }
 }
 
+/** `owner` is the card object of an embedded line (a tangent's line): it gives width, style and label. */
 export function paintEquationLine(
   frame: PainterFrame,
   primitives: DrawingPrimitives,
   line: EquationLine,
-  useOwnColorForTemp = false,
+  owner: GeometryObject<string> = line,
 ): void {
   if (!line.visibility) return
-  const stroke: StrokeStyle = {
-    color: color(line, useOwnColorForTemp),
-    width: width(frame, line),
-  }
+  const style = stroke(frame, line, owner)
   const visible = primitives.line({
     type: 'lineWithEquation', m: line.m, n: line.n, startX: line.startX, endX: line.endX,
-  }, stroke)
-  if (visible && !line.temp) lineLabel(frame, primitives, visible, label(line), stroke.color)
+  }, style)
+  if (visible && !line.temp && !owner.labelHidden) lineLabel(frame, primitives, visible, label(line), style.color)
 }
 
-export function paintLineWithPoints(
-  frame: PainterFrame,
-  primitives: DrawingPrimitives,
-  line: LineWithPoints,
-  useOwnColorForTemp = false,
-): void {
+function paintLineWithPoints(frame: PainterFrame, primitives: DrawingPrimitives, line: LineWithPoints): void {
   if (!line.visibility) return
-  const stroke: StrokeStyle = {
-    color: color(line, useOwnColorForTemp),
-    width: width(frame, line),
-  }
-  const visible = primitives.line({ type: 'lineWithPoints', A: line.A, B: line.B }, stroke)
-  if (visible && !line.temp) lineLabel(frame, primitives, visible, label(line), stroke.color)
+  const style = stroke(frame, line)
+  const visible = primitives.line({ type: 'lineWithPoints', A: line.A, B: line.B }, style)
+  if (visible && !line.temp) lineLabel(frame, primitives, visible, label(line), style.color)
 }
 
 function paintRay(frame: PainterFrame, primitives: DrawingPrimitives, ray: Ray): void {
   if (!ray.visibility) return
-  const stroke: StrokeStyle = { color: color(ray), width: width(frame, ray) }
-  const visible = primitives.line({ type: 'ray', A: ray.A, B: ray.B }, stroke)
-  if (visible) lineLabel(frame, primitives, visible, label(ray), stroke.color)
+  const style = stroke(frame, ray)
+  const visible = primitives.line({ type: 'ray', A: ray.A, B: ray.B }, style)
+  if (visible) lineLabel(frame, primitives, visible, label(ray), style.color)
 }
 
 /** Translucent interior, edges and the name at the vertex centroid. */
@@ -170,31 +172,27 @@ function paintPolygon(frame: PainterFrame, primitives: DrawingPrimitives, polygo
   ctx.fillStyle = `${color(polygon)}33`
   ctx.fill()
   ctx.restore()
-  const stroke: StrokeStyle = { color: color(polygon), width: width(frame, polygon) }
+  const style = stroke(frame, polygon)
   vertices.forEach((vertex, index) => {
-    primitives.line({ type: 'lineSegment', A: vertex!, B: vertices[(index + 1) % vertices.length]! }, stroke)
+    primitives.line({ type: 'lineSegment', A: vertex!, B: vertices[(index + 1) % vertices.length]! }, style)
   })
   const center = {
     a: vertices.reduce((sum, vertex) => sum + vertex!.a, 0) / vertices.length,
     b: vertices.reduce((sum, vertex) => sum + vertex!.b, 0) / vertices.length,
   }
-  primitives.text(center, label(polygon), { color: stroke.color })
+  primitives.text(center, label(polygon), { color: style.color })
 }
 
 export function paintLineSegment(frame: PainterFrame, primitives: DrawingPrimitives, segment: LineSegment): void {
   if (!segment.visibility) return
-  const stroke: StrokeStyle = {
-    color: color(segment),
-    width: width(frame, segment),
-    dash: segment.temp ? segment.lineDash : undefined,
-  }
-  const visible = primitives.line({ type: 'lineSegment', A: segment.A, B: segment.B }, stroke)
+  const style = segment.temp ? { ...stroke(frame, segment), dash: segment.lineDash } : stroke(frame, segment)
+  const visible = primitives.line({ type: 'lineSegment', A: segment.A, B: segment.B }, style)
   if (!visible || segment.temp) return
   const startX = frame.transform.xToPixel(visible.start.a)
   const endX = frame.transform.xToPixel(visible.end.a)
   const startY = frame.transform.yToPixel(visible.start.b)
   const endY = frame.transform.yToPixel(visible.end.b)
-  primitives.textPixel((startX + endX) / 2 - 10, (startY + endY) / 2 - 10, label(segment), { color: stroke.color })
+  primitives.textPixel((startX + endX) / 2 - 10, (startY + endY) / 2 - 10, label(segment), { color: style.color })
 }
 
 function paintDistanceSegment(frame: PainterFrame, primitives: DrawingPrimitives, segment: DistanceSegment): void {
@@ -203,20 +201,19 @@ function paintDistanceSegment(frame: PainterFrame, primitives: DrawingPrimitives
   const B = numericPoint(segment.B)
   if (!A || !B) return
   const distance = distanceAB(A, B)
-  const text = segment.temp
-    ? `${formatMeasure(distance)} br`
-    : `${label(segment)}=${formatMeasure(distance)} br`
-  primitives.text({ a: (A.a + B.a) / 2, b: (A.b + B.b) / 2 }, text, { color: color(segment) })
+  primitives.text({ a: (A.a + B.a) / 2, b: (A.b + B.b) / 2 }, captioned(segment, `${formatMeasure(distance)} br`), {
+    color: color(segment),
+  })
 }
 
 function paintCircleTangent(frame: PainterFrame, primitives: DrawingPrimitives, tangent: CircleTangent): void {
   if (!tangent.visibility) return
   const result = getCircleTangentLines(tangent.A, tangent.circle)
   if (!result.status) return
-  const stroke: StrokeStyle = { color: tangent.color, width: width(frame, tangent) }
-  for (const line of result.lines) primitives.line(line, stroke)
+  const style = { ...stroke(frame, tangent), color: tangent.color }
+  for (const line of result.lines) primitives.line(line, style)
   const source = numericPoint(tangent.A)
-  if (!tangent.temp && source) {
+  if (!tangent.temp && !tangent.labelHidden && source) {
     primitives.textPixel(frame.transform.xToPixel(source.a) + 12, frame.transform.yToPixel(source.b) - 12,
       label(tangent), { color: tangent.color })
   }
@@ -228,20 +225,20 @@ function paintAngle(frame: PainterFrame, primitives: DrawingPrimitives, angle: G
   const B = numericPoint(angle.B)
   const C = numericPoint(angle.C)
   if (!A || !B || !C) return
-  const stroke: StrokeStyle = { color: color(angle), width: width(frame, angle) }
-  primitives.line({ type: 'lineSegment', A, B }, stroke)
-  primitives.line({ type: 'lineSegment', A: B, B: C }, stroke)
+  const style = stroke(frame, angle)
+  primitives.line({ type: 'lineSegment', A, B }, style)
+  primitives.line({ type: 'lineSegment', A: B, B: C }, style)
   const angles = calculateAngle({ type: 'angle', A, B, C })
   const span = getAngleMeasure({ type: 'angle', A, B, C })
   if (!Number.isFinite(angles.angleBA) || !Number.isFinite(span)) return
-  primitives.arc(B, 0.2, angles.angleBA, span, { color: stroke.color, width: stroke.width + 1 })
+  primitives.arc(B, 0.2, angles.angleBA, span, { color: style.color, width: style.width + 1 })
   const midAngle = (angles.angleBA + span / 2) * Math.PI / 180
   const textRadius = 0.35
   const measure = `${formatMeasure(span)}°`
   primitives.text({
     a: B.a + textRadius * Math.cos(midAngle),
     b: B.b + textRadius * Math.sin(midAngle),
-  }, angle.temp ? measure : `${label(angle)}=${measure}`, { color: stroke.color })
+  }, captioned(angle, measure), { color: style.color })
 }
 
 function paintArcMeasure(_frame: PainterFrame, primitives: DrawingPrimitives, arc: ArcMeasure): void {
@@ -254,7 +251,7 @@ function paintArcMeasure(_frame: PainterFrame, primitives: DrawingPrimitives, ar
   primitives.text({
     a: info.circleData.m + labelRadius * Math.cos(midAngle),
     b: info.circleData.n + labelRadius * Math.sin(midAngle),
-  }, arc.temp ? measure : `${label(arc)}=${measure}`, { color: color(arc) })
+  }, captioned(arc, measure), { color: color(arc) })
 }
 
 /** Paint one persistent geometric object without reading document or DOM state. */

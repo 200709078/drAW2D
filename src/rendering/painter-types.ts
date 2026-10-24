@@ -18,6 +18,14 @@ export interface PainterFrame {
   activeId: ObjectReference
   objects: readonly GeometryDocumentObject[]
   evaluator: FunctionEvaluator
+  /** Positions recorded for traced points; drawn beneath the scene. */
+  traces?: readonly PointTrace[]
+}
+
+export interface PointTrace {
+  color: string
+  radius: number
+  points: readonly NumericPoint[]
 }
 
 export interface StrokeStyle {

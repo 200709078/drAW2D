@@ -18,6 +18,9 @@ made by **mADEMatik Solutions** — [madematik.com](https://www.madematik.com/dr
 - **Matematik klavyesi**: giriş alanındaki düğmeyle açılır; rakam ve işlemler, fonksiyonlar, harfler ve komut şablonları sekmeleri vardır. Dokunmatik ekranlarda sistem klavyesinin yerini alır.
 - **Komut şablonları**: girişte komut adı yazılırken (`Diz`, `teg`) eşleşen komutlar önerilir; seçilen şablonun yer tutucuları (`<Fonksiyon>`) Tab ile sırayla doldurulur.
 - **Karttan düzenleme**: kalem düğmesi veya çift tıklama kartı açar; `ad: tanım` metni değiştirilip Enter ile uygulanır. Nesne kimliğini ve bağlı yapılarını koruyarak yeniden tanımlanır, ad değiştirilince ona başvuran tanımlar da güncellenir.
+- **Kartlar**: değeri olmayan nesnenin kartı tek satırdır; değeri tanımından farklı olanlarda üst satır ad ve değerdir (`f: y = 2x+1`), tanım (`f: y = a*x+1`) kart seçiliyken altta görünür.
+- **Görünüm ayarları**: seçili kartın palet düğmesi renk, kalınlık/boyut, çizgi stili (düz, kesikli, noktalı), etiket ve noktalarda iz bırakma ayarlarını açar.
+- **Bütün nesneyi sürükleme**: serbest noktalardan kurulan doğru, doğru parçası, ışın, çember, açı ve çokgen sürüklenince bütün olarak taşınır; denklemle verilmiş doğru denklemi değişerek kayar.
 - **Parametreler ve kaydırıcılar**: `a=2` bir kaydırıcı oluşturur; `a·x^2+1`, `(a,1)`, `Çember((0,0),a)`, `x=a`, `Teğet(f,a)` gibi her tanım ona bağlanır ve kaydırıcıyla canlı değişir. Kaydırıcının aralığı ve adımı kartta düzenlenir, değer canlandırılabilir. `Teğet`, `TeğetH/X` ve `Limit` yaklaşım değerleri için kaydırıcıyı kendisi oluşturur.
 - **Geri al / yinele**, temizleme, standart görünüm
 - **Gruplu araç çubuğu**: her grup son kullanılan aracını gösterir, basınca grubun araçları açılır; geri al, yinele, temizle, standart görünüm ve yardım çubuğun sağındadır. Dar ekranlarda araçlar alttan açılan panelin "Araçlar" sekmesindedir.

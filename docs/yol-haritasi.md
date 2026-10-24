@@ -16,7 +16,8 @@ Kullanıcıyla kararlaştırılan uygulama sırası; her adımdan sonra durulur.
 6. Fonksiyon analizi (öneri 2). **Tamamlandı (2026-10-23).**
 7. Yeni çizim araçları (öneri 4). **Tamamlandı (2026-10-23).**
 8. Matematik klavyesi (İ1). **Tamamlandı (2026-10-23).**
-9. Nesne görünüm ayarları ve bütün nesneyi sürükleme (öneri 5'in ikinci yarısı).
+9. Nesne görünüm ayarları ve bütün nesneyi sürükleme (öneri 5'in ikinci yarısı), kart
+   düzeni (İ5, seçenek 1 ve 2). **Tamamlandı (2026-10-23).**
 10. Kapalı, parametrik ve kutupsal eğriler, eşitsizlik bölgeleri.
 11. Kaydetme, açma, otomatik kayıt ve dışa aktarma (öneri 1).
 12. Android/iOS paketleme.
@@ -143,6 +144,30 @@ aracı seçer ve grubun menüsünü açar; dışarı tıklamak veya Esc menüyü
 araç eklemek kayda bir satır ve araç durum makinesine bir tanım eklemektir. Şu an
 görünen gruplar: Taşı, Nokta, Doğru, Özel Doğrular, Çember, Ölçüm, Dönüşüm.
 
+### İ5. Kart düzeni (2026-10-23)
+
+Kartların her zaman iki satır olması hoş görünmüyor. Önerilen seçenekler: (1) boş
+değer satırı kalksın; (2) üst satırda ad ve değer, tanım yalnız farklıysa ve kart
+seçiliyken altta küçük gri satırda; (3) bir görüntüleme kipi ayarı (değer / tanım /
+komut); (4) değerlerin KaTeX ile matematik yazımıyla gösterilmesi. Kullanıcı 1 ve 2'yi
+9. adımla birlikte istedi; 3 ve 4 sonraya kaldı.
+
+Ek istek (2026-10-23): çizgi stili seçeneklerinin yanında çizginin görünüşü de
+olsun (ör. `Noktalı · · · ·`).
+
+**Uygulandı (2026-10-23):**
+- Değeri olmayan kart (serbest nokta, çember, fonksiyon, parametre) tek satırdır.
+- Değeri tanımından farklı olan kartlarda (parametreye bağlı nesneler, kesişim,
+  yansıma, analiz noktaları, özel doğrular, ölçümler, teğet, bileşke, çokgen,
+  integral) üst satır adıyla değerdir (`f: y = 2x+1`, `A=(2,1)`, `b = 3`); tanım
+  (`f: y = a*x+1`) yalnız kart seçiliyken altta gri görünür. Kalem tanım metnini açar.
+  Değer satırları bunun için adı içerir (`y = 2x+1` yerine `f: y = 2x+1`; parametre
+  yarıçaplı çember `b: Çember(A,2)`).
+- Türev ve TeğetH/X kartında iki satır da kendi başına bilgi olduğundan iki satır
+  kalır; değeri tanımsız (`∅`, `∞`) kartta tanım önde kalır.
+- Seçili kartın tamamı vurgulanır.
+- Sonraya kalan: görüntüleme kipi ayarı (3) ve KaTeX gösterimi (4).
+
 ## Önerilen geliştirmeler
 
 Önem sırasıyla (2026-10-23).
@@ -231,8 +256,24 @@ ve eğim ölçümü henüz yok.
   nesne üzerinde taşır. Kesişim ve teğet yeniden tanımlanınca yardımcı noktalar
   sırayla eşlenir ve kimliklerini korur; düzenlenen `Limit` ve `TeğetH/X`
   kaydırıcılarını korur.
-- Renk, çizgi kalınlığı ve stili; etiketi gizleme; iz bırakma.
-- Doğru ve çemberlerin bütün olarak sürüklenmesi.
+- Renk, çizgi kalınlığı ve stili; etiketi gizleme; iz bırakma. **Uygulandı
+  (2026-10-23):** seçili kartın palet düğmesi görünüm ayarlarını açar: renk, kalınlık
+  (noktada boyut), çizgi (düz, kesikli, noktalı; seçeneklerin yanında örneğiyle),
+  etiket ve noktalarda "İz bırak". Yalnız nesneye uyan ayarlar görünür; parametrede
+  ayar yoktur. Her değişiklik tek geri alma adımıdır (renk ve kalınlık sürüklenirken
+  tek adım); ayarlar yeniden hesaplamada ve yeniden tanımlamada korunur. Gizli
+  etiketli ölçümler (açı, uzaklık, yay) yalnız değerini yazar. İz, noktanın geçtiği
+  konumları düzlem koordinatında tutar (kaydırma ve yakınlaştırmada yerinde kalır),
+  belgeye ve geçmişe girmez; iz kapatılınca veya nokta silinince silinir.
+- Doğru ve çemberlerin bütün olarak sürüklenmesi. **Uygulandı (2026-10-23):** doğru,
+  doğru parçası, ışın, uzaklık, çember, açı ve çokgen, tanımlayan noktalarının hepsi
+  serbestse sürüklenince bütün olarak ötelenir; yapı doğruları (dik, paralel, orta
+  dikme, açıortay) kaynak noktalarıyla taşınır. Denklemle verilmiş doğru (`2x+1`,
+  `x=3`) denklemi değişerek sürüklenir. Hesaplanan, nesneye bağlı veya parametreye
+  bağlı noktası olan nesne yerinde kalır; sürüklenebilen nesnenin üstünde imleç el
+  olur. Sürükleme tek geri alma adımıdır, Esc veya ikinci parmak geri alır.
+- Sınırlar: iz yalnız noktalarda (doğru ve fonksiyon izi yok); fonksiyon grafikleri
+  sürüklenerek ötelenmez.
 
 ### Daha büyük işler
 

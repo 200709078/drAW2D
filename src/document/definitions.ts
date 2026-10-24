@@ -7,7 +7,9 @@ import type { GeometryDocumentObject, Parameter } from '../geometry/function-typ
 export type PrepareCommand = (command: Command) => PreparedCommand
 
 /** Identity, style and the definition itself survive a recomputation. */
-const PRESERVED_FIELDS = new Set(['id', 'name', 'color', 'visibility', 'size', 'temp', 'definition'])
+const PRESERVED_FIELDS = new Set([
+  'id', 'name', 'color', 'visibility', 'size', 'temp', 'lineStyle', 'labelHidden', 'trace', 'definition',
+])
 
 /** Definitions ordered so that every object comes after the names it uses. */
 function dependencyOrder(objects: readonly GeometryDocumentObject[]): GeometryDocumentObject[] {

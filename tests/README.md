@@ -132,6 +132,16 @@ yardımcı noktalarının kimliklerini koruması, döngüsel ve geçersiz giriş
 değiştirmemesi ve düzenlenen `TeğetH` kaydırıcılarının korunması.
 `app-integration.spec.ts` kalem düğmesi, Enter, Esc, hata sonrası düzeltme, ad
 değiştirme ve tek geri alma adımını arayüzde denetler.
+`object-style.spec.ts` görünüm ayarlarını ve bütün nesne sürüklemeyi sınar: her
+türün sunduğu ayarlar, varsayılanların alan olarak saklanmaması (ayarı geri almak
+modeli aynen geri getirir), ayarların yeniden hesaplamada korunması, Canvas çağrıları
+kaydedilerek kesik/noktalı desen ve gizli etiket, doğru, çember ve çokgenin serbest
+noktalarıyla ötelenmesi, başlangıca dönünce saklı değerlerin aynen geri gelmesi,
+bağımlı noktalı nesnenin yerinde kalması, yapı doğrusunun kaynak noktasıyla ve
+denklemli doğrunun denklemiyle taşınması. Arayüzde tek satırlı ve "değer önde"
+kartlar (tanım yalnız seçiliyken, değerin altında), ayar panelinden renk, çizgi,
+etiket ve kalınlık değişikliklerinin birer geri alma adımı olması, iz bırakan noktanın
+izi ve doğru parçasının bütün olarak sürüklenip tek adımda geri alınması denetlenir.
 `toolbar.spec.ts` araç kaydının her aracı bir kez bir gruba koymasını, grup
 düğmesinin son aracını seçip menüsünü açmasını, menüden seçilen aracın grubun yüzü
 olmasını, menünün dışarı tıklama ve Esc ile kapanmasını, çubuktan seçilen araçla
