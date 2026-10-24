@@ -41,7 +41,7 @@ function registerWindowControls(): void {
 
 async function createWindow(): Promise<void> {
   const window = new BrowserWindow({
-    title: `drAW2D v_${app.getVersion()} | mADEMatik`,
+    title: 'drAW2D | mADEMatik',
     width: 1280,
     height: 800,
     minWidth: 640,
