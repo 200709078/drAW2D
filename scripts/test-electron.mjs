@@ -50,13 +50,18 @@ try {
     assert.equal(await isMaximized(), maximized, 'Büyüt düğmesi pencere durumunu değiştirmeli')
   }
 
+  // The autosave of an earlier run would come back; start from an empty document.
+  await page.evaluate(() => localStorage.removeItem('drAW2D.autosave'))
+  await page.reload()
+  await page.locator('#giris').waitFor()
   const input = page.locator('#giris')
   await input.fill('Türev(sin(x+1))')
   await input.press('Enter')
   await page.waitForFunction(() => document.querySelectorAll('#objectsContainer .expr-block').length === 1)
   assert.equal(await page.locator('#objectsContainer output').evaluate(output => output.value), "f': y = cos(x+1)")
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined')
-  assert.deepEqual(await page.evaluate(() => Object.keys(window.drAW2DDesktop ?? {})), ['windowControls'])
+  assert.deepEqual(await page.evaluate(() => Object.keys(window.drAW2DDesktop ?? {})), ['windowControls', 'files'])
+  assert.deepEqual(await page.evaluate(() => Object.keys(window.drAW2DDesktop.files)), ['open', 'save', 'exportFile'])
   assert.equal(await page.evaluate(() => typeof window.drAW2DToolbar?.getActiveTool), 'function')
 
   const failedAssets = await page.evaluate(async () => {

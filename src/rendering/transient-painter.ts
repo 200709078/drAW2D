@@ -21,6 +21,10 @@ export interface TransientPainter {
   distance(A: PointLike, B: PointLike, style?: PreviewLineStyle): void
   circle(circle: CircleLike, style?: PreviewLineStyle): void
   angle(A: PointLike, B: PointLike, C: PointLike, style?: PreviewLineStyle): void
+  /** A segment with an arrowhead at B. */
+  vector(A: PointLike, B: PointLike, style?: PreviewLineStyle): void
+  /** Mathematical angles in degrees, counterclockwise. */
+  arc(center: { a: number; b: number }, radius: number, start: number, span: number, style?: PreviewLineStyle): void
 }
 
 function markerStyle(style: PreviewPointStyle): MarkerStyle {
@@ -81,6 +85,37 @@ export function createTransientPainter(frame: PainterFrame): TransientPainter {
       if (Number.isFinite(angles.angleBA) && Number.isFinite(span)) {
         primitives.arc(center, 0.2, angles.angleBA, span, { ...stroke, width: stroke.width + 1 })
       }
+    },
+
+    vector(A, B, style = {}) {
+      const start = numericPoint(A)
+      const end = numericPoint(B)
+      if (!start || !end) return
+      const stroke = strokeStyle(style)
+      primitives.line({ type: 'lineSegment', A: start, B: end }, stroke)
+      const { transform, ctx } = frame
+      const ax = transform.xToPixel(start.a)
+      const ay = transform.yToPixel(start.b)
+      const bx = transform.xToPixel(end.a)
+      const by = transform.yToPixel(end.b)
+      const length = Math.hypot(bx - ax, by - ay)
+      if (!(length > 0)) return
+      const head = Math.min(length, 12)
+      const ux = (bx - ax) / length
+      const uy = (by - ay) / length
+      ctx.save()
+      ctx.beginPath()
+      ctx.moveTo(bx, by)
+      ctx.lineTo(bx - ux * head - uy * head * 0.45, by - uy * head + ux * head * 0.45)
+      ctx.lineTo(bx - ux * head + uy * head * 0.45, by - uy * head - ux * head * 0.45)
+      ctx.closePath()
+      ctx.fillStyle = stroke.color
+      ctx.fill()
+      ctx.restore()
+    },
+
+    arc(center, radius, start, span, style = {}) {
+      primitives.arc(center, radius, start, span, strokeStyle(style))
     },
   }
 }

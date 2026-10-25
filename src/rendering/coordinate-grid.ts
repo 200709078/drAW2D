@@ -226,6 +226,18 @@ function sameViewport(a: GridViewport, b: GridViewport): boolean {
     && a.scaleX === b.scaleX && a.scaleY === b.scaleY && a.unitX === b.unitX && a.unitY === b.unitY;
 }
 
+/** The background without caching, for an export that records drawing calls. */
+export function drawGridDirect(ctx: CanvasRenderingContext2D, viewport: GridViewport): void {
+  if (!validViewport(viewport)) return;
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, viewport.width, viewport.height);
+  const plan = createGridPlan(viewport);
+  strokeLines(ctx, plan.minorLines, '#e8edf2', 0.6);
+  strokeLines(ctx, plan.majorLines, '#c7d0da', 0.9);
+  strokeLines(ctx, plan.axisLines, '#d94b4b', 1.6);
+  drawLabels(ctx, plan.labels, viewport.width, viewport.height);
+}
+
 /** Keep the static background separate from changing geometry and pointer previews. */
 export function createGridRenderer(): {
   draw(ctx: CanvasRenderingContext2D, viewport: GridViewport, dpr: number): void;

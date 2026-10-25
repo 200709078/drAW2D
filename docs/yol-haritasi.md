@@ -1,14 +1,15 @@
 # drAW2D yol haritası
 
-Taşıma tamamlandıktan sonra düşünülen geliştirmeler. Buradaki maddeler not
-amaçlıdır; hiçbiri uygulanmadı. Hangisinin ne zaman yapılacağına kullanıcı karar
+Taşıma tamamlandıktan sonra düşünülen geliştirmeler. Uygulananlar maddelerinde
+"Uygulandı" olarak işaretlidir. Hangisinin ne zaman yapılacağına kullanıcı karar
 verir.
 
 ## Planlanan sıra (2026-10-23)
 
 Kullanıcıyla kararlaştırılan uygulama sırası; her adımdan sonra durulur.
 
-1. Küçük açık işler.
+1. Küçük açık işler. Kod bölme **tamamlandı (2026-10-25)**; kalanlar "Açık küçük işler"
+   bölümünde.
 2. Tanım tabanlı belge modeli ve parametreler (İ3). **Tamamlandı (2026-10-23).**
 3. Gruplu araç çubuğu (İ4). **Tamamlandı (2026-10-23).**
 4. Karttan yeniden tanımlama (öneri 5'in ilk yarısı). **Tamamlandı (2026-10-23).**
@@ -18,8 +19,8 @@ Kullanıcıyla kararlaştırılan uygulama sırası; her adımdan sonra durulur.
 8. Matematik klavyesi (İ1). **Tamamlandı (2026-10-23).**
 9. Nesne görünüm ayarları ve bütün nesneyi sürükleme (öneri 5'in ikinci yarısı), kart
    düzeni (İ5, seçenek 1 ve 2). **Tamamlandı (2026-10-23).**
-10. Kapalı, parametrik ve kutupsal eğriler, eşitsizlik bölgeleri.
-11. Kaydetme, açma, otomatik kayıt ve dışa aktarma (öneri 1).
+10. Kapalı, parametrik ve kutupsal eğriler, eşitsizlik bölgeleri. **Tamamlandı (2026-10-25).**
+11. Kaydetme, açma, otomatik kayıt ve dışa aktarma (öneri 1). **Tamamlandı (2026-10-25).**
 12. Android/iOS paketleme.
 
 ## Kullanıcı istekleri
@@ -113,7 +114,11 @@ kalmaz.
   tanımları da siler.
 - Henüz yok: parametrenin tuvalde gösterilmesi, parçalı fonksiyon aralık
   sınırlarında parametre, nokta ve doğruları karttan kesin değerle düzenleme
-  (adım 3).
+  (adım 3). **Uygulandı (2026-10-25):** parametre kartının ayarlarındaki "Tuvalde
+  göster" kaydırıcıyı tuvalin sol üstüne koyar; düğmesi değeri değiştirir, başlığı
+  sürüklenince kaydırıcı taşınır (ikisi de tek geri alma adımı), kartın gizle düğmesi
+  onu da gizler. Parçalı fonksiyonun aralık sınırları (`x<a`) ve analiz komutlarının
+  arama aralığı (`Kök(f,-b,b)`) parametre olabilir.
 
 ### İ4. Gruplu araç çubuğu (2026-10-23)
 
@@ -143,6 +148,15 @@ ve paneldeki "Araçlar" sekmesini bu kayıttan üretir. Grup düğmesi son kulla
 aracı seçer ve grubun menüsünü açar; dışarı tıklamak veya Esc menüyü kapatır. Bir
 araç eklemek kayda bir satır ve araç durum makinesine bir tanım eklemektir. Şu an
 görünen gruplar: Taşı, Nokta, Doğru, Özel Doğrular, Çember, Ölçüm, Dönüşüm.
+
+### İ6. Klavyede büyük/küçük harf tuşu (2026-10-25)
+
+Matematik klavyesinin harf sekmesinde büyük harf yazılamıyordu; drAW3D'de de.
+
+**Uygulandı (2026-10-25):** harf sekmesinin son satırının başında ⇧ tuşu: bir kez
+basınca sonraki harf büyük, iki kez basınca kilitli (altı çizili), üçüncüde kapalı.
+Harf tuşları Türkçe büyük harflerini gösterir ve yazar (i → İ, ı → I). Aynı değişiklik
+drAW3D'nin klavyesine de yapıldı.
 
 ### İ5. Kart düzeni (2026-10-23)
 
@@ -176,9 +190,28 @@ olsun (ör. `Noktalı · · · ·`).
 
 Şu an kalıcılık yok; sayfayı yenilemek veya uygulamayı kapatmak çizimi siler.
 
+**Dosya uzantısı (2026-10-24):** drAW2D belgeleri `.drw2` uzantısıyla kaydedilecek.
+Ailenin kuralı: drAW `.drw`, drAW2D `.drw2`, drAW3D `.drw3` (drAW3D'de uygulandı).
+
 **Zamanlama (2026-10-23):** Sonlara doğru uygulanacak; belge modelinde daha
 değişiklikler (tanım tabanlı nesneler, parametreler) olacağından dosya biçimi
 ondan sonra belirlenir.
+
+**Uygulandı (2026-10-25):** araç çubuğunun sağındaki Dosya menüsü: Yeni (geri
+alınabilir), Aç (Ctrl+O), Kaydet (Ctrl+S), Farklı Kaydet (Ctrl+Shift+S), görüntüyü PNG
+veya SVG olarak kaydet. Biçim `document/file-format.ts`:
+`{ app: 'drAW2D', format: 1, objects, view }` JSON'u; başka nesnelerin paylaştığı
+nesneler (bir doğru parçasının uç noktaları) `{ "$ref": kimlik }` olarak bir kez yazılır.
+Açarken türler, kimlikler ve başvurular denetlenir; tanımlar yeniden hesaplanamazsa
+belge değişmez. Açmak tek geçmiş adımıdır, görünüm de geri gelir. Masaüstünde dosyalar
+yerel diyaloglarla açılıp kaydedilir (`window.drAW2DDesktop.files`, `file:*` IPC; ana
+süreç yalnızca diyalogda seçilen yollara yazar); Chromium tabanlı tarayıcılarda File
+System Access API ile aynı dosyaya kaydedilir, diğerlerinde indirme ve dosya seçici
+kullanılır (`app/files.ts`, drAW3D ile aynı). Belge her değişiklikten bir saniye sonra
+ve sayfa kapanırken tarayıcıya kaydedilir; açılışta son çalışma geri yüklenir ve geçmiş
+oradan başlar (`GeometryDocument.reset`). PNG tuvalin kendisidir; SVG, çizicilerin
+Canvas çağrılarının SVG'ye kaydedilmesiyle (`rendering/svg-context.ts`) vektör olarak
+üretilir.
 
 - Web: tarayıcıda otomatik kayıt; dosya olarak indirme ve yükleme.
 - Masaüstü: Dosya > Aç/Kaydet, mevcut preload/IPC katmanı üzerinden.
@@ -213,6 +246,16 @@ ortaya çıkan ek çözümler gösterilmez. Analiz komutları fonksiyon adı al�
 (`Kök(x^2-4)` gibi doğrudan ifade henüz yok); arama aralığı parametre olamaz;
 parçalı fonksiyonlarda ekstremum ve dönüm noktası yok.
 
+**Uygulandı (2026-10-25):** çözüm sayısı artınca kümeye yeni adlı noktalar eklenir
+(`document/point-sets.ts`, aynı geçmiş adımında; en fazla 50), azalınca fazlası `∅`
+olur. `Kök`, `Ekstremum`, `Dönüm`, `Kesiştir`, `İntegral` ve `Asimptot` fonksiyon adı
+yerine ifade de alır; ifade önce olağan bir fonksiyon olarak çizilir. Arama aralığı
+parametre olabilir. Ekstremum ve dönüm noktası parçalı fonksiyonlarda parça parça
+türevle bulunur; türevin işaret değiştirdiği yerde fonksiyon sürekliyse köşe de
+sayılır (`|x|`), kutup sayılmaz (`1/x²`). `Asimptot(f)` görünür aralıktaki kutupları
+ve ıraksayan tanım uçlarını düşey, ±∞'daki doğruları yatay/eğik asimptot olarak
+kesikli çizer ve kartında listeler; fonksiyon değişince yeniden hesaplanır.
+
 ### 3. Parametre kaydırıcıları
 
 Kullanıcı isteği İ3 ile aynı konu; karar ve ayrıntılar orada.
@@ -241,6 +284,20 @@ aracın imleci izleyen önizlemesi var. Çokgen aracı ilk köşeye tıklanınca
 Sınırlar: dönüşümler yalnız noktalara uygulanır (doğru, çember veya çokgen
 dönüşümü yok); vektör nesnesi, düzgün çokgen, merkez ve yarıçap aracı, yay, alan
 ve eğim ölçümü henüz yok.
+
+**Uygulandı (2026-10-25):** `Yansıt`, `Döndür` ve `Ötele` doğru, doğru parçası, ışın,
+vektör, denklemli doğru, çember, yay ve çokgeni de dönüştürür. Görüntü aynı türden bir
+nesnedir (`a'`); noktaları kaynağın noktalarının görüntüsü olan gizli, adsız
+yardımcılardır (noktası olmayan doğru ve yarıçaplı çember için gizli çapa noktaları),
+kartı dönüşümü gösterir (`a': Döndür(a,b,M)`) ve döndürme açısı kaydırıcıdır.
+Dönüşüm araçlarında ilk tıklama bir nesneyi de seçebilir. `Vektör(A,B)` ok olarak
+çizilir, kartında bileşenleri vardır; `Ötele(nesne, vektör)` ve öteleme aracı vektör
+kabul eder. `DüzgünÇokgen(A,B,n)` diğer köşeleri adlı noktalar olarak kurar (n
+oluşturulurken sabitlenir, 3–30). Yeni araçlar: Vektör, Düzgün Çokgen ve Merkez ve
+Yarıçap ile Çember (köşe sayısını ya da yarıçapı küçük bir pencerede sorar), Merkez ve
+İki Noktadan Yay (`Yay(M,A,B)`, kartında uzunluk), Alan (`Alan(çokgen | çember)`) ve
+Eğim (`Eğim(doğru)`, eğim üçgeniyle). Sınır: yaya ve vektöre nokta bağlanmaz,
+yaylar kesiştirilmez.
 
 ### 5. Nesne özellikleri ve düzenleme
 
@@ -273,13 +330,31 @@ ve eğim ölçümü henüz yok.
   bağlı noktası olan nesne yerinde kalır; sürüklenebilen nesnenin üstünde imleç el
   olur. Sürükleme tek geri alma adımıdır, Esc veya ikinci parmak geri alır.
 - Sınırlar: iz yalnız noktalarda (doğru ve fonksiyon izi yok); fonksiyon grafikleri
-  sürüklenerek ötelenmez.
+  sürüklenerek ötelenmez. **Uygulandı (2026-10-25):** doğrular, vektörler, çemberler,
+  yaylar, çokgenler, fonksiyon grafikleri, teğetler, parçalı fonksiyonlar, eğriler ve
+  kapalı eğriler de iz bırakır (`app/traces.ts`); her değişen hali düzlem
+  koordinatlarında saklanır (grafikler çizildikleri çoklu çizgi olarak), nesne başına
+  150 000 köşeyle sınırlıdır. Parametreye veya başka fonksiyona dayanmayan bir
+  fonksiyon grafiği sürüklenince `f(x − a) + b` olur; öteleme bir piksele yuvarlanır,
+  ikinci sürükleme ilk ötelemeye eklenir, başlangıca dönünce ilk denklem geri gelir.
 
 ### Daha büyük işler
 
 - Kapalı eğriler (`x^2+y^2=4`); ayrı bir çizim algoritması gerekir.
 - Parametrik eğriler (`Eğri(cos t, sin t, t, 0, 2π)`), kutupsal grafikler,
   eşitsizlik bölgeleri.
+
+**Uygulandı (2026-10-25):** x ve y içeren, `y = f(x)` ya da `x = c` olmayan her denklem
+kapalı eğridir; görünür alan 6 piksellik ızgarada marching squares ile örneklenir, kenar
+kesişimleri eğrinin üstüne iyileştirilir, kutup üstündeki işaret değişimi atlanır
+(`geometry/implicit.ts`). Hücreden küçük ayrıntılar ve işaret değiştirmeyen eğriler
+(`(x²+y²−1)² = 0`) görünmeyebilir. `Eğri(x(t), y(t), t, a, b)` ve
+`Kutupsal(r(θ), a, b)` (ya da `r = 2sin(3θ)`) yarım piksel doğrulukla uyarlamalı
+örneklenir. Eşitsizlik (`y<x^2`, `x^2+y^2<=4`, `x>1`, `≤`, `≥`) bölgeyi saydam tarar;
+sınır kesin eşitsizlikte kesiklidir. Tek başına y (ya da x) içeren eşitsizlikler piksel
+sütunlarıyla tam taranır, diğerleri ızgarayla. Bölge yalnız sınırından seçilir, böylece
+üstünde düzlem kaydırılabilir. Hepsi parametre kullanabilir ve kartta yazıldığı gibi
+görünür; π girişte de yazılabilir. Sınır: bu eğrilere nokta bağlanmaz, kesiştirilmez.
 
 ## Açık küçük işler
 
@@ -290,8 +365,12 @@ yükleniyor. Electron kontrolü artık CSS arka plan görsellerini de denetliyor
 - Tuvalin sol altındaki mADEMatik bağlantısı (madematik.com) kaldırıldı
   (2026-10-23); ileride uygun bir yere (örneğin yardım penceresi veya bir "Hakkında"
   bölümü) geri eklenecek. Eski işaretleme ve stil Git geçmişindedir.
-- Derlemede math.js kaynaklı "500 kB'tan büyük parça" uyarısı; kod bölme ilk
-  açılışı hızlandırabilir.
+- ~~Derlemede math.js kaynaklı "500 kB'tan büyük parça" uyarısı; kod bölme ilk
+  açılışı hızlandırabilir.~~ **Uygulandı (2026-10-25):** math.js `create(all)` yerine
+  yalnız giriş dilinin fonksiyonları, ayrıştırıcı, derleyici ve türevle kurulur; ayrı
+  `mathjs` parçasıdır (386 kB, gzip 107 kB; önce bütün uygulama tek parçada 807 kB'tı,
+  aynı kodla bölününce 554 kB). Uyarı kalktı; uygulama kodu değişince math.js parçası
+  tarayıcı önbelleğinde kalır.
 - Aralarında tanımsız noktalar olan çok seyrek tanımlı fonksiyonlarda (`x^x`,
   negatif taraf) çizgi tanımsız bölgenin üstünden geçebilir; düzeltmek her
   grafiğin maliyetini ikiye katlar.

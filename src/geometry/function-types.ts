@@ -18,6 +18,8 @@ export type FunctionNameGroup =
   | 'tangent'
   | 'tangentHX'
   | 'derivative'
+  | 'curve'
+  | 'region'
 
 export interface FunctionModelContext {
   createName(type: FunctionNameGroup): string
@@ -60,6 +62,8 @@ export interface Limit extends GeometryObject<'limit'> {
 
 export interface FunctionCurve extends GeometryObject<'function'>, FunctionDomain {
   func: string
+  /** A graph dragged on the plane: `func` is `base` moved by (dx, dy). */
+  translation?: { base: string; dx: number; dy: number }
 }
 
 export interface FunctionComposition extends GeometryObject<'functioncomposition'>, FunctionDomain {
@@ -105,6 +109,8 @@ export interface Parameter extends GeometryObject<'parameter'> {
   min: number
   max: number
   step: number
+  /** Shown as a slider on the plane, at this CSS-pixel position of the canvas (left end of the track). */
+  onCanvas?: { x: number; y: number }
 }
 
 /** The area between a function's graph and the x axis from `start` to `end`; its value is computed. */
@@ -112,6 +118,59 @@ export interface Integral extends GeometryObject<'integral'> {
   sourceId: ObjectReference
   start: number
   end: number
+}
+
+/** Vertical, horizontal and oblique asymptotes of a graph; vertical ones are searched in [start, end]. */
+export interface Asymptote extends GeometryObject<'asymptote'> {
+  sourceId: ObjectReference
+  start: number
+  end: number
+}
+
+/** The area of a polygon or circle; its value is computed. */
+export interface AreaMeasure extends GeometryObject<'area'> {
+  sourceId: ObjectReference
+}
+
+/** The slope of a line, shown with a slope triangle; its value is computed. */
+export interface SlopeMeasure extends GeometryObject<'slope'> {
+  sourceId: ObjectReference
+}
+
+/**
+ * A parametric curve (x(t), y(t)) for t in [start, end]. The expressions are stored in
+ * x, the typed variable is only for display. A polar curve r(θ) keeps its r in `polar`.
+ */
+export interface ParametricCurve extends GeometryObject<'curve'> {
+  xFunc: string
+  yFunc: string
+  variable: string
+  start: number
+  end: number
+  polar?: string
+  /** The expressions as typed (a polar curve: r in x, y empty), for its card. */
+  typed: { x: string; y: string }
+}
+
+/** The curve F(x, y) = 0 of an equation `left = right`; `func` is left − right in x and y. */
+export interface ImplicitCurve extends GeometryObject<'implicit'> {
+  func: string
+  left: string
+  right: string
+}
+
+export type InequalityOperator = '<' | '<=' | '>' | '>='
+
+/**
+ * The region where `left operator right`; `func` is left − right in x and y. When one
+ * side is y alone (or x), `bound` is the other side, so the region is bounded by a graph.
+ */
+export interface Inequality extends GeometryObject<'inequality'> {
+  func: string
+  left: string
+  right: string
+  operator: InequalityOperator
+  bound?: { variable: 'x' | 'y'; expression: string; below: boolean }
 }
 
 export type FunctionGeometryObject =
@@ -126,5 +185,11 @@ export type FunctionGeometryObject =
   | Derivative
   | SectionalFunctions
   | Integral
+  | Asymptote
+  | AreaMeasure
+  | SlopeMeasure
+  | ParametricCurve
+  | ImplicitCurve
+  | Inequality
 
 export type GeometryDocumentObject = BasicGeometryObject | FunctionGeometryObject | Parameter

@@ -25,7 +25,8 @@ export function isDerivedPoint(point: GeometryPoint): boolean {
   return point.definition !== undefined || point.onOther.some(constraint => constraint.type === 'reflectPoint'
     || constraint.type === 'analysisPoint' || constraint.type === 'midpoint' || constraint.type === 'reflectLine'
     || constraint.type === 'rotate' || constraint.type === 'translate' || constraint.type === 'lineHelper'
-    || constraint.type === 'intersectLines' || constraint.type === 'circleTangentTouchPoint')
+    || constraint.type === 'intersectLines' || constraint.type === 'circleTangentTouchPoint'
+    || constraint.type === 'anchor' || constraint.type === 'regularVertex')
 }
 
 function constraintReferences(constraint: PointConstraint): (ObjectId | null | undefined)[] {
@@ -34,16 +35,18 @@ function constraintReferences(constraint: PointConstraint): (ObjectId | null | u
     case 'onLine': return [constraint.lineId]
     case 'onCircleTangent': return [constraint.tangentId]
     case 'onAngle': return [constraint.angleId]
-    case 'reflectPoint': return [constraint.sourceId, constraint.centerId]
+    case 'reflectPoint': return [constraint.sourceId, constraint.centerId, constraint.ownerId]
     case 'intersectLines': return [constraint.line1Id, constraint.line2Id, constraint.ownerId]
     case 'circleTangentTouchPoint': return [constraint.tangentId]
     case 'analysisPoint': return [...constraint.sourceIds, constraint.ownerId]
     case 'onFunction': return [constraint.functionId]
     case 'midpoint': return [constraint.firstId, constraint.secondId, constraint.ownerId]
-    case 'reflectLine': return [constraint.sourceId, constraint.lineId]
-    case 'rotate': return [constraint.sourceId, constraint.centerId]
-    case 'translate': return [constraint.sourceId, constraint.fromId, constraint.toId]
+    case 'reflectLine': return [constraint.sourceId, constraint.lineId, constraint.ownerId]
+    case 'rotate': return [constraint.sourceId, constraint.centerId, constraint.ownerId]
+    case 'translate': return [constraint.sourceId, constraint.fromId, constraint.toId, constraint.vectorId, constraint.ownerId]
     case 'lineHelper': return [...constraint.refs, constraint.ownerId]
+    case 'anchor': return [constraint.objectId, constraint.ownerId]
+    case 'regularVertex': return [constraint.firstId, constraint.secondId, constraint.ownerId]
   }
 }
 
@@ -53,9 +56,12 @@ export function directReferences(object: GeometryDocumentObject): ObjectId[] {
   if (object.type === 'point') {
     for (const constraint of object.onOther) references.push(...constraintReferences(constraint))
   }
-  if (object.type === 'integral') references.push(object.sourceId)
+  if (object.type === 'integral' || object.type === 'asymptote' || object.type === 'area' || object.type === 'slope') {
+    references.push(object.sourceId)
+  }
   if (object.type === 'polygon') references.push(...object.points.map(point => point.id))
-  for (const key of ['A', 'B', 'C', 'circle'] as const) {
+  if (object.imageOf) references.push(object.imageOf.sourceId, ...object.imageOf.refs)
+  for (const key of ['A', 'B', 'C', 'M', 'circle'] as const) {
     if (key in object) references.push((object as Partial<Record<typeof key, { id: ObjectId | null }>>)[key]?.id)
   }
   return references.filter((id): id is ObjectId => typeof id === 'number')
@@ -119,7 +125,7 @@ export function resolveConstraints(objects: readonly GeometryDocumentObject[]): 
         case 'onLine': {
           const line = get(constraint.lineId)
           if (line && (line.type === 'lineWithPoints' || line.type === 'lineSegment' || line.type === 'distanceSegment' || line.type === 'ray'
-            || line.type === 'verLine' || line.type === 'lineWithEquation')) result = getProjectionOnLine(line, a, b)
+            || line.type === 'vector' || line.type === 'verLine' || line.type === 'lineWithEquation')) result = getProjectionOnLine(line, a, b)
           break
         }
         case 'onCircleTangent': {
@@ -154,10 +160,12 @@ export function resolveConstraints(objects: readonly GeometryDocumentObject[]): 
           break
         }
         case 'analysisPoint': {
+          // Every point of a set searches the owner's range, which a parameter may change.
+          const range = (constraint.ownerId === undefined ? null : pointConstraint(get(constraint.ownerId), 'analysisPoint')) ?? constraint
           const location = analysisPoints(constraint.analysis, constraint.sourceIds.map(id => {
             const source = get(id)
             return source ? curveOf(source) : null
-          }), constraint.start, constraint.end)[constraint.pointIndex]
+          }), range.start, range.end)[constraint.pointIndex]
           if (location) result = { status: true, ...location, distance: 0 }
           break
         }
@@ -165,7 +173,9 @@ export function resolveConstraints(objects: readonly GeometryDocumentObject[]): 
         case 'reflectLine':
         case 'rotate':
         case 'translate':
-        case 'lineHelper': {
+        case 'lineHelper':
+        case 'anchor':
+        case 'regularVertex': {
           const location = constructedLocation(constraint, get)
           if (location) result = { status: true, ...location, distance: 0 }
           break

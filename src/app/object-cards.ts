@@ -1,15 +1,18 @@
 import { pointConstraint } from '../document/dependencies'
 import type { NumberArgument } from '../commands/types'
-import { curveOf, definiteIntegral } from '../geometry/analysis'
-import { polygonArea } from '../geometry/constructions'
-import type { GeometryDocumentObject, Integral, Tangent, TangentHX } from '../geometry/function-types'
+import { asymptotesOf, curveOf, definiteIntegral } from '../geometry/analysis'
+import { arcData, polygonArea, slopeOf } from '../geometry/constructions'
+import type {
+  Asymptote, GeometryDocumentObject, Inequality, Integral, ParametricCurve, Tangent, TangentHX,
+} from '../geometry/function-types'
 import {
   createLineEquation, distanceAB, getAngleMeasure, getCircleDescriptor, getPositiveArcMeasure, numericPoint,
 } from '../geometry/primitives'
 import type {
   AnalysisKind, Coordinate, GeometryCircle, GeometryPoint, LineConstruction, LineStyle, ObjectId, PointConstraint,
 } from '../geometry/types'
-import { formatDisplayNumber, formatMeasure } from '../math/format-display'
+import { formatBound, formatDisplayNumber, formatMeasure } from '../math/format-display'
+import { isTraceable } from './traces'
 
 export interface SliderSpec {
   min: number
@@ -24,6 +27,8 @@ export interface ParameterSettings {
   min: number
   max: number
   step: number
+  /** The slider is also drawn on the plane. */
+  onCanvas: boolean
 }
 
 export interface CardModel {
@@ -153,7 +158,9 @@ function transformCall(item: GeometryPoint, nameOf: (id: ObjectId | null) => str
         const angle = item.definition?.kind === 'rotate' ? typed(item.definition.angle, constraint.angle) : formatDisplayNumber(constraint.angle)
         return `Döndür(${nameOf(constraint.sourceId)},${angle},${nameOf(constraint.centerId)})`
       }
-      case 'translate': return `Ötele(${nameOf(constraint.sourceId)},${nameOf(constraint.fromId)},${nameOf(constraint.toId)})`
+      case 'translate': return constraint.vectorId !== undefined
+        ? `Ötele(${nameOf(constraint.sourceId)},${nameOf(constraint.vectorId)})`
+        : `Ötele(${nameOf(constraint.sourceId)},${nameOf(constraint.fromId)},${nameOf(constraint.toId)})`
     }
   }
   return null
@@ -169,6 +176,58 @@ function integralValue(item: Integral, objects: readonly GeometryDocumentObject[
 const typed = (argument: NumberArgument | undefined, fallback: Coordinate) =>
   argument === undefined ? formatDisplayNumber(fallback) : typeof argument === 'number' ? formatDisplayNumber(argument) : argument.expression
 
+/** `Yansıt(p,d)`, `Döndür(p,a,M)` or `Ötele(p,u)`: how an image object was made. */
+function imageCall(item: GeometryDocumentObject, nameOf: (id: ObjectId | null) => string): string {
+  const image = item.imageOf!
+  const source = nameOf(image.sourceId)
+  const refs = image.refs.map(nameOf)
+  switch (image.kind) {
+    case 'reflectPoint':
+    case 'reflectLine': return `Yansıt(${source},${refs[0]})`
+    case 'rotate': {
+      const angle = item.definition?.kind === 'rotate' ? typed(item.definition.angle, image.angle ?? 0) : formatDisplayNumber(image.angle ?? 0)
+      return `Döndür(${source},${angle},${refs[0]})`
+    }
+    case 'translate': return `Ötele(${source},${refs.join(',')})`
+  }
+}
+
+function areaValue(item: GeometryDocumentObject | undefined): number | null {
+  if (!item) return null
+  if (item.type === 'polygon') return polygonArea(item.points)
+  if (item.type === 'circleR' || item.type === 'circle2' || item.type === 'circle3') {
+    const circle = getCircleDescriptor(item)
+    return circle.status ? Math.PI * circle.r * circle.r : null
+  }
+  return null
+}
+
+function asymptoteLines(item: Asymptote, objects: readonly GeometryDocumentObject[]): string[] {
+  const source = objects.find(object => object.id === item.sourceId)
+  const curve = source ? curveOf(source) : null
+  if (curve?.kind !== 'graph') return [EMPTY]
+  const { vertical, lines } = asymptotesOf(curve, item.start, item.end)
+  const result = [...vertical.map(x => `x = ${formatDisplayNumber(x)}`), ...lines.map(line => `y = ${formatLine(line.m, line.n)}`)]
+  return result.length ? result : [EMPTY]
+}
+
+function curveCall(item: ParametricCurve, definition: GeometryDocumentObject['definition'], exact: boolean): string {
+  const bound = (argument: NumberArgument | undefined, fallback: number) =>
+    argument !== undefined && typeof argument !== 'number' ? argument.expression : exact ? formatBound(fallback) : formatBoundShort(fallback)
+  const range = definition?.kind === 'curve' || definition?.kind === 'polar'
+    ? `${bound(definition.start, item.start)},${bound(definition.end, item.end)}`
+    : `${bound(undefined, item.start)},${bound(undefined, item.end)}`
+  return item.polar !== undefined ? `Kutupsal(${item.typed.x},${range})` : `Eğri(${item.typed.x},${item.typed.y},${item.variable},${range})`
+}
+
+/** A bound for display: multiples of π, otherwise rounded. */
+function formatBoundShort(value: number): string {
+  const exact = formatBound(value)
+  return exact.includes('π') ? exact : formatDisplayNumber(value)
+}
+
+const inequalityText = (item: Inequality) => `${item.left} ${item.operator} ${item.right}`
+
 /** Presentation of one document object; reads the model and never changes it. */
 export function describeCard(item: GeometryDocumentObject, context: CardContext): CardModel {
   const card = describeValues(item, context)
@@ -181,7 +240,7 @@ export function describeCard(item: GeometryDocumentObject, context: CardContext)
 }
 
 const INFINITE = '∞'
-const BOTH_LINES = new Set<GeometryDocumentObject['type']>(['derivative', 'tangentHX'])
+const BOTH_LINES = new Set<GeometryDocumentObject['type']>(['derivative', 'tangentHX', 'asymptote'])
 
 function describeValues(item: GeometryDocumentObject, context: CardContext): CardModel {
   const { objects } = context
@@ -189,6 +248,11 @@ function describeValues(item: GeometryDocumentObject, context: CardContext): Car
   const card = (input: string, output: string | string[] = ''): CardModel =>
     ({ input, output: Array.isArray(output) ? output : output ? [output] : [], valueFirst: false, sliders: [] })
   const definition = item.definition
+  // An image shows its transformation and the values of its kind.
+  if (item.imageOf) {
+    const { imageOf: _image, ...plain } = item
+    return { ...describeValues(plain as GeometryDocumentObject, context), input: `${item.name}: ${imageCall(item, nameOf)}` }
+  }
 
   switch (item.type) {
     case 'parameter': {
@@ -199,7 +263,7 @@ function describeValues(item: GeometryDocumentObject, context: CardContext): Car
       return {
         ...card(`${item.name} = ${formatDisplayNumber(value)}`),
         sliders: [{ min, max, step, value, label: '' }],
-        parameter: { min, max, step },
+        parameter: { min, max, step, onCanvas: item.onCanvas !== undefined },
       }
     }
     case 'point': {
@@ -298,13 +362,42 @@ function describeValues(item: GeometryDocumentObject, context: CardContext): Car
       return card(`${item.name}: Işın(${item.A.name},${item.B.name})`)
     case 'polygon': {
       const area = polygonArea(item.points)
-      return card(`${item.name}: Çokgen(${item.points.map(point => point.name).join(',')})`,
-        `${item.name} = ${area === null ? EMPTY : formatMeasure(area)}`)
+      const input = item.regular
+        ? `${item.name}: DüzgünÇokgen(${item.points[0]!.name},${item.points[1]!.name},${item.regular.sides})`
+        : `${item.name}: Çokgen(${item.points.map(point => point.name).join(',')})`
+      return card(input, `${item.name} = ${area === null ? EMPTY : formatMeasure(area)}`)
     }
     case 'integral': {
       const value = integralValue(item, objects)
       return card(integralInput(item, nameOf), `${item.name} = ${value === null ? EMPTY : formatMeasure(value)}`)
     }
+    case 'vector': {
+      const A = numericPoint(item.A)
+      const B = numericPoint(item.B)
+      return card(`${item.name}: Vektör(${item.A.name},${item.B.name})`,
+        A && B ? `${item.name}=${pair({ a: B.a - A.a, b: B.b - A.b })}` : EMPTY)
+    }
+    case 'circularArc': {
+      const arc = arcData(item)
+      return card(`${item.name}: Yay(${item.M.name},${item.A.name},${item.B.name})`,
+        `${item.name} = ${arc ? formatMeasure(arc.r * arc.span * Math.PI / 180) : EMPTY}`)
+    }
+    case 'area': {
+      const value = areaValue(objects.find(object => object.id === item.sourceId))
+      return card(`${item.name} = Alan(${nameOf(item.sourceId)})`, `${item.name} = ${value === null ? EMPTY : formatMeasure(value)}`)
+    }
+    case 'slope': {
+      const value = slopeOf(objects.find(object => object.id === item.sourceId))
+      return card(`${item.name} = Eğim(${nameOf(item.sourceId)})`, `${item.name} = ${value === null ? EMPTY : formatMeasure(value)}`)
+    }
+    case 'asymptote':
+      return card(`${item.name}: Asimptot(${nameOf(item.sourceId)})`, asymptoteLines(item, objects))
+    case 'curve':
+      return card(`${item.name}: ${curveCall(item, definition, false)}`)
+    case 'implicit':
+      return card(`${item.name}: ${item.left} = ${item.right}`)
+    case 'inequality':
+      return card(`${item.name}: ${inequalityText(item)}`)
   }
 }
 
@@ -322,6 +415,7 @@ export function editText(item: GeometryDocumentObject, context: CardContext): st
   const nameOf = (id: ObjectId | null) => objects.find(object => object.id === id)?.name ?? '?'
   const definition = item.definition
   const name = item.name
+  if (item.imageOf) return `${name}: ${imageCall(item, nameOf)}`
   switch (item.type) {
     case 'parameter':
       return `${name} = ${definition?.kind === 'parameter' && typeof definition.value !== 'number'
@@ -360,7 +454,9 @@ export function editText(item: GeometryDocumentObject, context: CardContext): st
     case 'ray':
       return `${name}: Işın(${item.A.name},${item.B.name})`
     case 'polygon':
-      return `${name}: Çokgen(${item.points.map(point => point.name).join(',')})`
+      return item.regular
+        ? `${name}: DüzgünÇokgen(${item.points[0]!.name},${item.points[1]!.name},${item.regular.sides})`
+        : `${name}: Çokgen(${item.points.map(point => point.name).join(',')})`
     case 'lineSegment':
       return `${name}: DoğruParçası(${item.A.name},${item.B.name})`
     case 'distanceSegment':
@@ -392,6 +488,25 @@ export function editText(item: GeometryDocumentObject, context: CardContext): st
       return `${name}: Türev(${definition?.kind === 'derivative' ? definition.expression : item.func.func})`
     case 'integral':
       return integralInput(item, nameOf)
+    case 'vector':
+      return `${name}: Vektör(${item.A.name},${item.B.name})`
+    case 'circularArc':
+      return `${name}: Yay(${item.M.name},${item.A.name},${item.B.name})`
+    case 'area':
+      return `${name} = Alan(${nameOf(item.sourceId)})`
+    case 'slope':
+      return `${name} = Eğim(${nameOf(item.sourceId)})`
+    case 'asymptote': {
+      const range = definition?.kind === 'asymptote'
+        ? `${typed(definition.start, item.start)},${typed(definition.end, item.end)}` : `${item.start},${item.end}`
+      return `${name}: Asimptot(${nameOf(item.sourceId)},${range})`
+    }
+    case 'curve':
+      return `${name}: ${curveCall(item, definition, true)}`
+    case 'implicit':
+      return `${name}: ${item.left} = ${item.right}`
+    case 'inequality':
+      return `${name}: ${inequalityText(item)}`
   }
 }
 
@@ -401,14 +516,18 @@ type ObjectType = GeometryDocumentObject['type']
 const STROKED = new Set<ObjectType>([
   'circleR', 'circle2', 'circle3', 'angle', 'lineWithEquation', 'lineWithPoints', 'lineSegment', 'circleTangent',
   'verLine', 'ray', 'polygon', 'function', 'functioncomposition', 'derivative', 'sectionalFunctions', 'limit',
-  'tangent', 'tangentHX',
+  'tangent', 'tangentHX', 'vector', 'circularArc', 'asymptote', 'curve', 'implicit', 'slope',
 ])
 
 /** Objects whose name (or name and value) is written on the plane. */
 const LABELLED = new Set<ObjectType>([
   'point', 'circleR', 'circle2', 'circle3', 'angle', 'arcMeasure', 'lineWithEquation', 'lineWithPoints',
   'lineSegment', 'distanceSegment', 'circleTangent', 'verLine', 'ray', 'polygon', 'sequence', 'tangent', 'tangentHX',
+  'vector', 'circularArc', 'area', 'slope', 'curve', 'implicit', 'inequality',
 ])
+
+/** The boundary of an inequality is solid or dashed by its operator, so only its width is offered. */
+const SIZED_ONLY = new Set<ObjectType>(['inequality'])
 
 const POINT_SIZE = { min: 1, max: 9, caption: 'Boyut' }
 const STROKE_SIZE = { min: 1, max: 8, caption: 'Kalınlık' }
@@ -416,13 +535,13 @@ const STROKE_SIZE = { min: 1, max: 8, caption: 'Kalınlık' }
 /** What the appearance settings of a card show; null for objects that are not drawn. */
 export function styleSpec(item: GeometryDocumentObject): StyleSpec | null {
   if (item.type === 'parameter') return null
-  const sized = item.type === 'point' || item.type === 'sequence' || STROKED.has(item.type)
+  const sized = item.type === 'point' || item.type === 'sequence' || STROKED.has(item.type) || SIZED_ONLY.has(item.type)
   return {
     color: item.color,
     size: sized ? { value: item.size, ...(item.type === 'point' ? POINT_SIZE : STROKE_SIZE) } : null,
     lineStyle: STROKED.has(item.type) ? item.lineStyle ?? 'solid' : null,
     label: LABELLED.has(item.type) ? !item.labelHidden : null,
-    trace: item.type === 'point' ? item.trace === true : null,
+    trace: isTraceable(item) ? item.trace === true : null,
   }
 }
 

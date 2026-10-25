@@ -18,8 +18,8 @@ export interface PainterFrame {
   activeId: ObjectReference
   objects: readonly GeometryDocumentObject[]
   evaluator: FunctionEvaluator
-  /** Positions recorded for traced points; drawn beneath the scene. */
-  traces?: readonly PointTrace[]
+  /** Positions and shapes recorded for traced objects; drawn beneath the scene. */
+  traces?: readonly TraceFrame[]
 }
 
 export interface PointTrace {
@@ -27,6 +27,20 @@ export interface PointTrace {
   radius: number
   points: readonly NumericPoint[]
 }
+
+/** A copy of a line or curve as it was, in plane coordinates. */
+export type TraceShape =
+  | { kind: 'line'; line: LineLike }
+  | { kind: 'circle'; center: NumericPoint; r: number }
+  | { kind: 'path'; lines: readonly (readonly NumericPoint[])[] }
+
+export interface ShapeTrace {
+  color: string
+  width: number
+  shapes: readonly TraceShape[]
+}
+
+export type TraceFrame = PointTrace | ShapeTrace
 
 export interface StrokeStyle {
   color: string

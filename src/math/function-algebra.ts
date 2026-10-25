@@ -163,3 +163,21 @@ export function evaluateReal(expression: string, x: number): number {
     throw new RangeError('Fonksiyon verilen noktada değerlendirilemedi.', { cause: error })
   }
 }
+
+/** A compiled F(x, y) that returns null where the expression is undefined or not finite. */
+export function realEvaluator2(expression: string): (x: number, y: number) => number | null {
+  const source = expressionText(expression)
+  let compiled = compiledExpressions.get(source)
+  if (compiled === undefined) compiled = remember(compiledExpressions, source, math.compile(source))
+  const scope = { x: 0, y: 0 }
+  return (x, y) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+    scope.x = x
+    scope.y = y
+    try {
+      return realResult(compiled.evaluate(scope))
+    } catch {
+      return null
+    }
+  }
+}

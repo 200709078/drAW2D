@@ -15,7 +15,8 @@ export function createObjectName(group: ObjectNameGroup, names: Iterable<string 
   const alphabet = group === 'point' ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     : group === 'parameter' ? 'abcdkmpqrstuvwz'
     : group === 'angle' ? 'αβθδ'
-      : ['circleR', 'lineSegment', 'distanceSegment', 'sequence', 'arcMeasure', 'integral', 'polygon'].includes(group)
+    : group === 'vector' ? 'uvwabcdefghijklmopqrstz'
+      : ['circleR', 'lineSegment', 'distanceSegment', 'sequence', 'arcMeasure', 'integral', 'polygon', 'measure', 'region'].includes(group)
         ? 'abcdefghijklmnopqrstuvwxyz' : 'fghpqr'
   for (let index = 0; ; index++) {
     const suffix = index < alphabet.length ? '' : String(Math.floor(index / alphabet.length))

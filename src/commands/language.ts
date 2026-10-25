@@ -6,7 +6,8 @@
 export type NamedCommand = 'circle' | 'line' | 'segment' | 'distance' | 'angle' | 'reflect' |
   'intersect' | 'arc' | 'circleTangent' | 'sequence' | 'limit' | 'tangent' | 'tangentH' |
   'tangentX' | 'derivative' | 'composition' | 'piecewise' | 'root' | 'extremum' | 'inflection' | 'integral' |
-  'midpoint' | 'ray' | 'perpendicular' | 'parallel' | 'bisector' | 'angleBisector' | 'polygon' | 'rotate' | 'translate'
+  'midpoint' | 'ray' | 'perpendicular' | 'parallel' | 'bisector' | 'angleBisector' | 'polygon' | 'rotate' | 'translate' |
+  'asymptote' | 'vector' | 'regularPolygon' | 'circularArc' | 'area' | 'slope' | 'curve' | 'polar'
 
 /** Display name first, then accepted aliases. Matching ignores case and diacritics. */
 export const COMMAND_NAMES: Readonly<Record<NamedCommand, readonly string[]>> = {
@@ -40,6 +41,14 @@ export const COMMAND_NAMES: Readonly<Record<NamedCommand, readonly string[]>> = 
   polygon: ['Çokgen', 'Polygon'],
   rotate: ['Döndür', 'Rotate'],
   translate: ['Ötele', 'Translate'],
+  asymptote: ['Asimptot', 'Asymptote'],
+  vector: ['Vektör', 'Vector'],
+  regularPolygon: ['DüzgünÇokgen', 'RegularPolygon'],
+  circularArc: ['Yay', 'CircularArc'],
+  area: ['Alan', 'Area'],
+  slope: ['Eğim', 'Slope'],
+  curve: ['Eğri', 'Curve'],
+  polar: ['Kutupsal', 'Polar'],
 }
 
 export function normalizedName(name: string): string {
@@ -71,11 +80,13 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
   { title: 'Nokta' },
   { title: 'Doğru' },
   { title: 'Doğru Parçası' },
+  { title: 'Vektör' },
   { title: 'Özel Doğrular' },
   { title: 'Çokgen' },
   { title: 'Çember' },
   { title: 'Açı' },
   { title: 'Yay Ölçüsü' },
+  { title: 'Ölçüm' },
   { title: 'Trigonometrik İfadeler' },
   { title: 'Üstel İfadeler' },
   { title: 'Logaritmik İfadeler' },
@@ -87,7 +98,9 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
   { title: 'Fonksiyon Analizi', note: 'Arama aralığı verilmezse oluşturma anındaki görünür x aralığı kullanılır' },
   { title: 'Fonksiyon İşlemleri', note: 'Kullanılacak fonksiyonların daha önce grafiğinin çizilmesi şartıyla' },
   { title: 'Parçalı Fonksiyon' },
-  { title: 'Dönüşümler' },
+  { title: 'Eğriler', note: 'Kapalı eğri x ve y içeren bir denklemdir; eğri değişkeni komutta adlandırılır' },
+  { title: 'Eşitsizlik' },
+  { title: 'Dönüşümler', note: 'Noktalar, doğrular, vektörler, çemberler, yaylar ve çokgenler dönüştürülebilir' },
   { title: 'Parametre' },
 ]
 
@@ -105,13 +118,18 @@ export const LANGUAGE: readonly LanguageEntry[] = [
   { topic: 'Özel Doğrular', syntax: 'OrtaDikme(<Nokta>, <Nokta>)', command: 'bisector', examples: ['OrtaDikme((0,0),(4,2))'] },
   { topic: 'Özel Doğrular', syntax: 'Açıortay(<Nokta>, <Köşe>, <Nokta>)', command: 'angleBisector', examples: ['Açıortay((2,0),(0,0),(0,2))'] },
   { topic: 'Çokgen', syntax: 'Çokgen(<Nokta>, <Nokta>, <Nokta>, ...)', command: 'polygon', examples: ['Çokgen((0,0),(3,0),(3,2),(0,2))'] },
+  { topic: 'Çokgen', syntax: 'DüzgünÇokgen(<Nokta>, <Nokta>, <Köşe Sayısı>)', command: 'regularPolygon', examples: ['DüzgünÇokgen((0,0),(2,0),6)'] },
+  { topic: 'Vektör', syntax: 'Vektör(<Başlangıç>, <Bitiş>)', command: 'vector', examples: ['Vektör((0,0),(3,2))'] },
   { topic: 'Doğru Parçası', syntax: 'DoğruParçası(<Nokta>, <Nokta>)', command: 'segment', examples: ['DoğruParçası((-2,1),(-1,2))'] },
   { topic: 'Doğru Parçası', syntax: 'Uzaklık(<Nokta>, <Nokta>)', command: 'distance', examples: ['Uzaklık((-2,1),(-1,2))'] },
   { topic: 'Çember', syntax: 'Çember(<Merkez>, <Yarıçap>)', command: 'circle', examples: ['Çember((-1,2),1)'] },
   { topic: 'Çember', syntax: 'Çember(<Merkez>, <Nokta>)', command: 'circle', examples: ['Çember((-1,1),(0,2))'] },
   { topic: 'Çember', syntax: 'Çember(<Nokta>, <Nokta>, <Nokta>)', command: 'circle', examples: ['Çember((0,0),(0,-2),(-2,0))'] },
+  { topic: 'Çember', syntax: 'Yay(<Merkez>, <Başlangıç Noktası>, <Bitiş Noktası>)', command: 'circularArc', examples: ['Yay((0,0),(2,0),(0,2))'] },
   { topic: 'Açı', syntax: 'Açı(<Nokta>, <Köşe>, <Nokta>)', command: 'angle', examples: ['Açı((-1,2),(0,1),(-1,0))'] },
   { topic: 'Yay Ölçüsü', syntax: 'YayÖlçüsü(<Nokta>, <Nokta>)', command: 'arc', examples: ['YayÖlçüsü(A,B)'] },
+  { topic: 'Ölçüm', syntax: 'Alan(<Çokgen veya Çember>)', command: 'area', examples: ['Alan(a)'] },
+  { topic: 'Ölçüm', syntax: 'Eğim(<Doğru>)', command: 'slope', examples: ['Eğim(f)'] },
   { topic: 'Trigonometrik İfadeler', syntax: 'sin(...), cos(...), tan(...), cot(...)', examples: ['sin(-x+4)', 'cos(3x-1)', 'tan(1/x)', 'cot(x+1)'] },
   { topic: 'Üstel İfadeler', syntax: '(Taban)^(Üs)', examples: ['2^(x-1)', '(1/2)^sin(x)', 'E^(x-1)'] },
   { topic: 'Logaritmik İfadeler', syntax: 'log(Taban,...)', examples: ['log(E,4-x^2)', 'log(5,2x-3)'] },
@@ -123,20 +141,29 @@ export const LANGUAGE: readonly LanguageEntry[] = [
   { topic: 'Teğet', syntax: 'TeğetH(<Fonksiyon>, <Apsis>)', command: 'tangentH', examples: ['TeğetH(x^2,1)'] },
   { topic: 'Teğet', syntax: 'TeğetX(<Fonksiyon>, <Apsis>)', command: 'tangentX', examples: ['TeğetX(x^2,1)'] },
   { topic: 'Teğet', syntax: 'TeğetC(<Çember>, <Nokta>)', command: 'circleTangent', examples: ['TeğetC(c,A)', 'TeğetC(a,(3,2))'] },
-  { topic: 'Fonksiyon Analizi', syntax: 'Kök(<Fonksiyon>)', command: 'root', examples: ['Kök(f)'] },
+  { topic: 'Fonksiyon Analizi', syntax: 'Kök(<Fonksiyon>)', command: 'root', examples: ['Kök(f)', 'Kök(x^2-4)'] },
   { topic: 'Fonksiyon Analizi', syntax: 'Kök(<Fonksiyon>, <Başlangıç>, <Bitiş>)', command: 'root', examples: ['Kök(f,0,5)'] },
   { topic: 'Fonksiyon Analizi', syntax: 'Ekstremum(<Fonksiyon>)', command: 'extremum', examples: ['Ekstremum(f)'] },
   { topic: 'Fonksiyon Analizi', syntax: 'Dönüm(<Fonksiyon>)', command: 'inflection', examples: ['Dönüm(f)'] },
   { topic: 'Fonksiyon Analizi', syntax: 'Kesiştir(<Fonksiyon>, <Fonksiyon>)', command: 'intersect', examples: ['Kesiştir(f,g)'] },
   { topic: 'Fonksiyon Analizi', syntax: 'İntegral(<Fonksiyon>, <Başlangıç>, <Bitiş>)', command: 'integral', examples: ['İntegral(f,0,2)'] },
+  { topic: 'Fonksiyon Analizi', syntax: 'Asimptot(<Fonksiyon>)', command: 'asymptote', examples: ['Asimptot((x^2+1)/(x-1))'] },
   { topic: 'Fonksiyon İşlemleri', syntax: '', examples: ['2f/(1-3x)', 'f+2(3x-4)', '3f-4g', 'f*g'] },
   {
     topic: 'Parçalı Fonksiyon', syntax: 'ParçalıFonksiyon(<Fonksiyon>, <Aralık>; <Fonksiyon>, <Aralık>)', command: 'piecewise',
     examples: ['ParçalıFonksiyon(2x+1, x<0; x^2, x>=0)'],
   },
+  { topic: 'Eğriler', syntax: 'Kapalı eğri: <Denklem>', examples: ['x^2+y^2=4', 'x^3+y^3=3x*y'] },
+  {
+    topic: 'Eğriler', syntax: 'Eğri(<x(t)>, <y(t)>, <Değişken>, <Başlangıç>, <Bitiş>)', command: 'curve',
+    examples: ['Eğri(cos(t), sin(t), t, 0, 2π)', 'Eğri(t, t^2, t, -2, 2)'],
+  },
+  { topic: 'Eğriler', syntax: 'Kutupsal(<r(θ)>, <Başlangıç>, <Bitiş>)', command: 'polar', examples: ['Kutupsal(1+cos(θ), 0, 2π)', 'r=2sin(3θ)'] },
+  { topic: 'Eşitsizlik', syntax: '<İfade> < <İfade>', examples: ['y<x^2', 'x^2+y^2<=4', 'x>1'] },
   { topic: 'Dönüşümler', syntax: 'Yansıt(<Nokta>, <Doğru>)', command: 'reflect', examples: ['Yansıt(A,f)'] },
   { topic: 'Dönüşümler', syntax: 'Döndür(<Nokta>, <Açı (derece)>, <Merkez>)', command: 'rotate', examples: ['Döndür((2,0),90,(0,0))'] },
   { topic: 'Dönüşümler', syntax: 'Ötele(<Nokta>, <Başlangıç>, <Bitiş>)', command: 'translate', examples: ['Ötele((1,1),(0,0),(2,1))'] },
+  { topic: 'Dönüşümler', syntax: 'Ötele(<Nesne>, <Vektör>)', command: 'translate', examples: ['Ötele(a,u)'] },
   { topic: 'Parametre', syntax: 'Kaydırıcı: ad = değer', examples: ['a=2'] },
   { topic: 'Parametre', syntax: 'Parametreye bağlı nesne', examples: ['a*x^2+1', 'Çember((0,0),a)', '(a,1)'] },
 ]

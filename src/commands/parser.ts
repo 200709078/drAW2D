@@ -54,6 +54,19 @@ function reference(source: string): string {
 
 const identifier = /^[\p{L}_][\p{L}\p{N}_]*$/u
 
+/** Does the text use one of the variables as a name of its own (`2x` uses x, `ax` does not)? */
+export function mentions(source: string, ...variables: string[]): boolean {
+  for (const token of source.matchAll(/[\p{L}_][\p{L}\p{N}_]*/gu)) if (variables.includes(token[0])) return true
+  return false
+}
+
+/** A function given by name or as an expression; preparation decides which. */
+function graphArgument(source: string): string {
+  const text = source.trim()
+  if (!text) throw new Error('Bir fonksiyon girin.')
+  return text
+}
+
 /** An optional `start, end` search range from `args[from]`. */
 function range(args: string[], from: number): { start?: NumberArgument; end?: NumberArgument } {
   if (args.length <= from) return {}
@@ -113,10 +126,10 @@ function namedCommand(kind: NamedCommand, args: string[]): Command {
       return { kind, point: pointArgument(args[0]!), center: pointArgument(args[1]!) }
     case 'intersect':
       if (args.length !== 2 && args.length !== 4) throw new Error('Kesiştir iki nesne ve isteğe bağlı bir aralık alır.')
-      return { kind, first: reference(args[0]!), second: reference(args[1]!), ...range(args, 2) }
-    case 'root': case 'extremum': case 'inflection':
+      return { kind, first: graphArgument(args[0]!), second: graphArgument(args[1]!), ...range(args, 2) }
+    case 'root': case 'extremum': case 'inflection': case 'asymptote':
       if (args.length !== 1 && args.length !== 3) throw new Error('Bu komut bir fonksiyon ve isteğe bağlı bir aralık alır.')
-      return { kind, function: reference(args[0]!), ...range(args, 1) }
+      return { kind, function: graphArgument(args[0]!), ...range(args, 1) }
     case 'midpoint': case 'ray': case 'bisector':
       requireCount(args, 2)
       return { kind, A: pointArgument(args[0]!), B: pointArgument(args[1]!) }
@@ -133,11 +146,37 @@ function namedCommand(kind: NamedCommand, args: string[]): Command {
       requireCount(args, 3)
       return { kind, point: pointArgument(args[0]!), angle: numberArgument(args[1]!), center: pointArgument(args[2]!) }
     case 'translate':
+      if (args.length === 2) return { kind: 'translateVector', point: pointArgument(args[0]!), vector: reference(args[1]!) }
       requireCount(args, 3)
       return { kind, point: pointArgument(args[0]!), from: pointArgument(args[1]!), to: pointArgument(args[2]!) }
     case 'integral':
       requireCount(args, 3)
-      return { kind, function: reference(args[0]!), start: numberArgument(args[1]!), end: numberArgument(args[2]!) }
+      return { kind, function: graphArgument(args[0]!), start: numberArgument(args[1]!), end: numberArgument(args[2]!) }
+    case 'vector':
+      requireCount(args, 2)
+      return { kind, A: pointArgument(args[0]!), B: pointArgument(args[1]!) }
+    case 'regularPolygon':
+      requireCount(args, 3)
+      return { kind, A: pointArgument(args[0]!), B: pointArgument(args[1]!), sides: numberArgument(args[2]!) }
+    case 'circularArc':
+      requireCount(args, 3)
+      return { kind, center: pointArgument(args[0]!), A: pointArgument(args[1]!), B: pointArgument(args[2]!) }
+    case 'area':
+      requireCount(args, 1)
+      return { kind, object: reference(args[0]!) }
+    case 'slope':
+      requireCount(args, 1)
+      return { kind, line: reference(args[0]!) }
+    case 'curve': {
+      requireCount(args, 5)
+      const variable = args[2]!
+      if (!identifier.test(variable)) throw new Error('Eğrinin değişkeni bir ad olmalı.')
+      return { kind, x: args[0]!, y: args[1]!, variable, start: numberArgument(args[3]!), end: numberArgument(args[4]!) }
+    }
+    case 'polar':
+      if (args.length !== 1 && args.length !== 3) throw new Error('Kutupsal bir r(θ) ifadesi ve isteğe bağlı bir aralık alır.')
+      return { kind, expression: args[0]!, start: args.length === 3 ? numberArgument(args[1]!) : 0,
+        end: args.length === 3 ? numberArgument(args[2]!) : 2 * Math.PI }
     case 'arc':
       requireCount(args, 2)
       return { kind, A: reference(args[0]!), B: reference(args[1]!) }
@@ -220,7 +259,8 @@ function section(expression: string, range: string): SectionSpec {
   }
   for (let index = 0; index < operators.length; index++) {
     const xOnLeft = operands[index] === 'x'
-    const value = parseNumericExpression(operands[xOnLeft ? index + 1 : index]!)
+    // A bound may name parameters; preparation evaluates it.
+    const value = numberArgument(operands[xOnLeft ? index + 1 : index]!)
     const op = operators[index]!
     if (op === '=') {
       if (operators.length !== 1) throw new Error('Eşitlik aralığı tek bir değer içermeli.')
@@ -236,11 +276,57 @@ function section(expression: string, range: string): SectionSpec {
       result.endInclusive = op.endsWith('=')
     }
   }
-  if (result.startX !== null && result.endX !== null
-    && (result.startX > result.endX || (result.startX === result.endX && (!result.startInclusive || !result.endInclusive)))) {
+  if (typeof result.startX === 'number' && typeof result.endX === 'number' && emptySection(result)) {
     throw new Error('Tanım aralığı boş olamaz.')
   }
   return result
+}
+
+/** A section whose numeric bounds leave no x. */
+export function emptySection(section: { startX: unknown; endX: unknown; startInclusive: boolean; endInclusive: boolean }): boolean {
+  const { startX, endX } = section
+  return typeof startX === 'number' && typeof endX === 'number'
+    && (startX > endX || (startX === endX && (!section.startInclusive || !section.endInclusive)))
+}
+
+const INEQUALITY_SIGNS = new Map([['≤', '<='], ['≥', '>=']])
+
+/** Does the pattern occur outside brackets? */
+function topLevel(source: string, pattern: RegExp): boolean {
+  let depth = 0
+  let outside = ''
+  for (const char of source) {
+    if (char === '(' || char === '[' || char === '{') depth++
+    else if (char === ')' || char === ']' || char === '}') depth--
+    outside += depth === 0 ? char : ' '
+  }
+  return pattern.test(outside)
+}
+
+/** `left < right` with one comparison outside brackets, or null when the text has none. */
+function inequality(source: string): Command | null {
+  const text = source.replace(/[≤≥]/g, sign => INEQUALITY_SIGNS.get(sign)!)
+  // A condition inside an equation or a conditional expression (`y = x<0 ? -x : x`) is not a region.
+  if (topLevel(text, /\?/) || topLevel(text, /(?<![<>=!])=(?!=)/)) return null
+  let depth = 0
+  let found: { index: number; operator: '<' | '<=' | '>' | '>=' } | null = null
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index]
+    if (char === '(' || char === '[' || char === '{') depth++
+    else if (char === ')' || char === ']' || char === '}') depth--
+    else if (depth === 0 && (char === '<' || char === '>')) {
+      if (found) throw new Error('Tek bir eşitsizlik girin.')
+      const operator = (text[index + 1] === '=' ? `${char}=` : char) as '<' | '<=' | '>' | '>='
+      found = { index, operator }
+      index += operator.length - 1
+    }
+  }
+  if (!found) return null
+  const left = text.slice(0, found.index).trim()
+  const right = text.slice(found.index + found.operator.length).trim()
+  if (!left || !right) throw new Error('Eşitsizliğin iki tarafını da yazın.')
+  if (!mentions(text, 'x', 'y')) throw new Error('Eşitsizlik x veya y içermeli.')
+  return { kind: 'inequality', left, operator: found.operator, right }
 }
 
 function equationSides(source: string): [string, string] | null {
@@ -297,11 +383,19 @@ function parse(source: string): Command {
   // The bare form without ParçalıFonksiyon(...) is still accepted.
   if (splitTopLevel(source, ';').length > 1 || splitTopLevel(source).length > 1) return piecewise(source)
 
+  const region = inequality(source)
+  if (region) return region
+
   const equation = equationSides(source)
   if (equation) {
     const [left, right] = equation
-    if (left === 'y' || right === 'y') return { kind: 'function', expression: left === 'y' ? right : left }
-    if (left === 'x' || right === 'x') return { kind: 'verticalLine', x: numberArgument(left === 'x' ? right : left) }
+    if (left === 'y' && !mentions(right, 'y')) return { kind: 'function', expression: right }
+    if (right === 'y' && !mentions(left, 'y')) return { kind: 'function', expression: left }
+    if (left === 'x' && !mentions(right, 'x', 'y')) return { kind: 'verticalLine', x: numberArgument(right) }
+    if (right === 'x' && !mentions(left, 'x', 'y')) return { kind: 'verticalLine', x: numberArgument(left) }
+    // r = f(θ) is a polar curve; r = 2 stays a parameter.
+    if (left === 'r' && mentions(right, 'θ')) return { kind: 'polar', expression: right, start: 0, end: 2 * Math.PI }
+    if (mentions(left, 'x', 'y') || mentions(right, 'x', 'y')) return { kind: 'implicit', left, right }
     if (identifier.test(left)) return { kind: 'parameter', name: left, value: numberArgument(right) }
     throw new Error('Denklem y veya x için yazılmalı.')
   }

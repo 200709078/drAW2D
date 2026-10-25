@@ -74,13 +74,51 @@ export function adopt(target: GeometryDocumentObject, fresh: GeometryDocumentObj
   }
 }
 
+const evaluate = (argument: NumberArgument, objects: readonly GeometryDocumentObject[]) =>
+  typeof argument === 'number' ? argument : evaluateNumericExpression(argument.expression, { references: objects }).value
+
+/**
+ * Definitions whose objects own hidden or named helper points are updated in place:
+ * re-preparing them would create new helpers. True when handled here.
+ */
+function updateInPlace(object: GeometryDocumentObject, definition: Command, objects: readonly GeometryDocumentObject[]): boolean {
+  const range = (start: NumberArgument | undefined, end: NumberArgument | undefined, fallback: { start: number; end: number }) => {
+    const value = { start: start === undefined ? fallback.start : evaluate(start, objects), end: end === undefined ? fallback.end : evaluate(end, objects) }
+    if (!(value.end > value.start)) throw new RangeError('Arama aralığının başlangıcı bitişinden küçük olmalı.')
+    return value
+  }
+  if (object.type === 'point' && (definition.kind === 'root' || definition.kind === 'extremum' || definition.kind === 'inflection'
+    || definition.kind === 'intersect')) {
+    const constraint = object.onOther.find(item => item.type === 'analysisPoint')
+    if (!constraint || constraint.type !== 'analysisPoint') return false
+    Object.assign(constraint, range(definition.start, definition.end, constraint))
+    return true
+  }
+  if (object.type === 'asymptote' && definition.kind === 'asymptote') {
+    Object.assign(object, range(definition.start, definition.end, object))
+    return true
+  }
+  if (object.imageOf?.kind === 'rotate' && definition.kind === 'rotate') {
+    const angle = evaluate(definition.angle, objects)
+    object.imageOf.angle = angle
+    for (const helper of objects) {
+      if (helper.type !== 'point') continue
+      for (const constraint of helper.onOther) {
+        if (constraint.type === 'rotate' && constraint.ownerId === object.id) constraint.angle = angle
+      }
+    }
+    return true
+  }
+  return false
+}
+
 function recompute(object: GeometryDocumentObject, objects: readonly GeometryDocumentObject[], prepare: PrepareCommand): void {
   const definition = object.definition!
   try {
     if (object.type === 'parameter') {
       if (definition.kind !== 'parameter' || typeof definition.value === 'number') return
       object.value = evaluateNumericExpression(definition.value.expression, { references: objects }).value
-    } else {
+    } else if (!updateInPlace(object, definition, objects)) {
       const prepared = prepare(definition)
       const fresh = prepared.ok ? prepared.objects.find(candidate => candidate.id === prepared.activeId) : undefined
       if (!fresh) throw new Error(prepared.ok ? 'Tanım nesne üretmedi.' : prepared.error)

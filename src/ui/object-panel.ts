@@ -25,6 +25,8 @@ export interface ObjectPanelHandlers {
   /** New slider bounds typed on a parameter card. */
   parameterRange(id: ObjectId, min: number, max: number, step: number): void
   toggleAnimation(id: ObjectId): void
+  /** Show or hide a parameter's slider on the plane. */
+  parameterOnCanvas(id: ObjectId, shown: boolean): void
   /** Apply an edited card; true when accepted, false to keep editing (an error was shown). */
   redefine(id: ObjectId, text: string): boolean
   /** An appearance change; changes until `styleCommit` are one undoable step. */
@@ -43,6 +45,7 @@ interface CardView {
   settings: HTMLDivElement
   bounds: HTMLInputElement[]
   play: HTMLButtonElement
+  onCanvas: HTMLInputElement
   edit: HTMLButtonElement
   styleButton: HTMLButtonElement
   style: StyleView
@@ -159,6 +162,13 @@ export class ObjectPanel {
     play.id = `${id}-play`
     play.addEventListener('click', () => this.handlers.toggleAnimation(id))
     settings.append(play)
+    const canvasLabel = element('label', 'parameter-canvas')
+    const onCanvas = element('input')
+    onCanvas.type = 'checkbox'
+    onCanvas.id = `${id}-onCanvas`
+    onCanvas.addEventListener('change', () => this.handlers.parameterOnCanvas(id, onCanvas.checked))
+    canvasLabel.append(onCanvas, 'Tuvalde göster')
+    settings.append(canvasLabel)
 
     const edit = element('button', 'btn duzenle')
     edit.type = 'button'
@@ -210,7 +220,7 @@ export class ObjectPanel {
     block.append(input, output, styleButton, edit, hide, remove)
     root.append(block, sliders, settings, style.root, element('hr'))
     const view: CardView = {
-      root, input, output, hide, labels, ranges, outputKey: '', settings, bounds, play, edit, styleButton, style,
+      root, input, output, hide, labels, ranges, outputKey: '', settings, bounds, play, onCanvas, edit, styleButton, style,
       styleOpen: false, display: '', editText: null, editing: false,
     }
     this.views.set(id, view)
@@ -360,6 +370,7 @@ export class ObjectPanel {
       setIfChanged(view.play, 'title', label)
       setIfChanged(view.play, 'textContent', entry.animating ? '⏸' : '▶')
       view.play.setAttribute('aria-label', label)
+      setIfChanged(view.onCanvas, 'checked', settings.onCanvas)
     }
   }
 }

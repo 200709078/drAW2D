@@ -16,6 +16,8 @@ export type GeometryNameGroup =
   | 'lineSegment'
   | 'distanceSegment'
   | 'polygon'
+  | 'vector'
+  | 'measure'
 
 export interface GeometryModelContext {
   createName(type: GeometryNameGroup): string
@@ -46,6 +48,8 @@ export interface GeometryObject<Type extends string> {
   definition?: Command
   /** The definition cannot be evaluated for the current parameter values; last values are kept. */
   invalid?: boolean
+  /** The object is the image of another under a transformation. */
+  imageOf?: ImageOf
 }
 
 export type PointConstraint =
@@ -53,7 +57,7 @@ export type PointConstraint =
   | { type: 'onLine'; lineId: ObjectReference }
   | { type: 'onCircleTangent'; tangentId: ObjectReference; lineIndex: number }
   | { type: 'onAngle'; angleId: ObjectReference }
-  | { type: 'reflectPoint'; sourceId: ObjectReference; centerId: ObjectReference }
+  | { type: 'reflectPoint'; sourceId: ObjectReference; centerId: ObjectReference; ownerId?: ObjectReference; pointIndex?: number }
   | {
     type: 'intersectLines'
     line1Id: ObjectReference
@@ -75,11 +79,28 @@ export type PointConstraint =
   /** A point on the graph of a function: its x is free, its y follows the function. */
   | { type: 'onFunction'; functionId: ObjectReference }
   | { type: 'midpoint'; firstId: ObjectReference; secondId: ObjectReference; ownerId?: ObjectReference }
-  | { type: 'reflectLine'; sourceId: ObjectReference; lineId: ObjectReference }
+  | { type: 'reflectLine'; sourceId: ObjectReference; lineId: ObjectReference; ownerId?: ObjectReference; pointIndex?: number }
   /** Counterclockwise rotation by `angle` degrees about the center. */
-  | { type: 'rotate'; sourceId: ObjectReference; centerId: ObjectReference; angle: number }
-  /** Translation by the vector from `fromId` to `toId`. */
-  | { type: 'translate'; sourceId: ObjectReference; fromId: ObjectReference; toId: ObjectReference }
+  | {
+    type: 'rotate'; sourceId: ObjectReference; centerId: ObjectReference; angle: number
+    ownerId?: ObjectReference; pointIndex?: number
+  }
+  /** Translation by the vector from `fromId` to `toId`, or by the vector object `vectorId`. */
+  | {
+    type: 'translate'; sourceId: ObjectReference; fromId: ObjectReference; toId: ObjectReference
+    vectorId?: ObjectReference; ownerId?: ObjectReference; pointIndex?: number
+  }
+  /**
+   * A hidden point that stands for an object without points of its own, so it can be
+   * transformed: a line's origin (0) and a point one unit along it (1), a circle's
+   * centre (0) and the point of the circle to the right of it (1).
+   */
+  | { type: 'anchor'; objectId: ObjectReference; index: number; ownerId?: ObjectReference; pointIndex?: number }
+  /** Vertex `index` (2, 3, ...) of the regular polygon with consecutive vertices first, second, counterclockwise. */
+  | {
+    type: 'regularVertex'; firstId: ObjectReference; secondId: ObjectReference; sides: number; index: number
+    ownerId?: ObjectReference
+  }
   /** A hidden point that gives a constructed line its direction; see LineConstruction. */
   | { type: 'lineHelper'; construction: LineConstructionKind; refs: ObjectReference[]; ownerId?: ObjectReference }
 
@@ -151,6 +172,36 @@ export interface Ray extends GeometryObject<'ray'> {
 
 export interface Polygon extends GeometryObject<'polygon'> {
   points: GeometryPoint[]
+  /** A regular polygon on its first two vertices; the others are constructed. */
+  regular?: { sides: number }
+}
+
+export type TransformKind = 'reflectPoint' | 'reflectLine' | 'rotate' | 'translate'
+
+/**
+ * An object that is the image of another under a transformation. Its points are hidden
+ * helpers owned by it; this records the transformation for its card.
+ */
+export interface ImageOf {
+  kind: TransformKind
+  sourceId: ObjectReference
+  /** The centre, the mirror line, the vector's start and end, or the vector object. */
+  refs: ObjectReference[]
+  /** Rotation angle in degrees. */
+  angle?: number
+}
+
+/** An arrow from A to B. */
+export interface Vector extends GeometryObject<'vector'> {
+  A: GeometryPoint
+  B: GeometryPoint
+}
+
+/** The arc of the circle about M through A, from A counterclockwise to the ray MB. */
+export interface CircularArc extends GeometryObject<'circularArc'> {
+  M: GeometryPoint
+  A: GeometryPoint
+  B: GeometryPoint
 }
 
 export interface LineSegment extends GeometryObject<'lineSegment'> {
@@ -181,3 +232,5 @@ export type BasicGeometryObject =
   | CircleTangent
   | Ray
   | Polygon
+  | Vector
+  | CircularArc

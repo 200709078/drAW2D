@@ -64,7 +64,7 @@ test('görünüm ayarları nesne türüne göre sunulur; varsayılanlar alan ola
     color: '#123456', size: { value: 3, min: 1, max: 9, caption: 'Boyut' }, lineStyle: null, label: true, trace: false,
   })
   expect(styleSpec(doc.named('g'))).toEqual({
-    color: '#123456', size: { value: 2, min: 1, max: 8, caption: 'Kalınlık' }, lineStyle: 'solid', label: null, trace: null,
+    color: '#123456', size: { value: 2, min: 1, max: 8, caption: 'Kalınlık' }, lineStyle: 'solid', label: null, trace: false,
   })
   expect(styleSpec(doc.named('k'))).toBeNull()
   const distance = doc.objects.find(object => object.type === 'distanceSegment')!
@@ -75,10 +75,11 @@ test('görünüm ayarları nesne türüne göre sunulur; varsayılanlar alan ola
   const before = structuredClone(doc.objects)
   expect(applyStyle(line, { color: '#AA0000', size: 20, lineStyle: 'dashed', labelHidden: true })).toBe(true)
   expect(line).toMatchObject({ color: '#aa0000', size: 8, lineStyle: 'dashed', labelHidden: true })
-  // Settings that do not apply are ignored.
-  expect(applyStyle(line, { trace: true })).toBe(false)
+  // Settings that do not apply are ignored: an integral leaves no trace.
+  const integral = doc.objects.find(object => object.type === 'integral')!
+  expect(applyStyle(integral, { trace: true })).toBe(false)
+  expect(integral.trace).toBeUndefined()
   expect(applyStyle(line, { color: 'red' })).toBe(false)
-  expect(line.trace).toBeUndefined()
   // Turning everything back gives the original model, so history sees no change.
   expect(applyStyle(line, { color: '#123456', size: 2, lineStyle: 'solid', labelHidden: false })).toBe(true)
   expect(equalModelGraphs(doc.objects, before)).toBe(true)
@@ -252,7 +253,8 @@ test.describe('uygulamada', () => {
     await expect(settings).toBeHidden()
     await page.locator('[id="2-style"]').click()
     await expect(settings).toBeVisible()
-    await expect(page.locator('[id="2-trace"]')).toBeHidden()
+    // Lines leave traces too.
+    await expect(page.locator('[id="2-trace"]')).toBeVisible()
     const before = await canvasPixels(page)
 
     await pickColor(page, '2-color', '#ff0000')

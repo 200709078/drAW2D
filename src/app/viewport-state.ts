@@ -79,6 +79,18 @@ export class ViewportState {
 
   saveStandard(): void { this.standard = { ...this.view } }
 
+  /** Return to a saved view (an opened file's); false when it is not a valid view. */
+  restore(view: ViewSnapshot): boolean {
+    const valid = [view.scaleX, view.scaleY, view.minX, view.minY].every(Number.isFinite) && view.scaleX > 0 && view.scaleY > 0
+      && Number.isInteger(view.tickX) && view.tickX >= 0 && view.tickX < VERTICAL_UNITS.length
+      && Number.isInteger(view.tickY) && view.tickY >= 0 && view.tickY < HORIZONTAL_UNITS.length
+    if (!valid) return false
+    const { scaleX, scaleY, minX, minY, tickX, tickY } = view
+    this.view = { scaleX, scaleY, minX, minY, tickX, tickY }
+    this.endDrag()
+    return true
+  }
+
   resetStandard(): void {
     this.view = { ...this.standard }
     this.endDrag()

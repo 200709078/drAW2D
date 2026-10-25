@@ -10,8 +10,8 @@ export type PointArgument =
 
 export interface SectionSpec {
   expression: string
-  startX: number | null
-  endX: number | null
+  startX: NumberArgument | null
+  endX: NumberArgument | null
   startInclusive: boolean
   endInclusive: boolean
 }
@@ -24,12 +24,21 @@ export type Command =
   | { kind: 'verticalLine'; x: NumberArgument }
   | { kind: 'line' | 'segment' | 'distance'; A: PointArgument; B: PointArgument }
   | { kind: 'angle'; A: PointArgument; B: PointArgument; C: PointArgument }
+  /** `point` names a point, or any transformable object. */
   | { kind: 'reflect'; point: PointArgument; center: PointArgument }
-  /** Curves are intersected numerically in [start, end]; lines and circles exactly. */
+  /**
+   * Curves are intersected numerically in [start, end]; lines and circles exactly. An
+   * argument that names no object is a function expression, drawn first.
+   */
   | { kind: 'intersect'; first: string; second: string; start?: NumberArgument; end?: NumberArgument }
-  /** Points of one function in [start, end]; without a range, the visible x range at creation. */
+  /**
+   * Points of one function in [start, end]; without a range, the visible x range at creation.
+   * `function` is a name, or an expression that becomes a new function.
+   */
   | { kind: 'root' | 'extremum' | 'inflection'; function: string; start?: NumberArgument; end?: NumberArgument }
   | { kind: 'integral'; function: string; start: NumberArgument; end: NumberArgument }
+  /** Vertical asymptotes are searched in [start, end] (the visible x range by default). */
+  | { kind: 'asymptote'; function: string; start?: NumberArgument; end?: NumberArgument }
   | { kind: 'arc'; A: string; B: string; circle?: string }
   | { kind: 'circleTangent'; circle: string; point: PointArgument }
   | { kind: 'sequence'; expression: string; start: NumberArgument; end: NumberArgument }
@@ -50,6 +59,21 @@ export type Command =
   | { kind: 'rotate'; point: PointArgument; angle: NumberArgument; center: PointArgument }
   /** By the vector from `from` to `to`. */
   | { kind: 'translate'; point: PointArgument; from: PointArgument; to: PointArgument }
+  /** By a vector object. */
+  | { kind: 'translateVector'; point: PointArgument; vector: string }
+  | { kind: 'vector'; A: PointArgument; B: PointArgument }
+  /** Vertices A, B, then counterclockwise; the side count is fixed when created. */
+  | { kind: 'regularPolygon'; A: PointArgument; B: PointArgument; sides: NumberArgument }
+  | { kind: 'circularArc'; center: PointArgument; A: PointArgument; B: PointArgument }
+  | { kind: 'area'; object: string }
+  | { kind: 'slope'; line: string }
+  /** (x(t), y(t)) for the named variable from start to end. */
+  | { kind: 'curve'; x: string; y: string; variable: string; start: NumberArgument; end: NumberArgument }
+  /** r(θ) from start to end. */
+  | { kind: 'polar'; expression: string; start: NumberArgument; end: NumberArgument }
+  /** An equation in x and y that is not y = f(x) or x = c. */
+  | { kind: 'implicit'; left: string; right: string }
+  | { kind: 'inequality'; left: string; operator: '<' | '<=' | '>' | '>='; right: string }
   /** `a=2` defines a slider; `b=a+1` a number that depends on other parameters. */
   | { kind: 'parameter'; name: string; value: NumberArgument }
 

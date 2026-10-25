@@ -83,7 +83,7 @@ test('kartlar doğru denklemlerini ve uzaklığı üretir; kaydırıcı yalnız 
   const slider = build('a=2')
   expect(describeCard(slider[0]!, context(slider))).toEqual({
     input: 'a = 2', output: [], valueFirst: false, sliders: [{ min: -5, max: 5, step: 0.1, value: 2, label: '' }],
-    parameter: { min: -5, max: 5, step: 0.1 },
+    parameter: { min: -5, max: 5, step: 0.1, onCanvas: false },
   })
 })
 

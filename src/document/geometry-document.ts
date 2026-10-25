@@ -79,6 +79,14 @@ export class GeometryDocument {
     return changed
   }
 
+  /** Start over from these objects with an empty history (a restored autosave). */
+  reset(objects: GeometryDocumentObject[]): void {
+    this.clear()
+    this.append(...objects)
+    this.snapshots = [structuredClone(this.working)]
+    this.cursor = 0
+  }
+
   trackDraft(id: ObjectId): void {
     if (!this.working.some(object => object.id === id)) throw new Error('Geçici çizim nesnesi belgede bulunamadı.')
     this.drafts.add(id)

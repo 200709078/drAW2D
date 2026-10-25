@@ -17,4 +17,11 @@ contextBridge.exposeInMainWorld('drAW2DDesktop', {
       ipcRenderer.on('window:fullscreen-changed', (_event, fullscreen: boolean) => callback(fullscreen === true))
     },
   },
+  files: {
+    open: (): Promise<{ path: string; name: string; text: string } | null> => ipcRenderer.invoke('file:open'),
+    save: (text: string, current: string | null, name: string): Promise<{ path: string; name: string } | null> =>
+      ipcRenderer.invoke('file:save', text, current, name),
+    exportFile: (data: string | Uint8Array, name: string, kind: 'png' | 'svg'): Promise<string | null> =>
+      ipcRenderer.invoke('file:export', data, name, kind),
+  },
 })

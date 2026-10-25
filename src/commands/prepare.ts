@@ -7,17 +7,18 @@ import { analysisPoints, curveOf, isGraphObject } from '../geometry/analysis'
 import { getCircleTangentLines } from '../geometry/tangents'
 import { constructedLocation, isLineObject } from '../geometry/constructions'
 import type {
-  AnalysisKind, GeometryCircle, GeometryPoint, LineConstructionKind, LineWithPoints, ObjectReference, PointConstraint,
+  AnalysisKind, GeometryCircle, GeometryPoint, ImageOf, LineConstructionKind, LineWithPoints, ObjectReference, PointConstraint,
+  TransformKind,
 } from '../geometry/types'
 import type { FunctionSection, GeometryDocumentObject, Parameter } from '../geometry/function-types'
 import { definitionNames } from './definition'
 import { createObjectName } from './names'
 import {
-  classifyAffineExpression, evaluateNumericExpression, isReservedName, parameterValues, parseFunctionExpression,
-  resolveComposition,
+  classifyAffineExpression, evaluateNumericExpression, isReservedName, parameterValues, parseCurveExpression,
+  parseFunctionExpression, parseTwoVariableExpression, resolveComposition,
 } from './expressions'
 import type { Command, NumberArgument, PointArgument } from './types'
-import { parseCommand } from './parser'
+import { emptySection, mentions, parseCommand } from './parser'
 
 export interface CommandPreparationOptions {
   /** First unused identifier. Neither this value nor the document is mutated. */
@@ -28,6 +29,21 @@ export interface CommandPreparationOptions {
 }
 
 const DEFAULT_RANGE = { start: -10, end: 10 }
+const MAX_SIDES = 30
+const TRANSFORMABLE = new Set<GeometryDocumentObject['type']>([
+  'lineWithPoints', 'lineSegment', 'ray', 'vector', 'lineWithEquation', 'verLine', 'circleR', 'circle2', 'circle3',
+  'polygon', 'circularArc',
+])
+const LINE_MEASURED = new Set<GeometryDocumentObject['type']>([
+  'lineWithPoints', 'lineSegment', 'ray', 'vector', 'lineWithEquation', 'verLine',
+])
+
+/** Objects a transformation command turns into an image object of their own kind. */
+export function isTransformable(object: GeometryDocumentObject | null | undefined): boolean {
+  return object !== null && object !== undefined && TRANSFORMABLE.has(object.type)
+}
+
+const isExpression = (argument: NumberArgument | undefined) => argument !== undefined && typeof argument !== 'number'
 const ANALYSIS_KINDS = { root: 'root', extremum: 'extremum', inflection: 'inflection', intersect: 'intersection' } as const
 
 export type PreparedCommand =
@@ -124,10 +140,106 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
     if (!(range.end > range.start)) throw new Error('Arama aralığının başlangıcı bitişinden küçük olmalı.')
     return range
   }
-  function graphObject(name: string): GeometryDocumentObject {
-    const object = namedObject(name)
-    if (!isGraphObject(object)) throw new Error(`Bir fonksiyon girin: ${name}`)
+  /** A function graph y = f(x) from its expression: a line when affine for every parameter value. */
+  function functionObject(command: Extract<Command, { kind: 'function' }>): GeometryDocumentObject {
+    const source = expression(command.expression)
+    const line = affine(command.expression)
+    return add(line ? new functions.mLineWithEquation(line.m, line.n) : new functions.mFunction(source))
+  }
+  /** An object given by name, or an expression that is drawn as a new function first. */
+  function sourceObject(source: string): GeometryDocumentObject {
+    const named = allObjects().find(object => object.name === source)
+    if (named) return named
+    if (/^[\p{L}_][\p{L}\p{N}_']*$/u.test(source) && !isReservedName(source) && source !== 'x') {
+      throw new Error(`Nesne bulunamadı: ${source}`)
+    }
+    const parsed = parseCommand(source)
+    if (!parsed.ok || parsed.command.kind !== 'function') throw new Error(`Bir fonksiyon girin: ${source}`)
+    const object = functionObject(parsed.command)
+    if (definitionNames(parsed.command, allObjects()).size > 0) object.definition = parsed.command
     return object
+  }
+  function graphObject(source: string): GeometryDocumentObject {
+    const object = sourceObject(source)
+    if (!isGraphObject(object)) throw new Error(`Bir fonksiyon girin: ${source}`)
+    return object
+  }
+  /** The non-point object a transformation is applied to, or null when it is applied to a point. */
+  function transformSource(argument: PointArgument): GeometryDocumentObject | null {
+    if (argument.kind !== 'reference') return null
+    const object = allObjects().find(item => item.name === argument.name)
+    if (!object || object.type === 'point') return null
+    if (!isTransformable(object)) throw new Error(`Bu nesne dönüştürülemez: ${argument.name}`)
+    return object
+  }
+  function imageConstraint(image: ImageOf, sourceId: ObjectReference, ownerId: ObjectReference, pointIndex: number): PointConstraint {
+    const [first = null, second = null] = image.refs
+    switch (image.kind) {
+      case 'reflectPoint': return { type: 'reflectPoint', sourceId, centerId: first, ownerId, pointIndex }
+      case 'reflectLine': return { type: 'reflectLine', sourceId, lineId: first, ownerId, pointIndex }
+      case 'rotate': return { type: 'rotate', sourceId, centerId: first, angle: image.angle ?? 0, ownerId, pointIndex }
+      case 'translate': return image.refs.length === 1
+        ? { type: 'translate', sourceId, fromId: null, toId: null, vectorId: first, ownerId, pointIndex }
+        : { type: 'translate', sourceId, fromId: first, toId: second, ownerId, pointIndex }
+    }
+  }
+  /**
+   * The image of a line, vector, circle, arc or polygon: an object of the same kind
+   * through hidden helper points, each the image of a point of the source.
+   */
+  function transformObject(source: GeometryDocumentObject, kind: TransformKind, refs: ObjectReference[], angle?: number): GeometryDocumentObject {
+    const id = context.nextId()
+    const imageOf: ImageOf = { kind, sourceId: source.id, refs, ...(angle === undefined ? {} : { angle }) }
+    let index = 0
+    const image = (point: GeometryPoint) => helperPoint(imageConstraint(imageOf, point.id, id, index++))
+    const anchor = (position: number) => helperPoint({ type: 'anchor', objectId: source.id, index: position, ownerId: id, pointIndex: index++ })
+    const base = {
+      name: primeName(source), id, color: options.randomColor(), visibility: true, size: source.size, temp: false, imageOf,
+    }
+    let result: GeometryDocumentObject
+    switch (source.type) {
+      case 'lineWithPoints':
+        result = { ...base, type: 'lineWithPoints', A: image(source.A), B: image(source.B) }
+        break
+      case 'lineSegment':
+        result = { ...base, type: 'lineSegment', A: image(source.A), B: image(source.B), lineDash: [] }
+        break
+      case 'ray':
+      case 'vector':
+        result = { ...base, type: source.type, A: image(source.A), B: image(source.B) }
+        break
+      case 'lineWithEquation':
+      case 'verLine': {
+        const origin = anchor(0)
+        const along = anchor(1)
+        result = { ...base, type: 'lineWithPoints', A: image(origin), B: image(along) }
+        break
+      }
+      case 'circleR':
+        result = { ...base, type: 'circle2', A: image(source.A), B: image(anchor(1)) }
+        break
+      case 'circle2':
+        result = { ...base, type: 'circle2', A: image(source.A), B: image(source.B) }
+        break
+      case 'circle3':
+        result = { ...base, type: 'circle3', A: image(source.A), B: image(source.B), C: image(source.C) }
+        break
+      case 'polygon':
+        result = { ...base, type: 'polygon', points: source.points.map(image) }
+        break
+      case 'circularArc': {
+        // A reflection reverses the direction of the arc.
+        const reflected = kind === 'reflectLine'
+        const M = image(source.M)
+        const A = image(source.A)
+        const B = image(source.B)
+        result = { ...base, type: 'circularArc', M, A: reflected ? B : A, B: reflected ? A : B }
+        break
+      }
+      default:
+        throw new Error(`Bu nesne dönüştürülemez: ${source.name}`)
+    }
+    return add(result)
   }
   const lookup = (id: ObjectReference | undefined) => allObjects().find(object => object.id === id)
   /** A constructed point placed where its constraint puts it. */
@@ -146,7 +258,7 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
     point.visibility = false
     return point
   }
-  function primeName(source: GeometryPoint): string {
+  function primeName(source: GeometryDocumentObject): string {
     const names = new Set(allObjects().map(object => object.name))
     const base = `${source.name}'`
     let name = base
@@ -347,20 +459,46 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         break
       }
       case 'rotate': {
-        const source = resolvePoint(command.point, true)
+        const target = transformSource(command.point)
+        const source = target ?? resolvePoint(command.point, true)
         const center = resolvePoint(command.center, true)
         const angle = sliderArgument(command.angle, 90, null, { min: 0, max: 360, step: 1 })
-        const point = constructedPoint({ type: 'rotate', sourceId: source.id, centerId: center.id, angle: value(angle) })
-        point.name = primeName(source)
-        active = point
-        definition = { kind: 'rotate', point: reference(source), angle, center: reference(center) }
+        if (target) {
+          active = transformObject(target, 'rotate', [center.id], value(angle))
+        } else {
+          const point = constructedPoint({ type: 'rotate', sourceId: source.id, centerId: center.id, angle: value(angle) })
+          point.name = primeName(source)
+          active = point
+        }
+        definition = { kind: 'rotate', point: { kind: 'reference', name: source.name! }, angle, center: reference(center) }
         break
       }
       case 'translate': {
-        const source = resolvePoint(command.point, true)
+        const target = transformSource(command.point)
+        // Points are made in argument order, so they are named in that order.
+        const source = target ?? resolvePoint(command.point, true)
         const from = resolvePoint(command.from, true)
         const to = resolvePoint(command.to, true)
+        if (target) {
+          active = transformObject(target, 'translate', [from.id, to.id])
+          break
+        }
         const point = constructedPoint({ type: 'translate', sourceId: source.id, fromId: from.id, toId: to.id })
+        point.name = primeName(source)
+        active = point
+        break
+      }
+      case 'translateVector': {
+        const vector = namedObject(command.vector)
+        if (vector.type !== 'vector') throw new Error(`Bir vektör girin: ${command.vector}`)
+        const target = transformSource(command.point)
+        if (target) {
+          if (target.id === vector.id) throw new Error('Vektör kendisiyle ötelenemez.')
+          active = transformObject(target, 'translate', [vector.id])
+          break
+        }
+        const source = resolvePoint(command.point, true)
+        const point = constructedPoint({ type: 'translate', sourceId: source.id, fromId: null, toId: null, vectorId: vector.id })
         point.name = primeName(source)
         active = point
         break
@@ -369,12 +507,22 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         // Yansıt(P, d) reflects across a line; Yansıt(P, M) through a point.
         const mirror = command.center.kind === 'reference'
           ? allObjects().find(object => object.name === (command.center as { name: string }).name) : undefined
+        const target = transformSource(command.point)
         if (isLineObject(mirror)) {
+          if (target) {
+            if (target.id === mirror!.id) throw new Error('Doğru kendisine göre yansıtılamaz.')
+            active = transformObject(target, 'reflectLine', [mirror!.id])
+            break
+          }
           const source = resolvePoint(command.point, true)
           const point = constructedPoint({ type: 'reflectLine', sourceId: source.id, lineId: mirror!.id })
           if (point.geometryValid === false) throw new Error('Yansıma tanımlanamadı.')
           point.name = primeName(source)
           active = point
+          break
+        }
+        if (target) {
+          active = transformObject(target, 'reflectPoint', [resolvePoint(command.center, true).id])
           break
         }
         const source = resolvePoint(command.point, true)
@@ -393,29 +541,45 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
       }
       case 'root':
       case 'extremum':
-      case 'inflection':
-        active = analysisPointsFor(ANALYSIS_KINDS[command.kind], [graphObject(command.function)], searchRange(command.start, command.end))
+      case 'inflection': {
+        const source = graphObject(command.function)
+        active = analysisPointsFor(ANALYSIS_KINDS[command.kind], [source], searchRange(command.start, command.end))
+        // A range that names parameters follows them.
+        if (isExpression(command.start) || isExpression(command.end)) definition = { ...command, function: source.name! }
         break
+      }
       case 'integral': {
         const source = graphObject(command.function)
         active = add({
           type: 'integral', name: context.createName('integral'), id: context.nextId(), color: options.randomColor(),
           visibility: true, size: 1, temp: false, sourceId: source.id, start: value(command.start), end: value(command.end),
         })
-        definition = command
+        definition = { ...command, function: source.name! }
+        break
+      }
+      case 'asymptote': {
+        const source = graphObject(command.function)
+        const range = searchRange(command.start, command.end)
+        active = add({
+          type: 'asymptote', name: context.createName('line'), id: context.nextId(), color: options.randomColor(),
+          visibility: true, size: 2, temp: false, lineStyle: 'dashed', sourceId: source.id, start: range.start, end: range.end,
+        })
+        if (isExpression(command.start) || isExpression(command.end)) definition = { ...command, function: source.name! }
         break
       }
       case 'intersect': {
-        const first = namedObject(command.first)
-        const second = namedObject(command.second)
+        const first = sourceObject(command.first)
+        const second = sourceObject(command.second)
         // A curve that is not a line is intersected numerically, with anything that is a curve.
         const curveOnly = (object: GeometryDocumentObject) => isGraphObject(object) && object.type !== 'lineWithEquation'
         if (first.id !== second.id && (curveOnly(first) || curveOnly(second)) && curveOf(first) && curveOf(second)) {
           active = analysisPointsFor('intersection', [first, second], searchRange(command.start, command.end))
+          if (isExpression(command.start) || isExpression(command.end)) definition = { ...command, first: first.name!, second: second.name! }
           break
         }
         if (first.id === second.id || !(isIntersectableLine(first) || isIntersectableCircle(first))
           || !(isIntersectableLine(second) || isIntersectableCircle(second))) throw new Error('İki farklı doğru veya çember gereklidir.')
+        if (isExpression(command.start) || isExpression(command.end)) throw new Error('Doğru ve çember kesişiminde aralık kullanılmaz.')
         const intersection = getObjectIntersection(first, second)
         const points: GeometryPoint[] = []
         for (let index = 0; index < 2; index++) {
@@ -513,10 +677,108 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         definition = command
         break
       }
-      case 'function': {
-        const source = expression(command.expression)
-        const line = affine(command.expression)
-        active = add(line ? new functions.mLineWithEquation(line.m, line.n) : new functions.mFunction(source))
+      case 'function':
+        active = functionObject(command)
+        definition = command
+        break
+      case 'vector': {
+        const A = resolvePoint(command.A)
+        const B = resolvePoint(command.B)
+        if (A === B || (Number(A.a) === Number(B.a) && Number(A.b) === Number(B.b))) throw new Error('İki farklı nokta gereklidir.')
+        active = add({ type: 'vector', name: context.createName('vector'), id: context.nextId(), A, B,
+          color: options.randomColor(), visibility: true, size: 2, temp: false })
+        break
+      }
+      case 'regularPolygon': {
+        const A = resolvePoint(command.A)
+        const B = resolvePoint(command.B)
+        if (A === B || (Number(A.a) === Number(B.a) && Number(A.b) === Number(B.b))) throw new Error('İki farklı nokta gereklidir.')
+        const sides = value(command.sides)
+        if (!Number.isInteger(sides) || sides < 3 || sides > MAX_SIDES) {
+          throw new Error(`Köşe sayısı 3 ile ${MAX_SIDES} arasında bir tam sayı olmalı.`)
+        }
+        const id = context.nextId()
+        const vertices = [A, B]
+        for (let index = 2; index < sides; index++) {
+          vertices.push(constructedPoint({ type: 'regularVertex', firstId: A.id, secondId: B.id, sides, index, ownerId: id }))
+        }
+        active = add({ type: 'polygon', name: context.createName('polygon'), id, points: vertices, regular: { sides },
+          color: options.randomColor(), visibility: true, size: 2, temp: false })
+        break
+      }
+      case 'circularArc': {
+        const M = resolvePoint(command.center)
+        const A = resolvePoint(command.A)
+        const B = resolvePoint(command.B)
+        const same = (P: GeometryPoint, Q: GeometryPoint) => P === Q || (Number(P.a) === Number(Q.a) && Number(P.b) === Number(Q.b))
+        if (same(M, A) || same(M, B)) throw new Error('Yayın noktaları merkezden farklı olmalı.')
+        active = add({ type: 'circularArc', name: context.createName('circleR'), id: context.nextId(), M, A, B,
+          color: options.randomColor(), visibility: true, size: 2, temp: false })
+        break
+      }
+      case 'area': {
+        const object = namedObject(command.object)
+        if (object.type !== 'polygon' && object.type !== 'circleR' && object.type !== 'circle2' && object.type !== 'circle3') {
+          throw new Error(`Bir çokgen veya çember girin: ${command.object}`)
+        }
+        active = add({ type: 'area', name: context.createName('measure'), id: context.nextId(), sourceId: object.id,
+          color: options.randomColor(), visibility: true, size: 1, temp: false })
+        break
+      }
+      case 'slope': {
+        const object = namedObject(command.line)
+        if (!LINE_MEASURED.has(object.type)) throw new Error(`Bir doğru girin: ${command.line}`)
+        active = add({ type: 'slope', name: context.createName('measure'), id: context.nextId(), sourceId: object.id,
+          color: options.randomColor(), visibility: true, size: 2, temp: false })
+        break
+      }
+      case 'curve':
+      case 'polar': {
+        const variable = command.kind === 'curve' ? command.variable : 'θ'
+        if (isReservedName(variable) && variable !== 'x' && variable !== 'n') throw new Error(`Değişken adı olarak kullanılamaz: ${variable}`)
+        const start = value(command.start)
+        const end = value(command.end)
+        if (!(end > start)) throw new Error('Eğrinin başlangıç değeri bitişinden küçük olmalı.')
+        const references = { references: allObjects() }
+        let xFunc: string
+        let yFunc: string
+        let polar: string | undefined
+        if (command.kind === 'polar') {
+          polar = parseCurveExpression(command.expression, variable, references)
+          xFunc = `(${polar})*cos(x)`
+          yFunc = `(${polar})*sin(x)`
+        } else {
+          xFunc = parseCurveExpression(command.x, variable, references)
+          yFunc = parseCurveExpression(command.y, variable, references)
+        }
+        const typed = command.kind === 'polar' ? { x: command.expression, y: '' } : { x: command.x, y: command.y }
+        active = add({ type: 'curve', name: context.createName('curve'), id: context.nextId(), xFunc, yFunc, variable, start, end,
+          ...(polar === undefined ? {} : { polar }), typed, color: options.randomColor(), visibility: true, size: 2, temp: false })
+        definition = command
+        break
+      }
+      case 'implicit': {
+        const func = parseTwoVariableExpression(command.left, command.right, { references: allObjects() })
+        active = add({ type: 'implicit', name: context.createName('curve'), id: context.nextId(), func,
+          left: command.left, right: command.right, color: options.randomColor(), visibility: true, size: 2, temp: false })
+        definition = command
+        break
+      }
+      case 'inequality': {
+        const references = { references: allObjects() }
+        const func = parseTwoVariableExpression(command.left, command.right, references)
+        const below = command.operator.startsWith('<')
+        // One side alone: y against a graph of x, or x against a constant, is shaded exactly.
+        let bound: { variable: 'x' | 'y'; expression: string; below: boolean } | undefined
+        const sides = [[command.left, command.right, below], [command.right, command.left, !below]] as const
+        for (const [alone, other, under] of sides) {
+          if (alone === 'y' && !mentions(other, 'y')) bound = { variable: 'y', expression: parseFunctionExpression(other, references), below: under }
+          else if (alone === 'x' && !mentions(other, 'x', 'y')) bound = { variable: 'x', expression: String(value({ expression: other })), below: under }
+          if (bound) break
+        }
+        active = add({ type: 'inequality', name: context.createName('region'), id: context.nextId(), func, left: command.left,
+          right: command.right, operator: command.operator, ...(bound ? { bound } : {}),
+          color: options.randomColor(), visibility: true, size: 2, temp: false })
         definition = command
         break
       }
@@ -524,9 +786,13 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         const sections: FunctionSection[] = command.sections.map(section => {
           const source = expression(section.expression)
           const line = affine(section.expression)
+          // Bounds may name parameters.
+          const startX = section.startX === null ? null : value(section.startX)
+          const endX = section.endX === null ? null : value(section.endX)
+          if (emptySection({ ...section, startX, endX })) throw new Error('Tanım aralığı boş olamaz.')
           const curve = line
-            ? new functions.mLineWithEquation(line.m, line.n, true, section.startX, section.endX)
-            : new functions.mFunction(source, true, section.startX, section.endX)
+            ? new functions.mLineWithEquation(line.m, line.n, true, startX, endX)
+            : new functions.mFunction(source, true, startX, endX)
           curve.startInclusive = section.startInclusive
           curve.endInclusive = section.endInclusive
           return curve

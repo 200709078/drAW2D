@@ -2,18 +2,22 @@ import { createObjectName, type ObjectNameGroup } from '../commands/names'
 import { parseCommand } from '../commands/parser'
 import { prepareCommand } from '../commands/prepare'
 import { collectDependents, resolveConstraints } from '../document/dependencies'
+import { baseName, DEFAULT_FILE_NAME, FILE_EXTENSION, parseDocument, serializeDocument, type DocumentFile } from '../document/file-format'
+import { growPointSets } from '../document/point-sets'
 import { recomputeDefinitions, redefineParameter, setParameterRange } from '../document/definitions'
 import { redefineObject } from '../document/redefine'
 import { GeometryDocument } from '../document/geometry-document'
 import { createGeometryModels } from '../geometry/models'
-import { numericPoint, type NumericPoint } from '../geometry/primitives'
+import type { NumericPoint } from '../geometry/primitives'
 import type { ObjectId } from '../geometry/types'
 import { createCanvasSurface } from '../rendering/canvas-surface'
-import { createGridRenderer } from '../rendering/coordinate-grid'
+import { nextSliderPosition, sliderAt, sliderValueAt } from '../rendering/canvas-slider'
+import { createGridRenderer, drawGridDirect } from '../rendering/coordinate-grid'
 import { createFrameRenderer, createSceneOrder } from '../rendering/frame-renderer'
 import { createFunctionEvaluator } from '../rendering/function-evaluator'
-import type { PainterFrame, PointTrace } from '../rendering/painter-types'
+import type { DrawingContext, PainterFrame } from '../rendering/painter-types'
 import { paintDocumentScene } from '../rendering/scene-painter'
+import { SvgContext } from '../rendering/svg-context'
 import { createTransientPainter } from '../rendering/transient-painter'
 import { bindCommandInput } from '../ui/command-input'
 import { bindCommandTemplates } from '../ui/command-templates'
@@ -22,12 +26,16 @@ import { createHelpPopup } from '../ui/help-popup'
 import { ObjectPanel } from '../ui/object-panel'
 import { createToolbar } from '../ui/main-toolbar'
 import { createSidePanel, NARROW_LAYOUT_QUERY } from '../ui/side-panel'
+import { createFileMenu } from '../ui/file-menu'
+import { promptValue } from '../ui/prompt-dialog'
 import { createToast } from '../ui/toast'
 import type { ToolAction } from '../ui/tool-registry'
 import { HIT_TOLERANCE_PX, hitTest } from './hit-test'
 import { applyStyle, describeCard, editText, styleSpec } from './object-cards'
 import { beginObjectDrag, moveObjectDrag, type ObjectDrag } from './object-drag'
-import { ToolController, type ToolInput } from './tools'
+import { exportFile, openDocumentFile, saveDocumentFile, type FileTarget } from './files'
+import { ToolController, type ToolInput, type ToolOutcome } from './tools'
+import { TraceRecorder } from './traces'
 import { ViewportState, type PixelPoint, type ViewAxis } from './viewport-state'
 
 const AXIS_GRAB_PX = 8
@@ -36,8 +44,8 @@ const TOUCH_HIT_TOLERANCE_PX = 22
 const TRACKPAD_ZOOM_RATE = 0.01
 /** An animated parameter sweeps from its minimum to its maximum in this time, then back. */
 const ANIMATION_SWEEP_MS = 4000
-/** Positions kept per traced point; the oldest are dropped first. */
-const TRACE_LIMIT = 20000
+const AUTOSAVE_KEY = 'drAW2D.autosave'
+const AUTOSAVE_DELAY = 1000
 
 function required<Element extends HTMLElement>(id: string): Element {
   const element = document.getElementById(id)
@@ -90,8 +98,10 @@ export function startApp(): void {
 
   let cursor: ToolInput | null = null
   let objectDrag: ObjectDrag | null = null
-  /** Positions passed by traced points, in plane coordinates; not part of the document. */
-  const traces = new Map<ObjectId, NumericPoint[]>()
+  /** Positions and shapes traced objects passed through, in plane coordinates; not part of the document. */
+  const traces = new TraceRecorder()
+  /** A canvas slider being dragged: its value, or its position by the caption. */
+  let sliderDrag: { id: ObjectId; part: 'track' | 'caption'; offset: { x: number; y: number } } | null = null
   let grabbing = false
   /** Pressed pointers on the canvas, in press order. */
   const pointers = new Map<number, PixelPoint>()
@@ -118,37 +128,21 @@ export function startApp(): void {
       activeId: geometry.activeId,
       objects: sceneOrder.get(geometry.objects),
       evaluator,
-      traces: traceFrames(),
+      traces: traces.frames(geometry.objects),
     }
     paintDocumentScene(frame)
     tools.paintPreview(createTransientPainter(frame), cursor)
   }
 
-  function traceFrames(): PointTrace[] {
-    const frames: PointTrace[] = []
-    for (const object of geometry.objects) {
-      const points = object.id === null ? undefined : traces.get(object.id)
-      if (points?.length) frames.push({ color: object.color, radius: object.size, points })
-    }
-    return frames
-  }
-
-  /** Add the current positions of traced points; forget traces that were switched off. */
-  function recordTraces(): void {
-    const traced = new Set<ObjectId>()
-    for (const object of geometry.objects) {
-      if (object.type !== 'point' || !object.trace || object.id === null) continue
-      traced.add(object.id)
-      const position = object.visibility ? numericPoint(object) : null
-      if (!position) continue
-      const trail = traces.get(object.id) ?? []
-      const last = trail.at(-1)
-      if (last?.a === position.a && last.b === position.b) continue
-      trail.push(position)
-      if (trail.length > TRACE_LIMIT) trail.splice(0, trail.length - TRACE_LIMIT)
-      traces.set(object.id, trail)
-    }
-    for (const id of traces.keys()) if (!traced.has(id)) traces.delete(id)
+  /** The drawing as vector graphics: the same painters, recorded into SVG. */
+  function svgDrawing(): string {
+    const svg = new SvgContext(surface.width, surface.height)
+    drawGridDirect(svg as unknown as CanvasRenderingContext2D, view.viewport(surface.width, surface.height))
+    paintDocumentScene({
+      ctx: svg as unknown as DrawingContext, transform: transform(), width: surface.width, height: surface.height,
+      activeId: null, objects: sceneOrder.get(geometry.objects), evaluator, traces: traces.frames(geometry.objects),
+    })
+    return svg.toString()
   }
 
   const panel = new ObjectPanel(required('objectsContainer'), {
@@ -198,6 +192,15 @@ export function startApp(): void {
     toggleAnimation(id) {
       if (animations.has(id)) stopAnimation(id)
       else startAnimation(id)
+    },
+    parameterOnCanvas(id, shown) {
+      const parameter = parameterById(id)
+      if (!parameter) return
+      commitSlider()
+      if (shown) parameter.onCanvas = nextSliderPosition(geometry.objects)
+      else delete parameter.onCanvas
+      commit()
+      refresh()
     },
     redefine(id, text) {
       const target = geometry.objects.find(object => object.id === id)
@@ -289,10 +292,20 @@ export function startApp(): void {
     else lastFrameTime = null
   }
 
+  /** Resolve every constrained point; analysis sets that found more solutions get more points first. */
+  function settle(): void {
+    growPointSets(geometry.objects, (a, b) => {
+      const point = new models.mPoint(a, b)
+      geometry.append(point)
+      return point
+    })
+    resolveConstraints(geometry.objects)
+  }
+
   /** Bring dependent geometry, cards, history buttons and the next frame up to date. */
   function refresh(): void {
-    resolveConstraints(geometry.objects)
-    recordTraces()
+    settle()
+    traces.record(geometry.objects, { transform: transform(), width: surface.width, height: surface.height, evaluator })
     const context = { objects: geometry.objects }
     const entries = geometry.objects.filter(object => !(object.type === 'point' && object.hideInLabels)).reverse()
       .map(object => ({
@@ -305,22 +318,24 @@ export function startApp(): void {
     redoButton.disabled = !geometry.canRedo
     clearButton.disabled = geometry.objects.length === 0
     frameRenderer.request()
+    scheduleAutosave()
   }
 
   function commit(): void {
-    resolveConstraints(geometry.objects)
+    settle()
     geometry.commit()
   }
 
   function commitSlider(): void {
     if (!geometry.isEditing) return
-    resolveConstraints(geometry.objects)
+    settle()
     geometry.commitEdit()
   }
 
   function endDrag(): void {
     grabbing = false
     objectDrag = null
+    sliderDrag = null
     aiming = null
     view.endDrag()
   }
@@ -401,7 +416,10 @@ export function startApp(): void {
     const current = transform()
     const position = { a: current.pixelToX(pixel.x), b: current.pixelToY(pixel.y) }
     const tolerance = touch ? TOUCH_HIT_TOLERANCE_PX : HIT_TOLERANCE_PX
-    return { position, hit: hitTest(geometry.objects, position, { transform: current, evaluator, tolerance }) }
+    return {
+      position,
+      hit: hitTest(geometry.objects, position, { transform: current, evaluator, tolerance, width: surface.width, height: surface.height }),
+    }
   }
 
   function axisAt(pixel: PixelPoint, touch: boolean): ViewAxis | null {
@@ -418,15 +436,36 @@ export function startApp(): void {
   function moveDragged(position: NumericPoint): void {
     if (!objectDrag) return
     moveObjectDrag(objectDrag, position)
-    // A moved equation line is used by name in other definitions.
+    // A moved equation line or graph is used by name in other definitions.
     const name = objectDrag.line?.object.name
     if (name) recompute([name])
   }
 
   function pressTool(input: ToolInput): void {
-    const action = tools.action
-    const outcome = tools.press(input)
+    handleOutcome(tools.action, tools.press(input))
+  }
+
+  /** Show a tool's message; a completed construction is one history step, a question is asked first. */
+  function handleOutcome(action: ToolAction, outcome: ToolOutcome): void {
     if (outcome.message) showToast(outcome.message.title, outcome.message.text)
+    if (outcome.ask) {
+      const question = outcome.ask
+      refresh()
+      void promptValue(question).then(text => {
+        if (text === null || tools.action !== action) {
+          cancelInteraction()
+          return
+        }
+        const answer = question.answer(text)
+        if (!answer.completed) {
+          if (answer.message) showToast(answer.message.title, answer.message.text)
+          cancelInteraction()
+          return
+        }
+        handleOutcome(action, answer)
+      })
+      return
+    }
     if (outcome.completed) {
       commit()
       // Return to selection, keeping the new construction selected. The finishing
@@ -443,7 +482,7 @@ export function startApp(): void {
     if (hit) geometry.activeId = hit.object.id
     grabbing = true
     // Objects computed from others or from parameters are selected, not dragged.
-    objectDrag = hit ? beginObjectDrag(hit.object, geometry.objects, input.position) : null
+    objectDrag = hit ? beginObjectDrag(hit.object, geometry.objects, input.position, dragPrecision()) : null
     if (objectDrag) {
       geometry.beginEdit()
       canvas.style.cursor = 'grabbing'
@@ -469,6 +508,26 @@ export function startApp(): void {
     refresh()
   }
 
+  /** A dragged graph's offset is rounded to about a pixel, so its equation stays short. */
+  function dragPrecision(): number {
+    return 10 ** Math.floor(Math.log10(1 / transform().pixelsPerUnitX))
+  }
+
+  /** Move a canvas slider's knob or the whole slider. */
+  function moveSlider(pixel: PixelPoint): void {
+    const parameter = sliderDrag ? parameterById(sliderDrag.id) : null
+    if (!sliderDrag || !parameter?.onCanvas) return
+    if (sliderDrag.part === 'caption') {
+      parameter.onCanvas = { x: pixel.x - sliderDrag.offset.x, y: pixel.y - sliderDrag.offset.y }
+    } else if (!parameter.definition) {
+      const value = sliderValueAt(parameter, pixel.x)
+      if (value === parameter.value) return
+      parameter.value = value
+      recompute([parameter.name!])
+    }
+    refresh()
+  }
+
   function finishPointer(event: PointerEvent, cancelled: boolean): void {
     if (!pointers.delete(event.pointerId)) return
     if (multiTouch) {
@@ -482,6 +541,13 @@ export function startApp(): void {
     primary = null
     const pixel = canvasPixel(event)
     const touch = isTouch(event)
+    if (sliderDrag) {
+      if (cancelled) geometry.cancelEdit()
+      else commitSlider()
+      endDrag()
+      refresh()
+      return
+    }
     if (aiming === event.pointerId) {
       aiming = null
       cursor = null
@@ -523,6 +589,17 @@ export function startApp(): void {
     primary = event.pointerId
     commitSlider()
     const touch = isTouch(event)
+    // Canvas sliders take the pointer with any tool.
+    const slider = sliderAt(geometry.objects, pixel.x, pixel.y, touch)
+    if (slider) {
+      geometry.beginEdit()
+      geometry.activeId = slider.parameter.id
+      const origin = slider.parameter.onCanvas!
+      sliderDrag = { id: slider.parameter.id!, part: slider.part, offset: { x: pixel.x - origin.x, y: pixel.y - origin.y } }
+      moveSlider(pixel)
+      refresh()
+      return
+    }
     const input = pointerInput(pixel, touch)
     cursor = input
     if (tools.action === 'select') {
@@ -547,6 +624,10 @@ export function startApp(): void {
         return
       }
       if (multiTouch || event.pointerId !== primary) return
+      if (sliderDrag) {
+        moveSlider(pixel)
+        return
+      }
     }
     const input = pointerInput(pixel, touch)
     cursor = input
@@ -565,7 +646,9 @@ export function startApp(): void {
     }
     const axis = tools.action === 'select' && !input.hit ? axisAt(pixel, touch) : null
     const movable = tools.action === 'select' && input.hit && beginObjectDrag(input.hit.object, geometry.objects, input.position)
-    canvas.style.cursor = movable ? 'grab' : input.hit ? 'pointer' : axis ? axisCursor(axis) : 'default'
+    const slider = sliderAt(geometry.objects, pixel.x, pixel.y, touch)
+    canvas.style.cursor = slider ? (slider.part === 'caption' ? 'move' : 'ew-resize')
+      : movable ? 'grab' : input.hit ? 'pointer' : axis ? axisCursor(axis) : 'default'
     if (tools.isConstructing) frameRenderer.request()
   })
 
@@ -616,6 +699,181 @@ export function startApp(): void {
     }
     refresh()
   })
+
+  // --- Documents: .drw2 files, the autosave and exports ------------------------------
+  let fileName: string | null = null
+  let fileTarget: FileTarget | null = null
+  let autosaveTimer: number | null = null
+  let autosaved = ''
+
+  function documentText(): string {
+    return serializeDocument({ objects: [...geometry.objects], view: { ...view.snapshot } })
+  }
+
+  function autosave(): void {
+    if (autosaveTimer !== null) window.clearTimeout(autosaveTimer)
+    autosaveTimer = null
+    // Half-finished tool drawings are not saved.
+    if (geometry.hasDraft) return
+    const text = documentText()
+    if (text === autosaved) return
+    try {
+      localStorage.setItem(AUTOSAVE_KEY, text)
+      autosaved = text
+    } catch {
+      // Storage full or refused (private window): the work is kept only in this page.
+    }
+  }
+
+  function scheduleAutosave(): void {
+    if (autosaveTimer === null) autosaveTimer = window.setTimeout(autosave, AUTOSAVE_DELAY)
+  }
+  window.addEventListener('pagehide', autosave)
+
+  /** Bring a loaded document's computed values up to date; false if it does not resolve. */
+  function resolveLoaded(): boolean {
+    try {
+      recomputeDefinitions(geometry.objects, prepare)
+      settle()
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /** Replace the document with a file's objects, as one undoable step. */
+  function loadDocument(file: DocumentFile, name: string): boolean {
+    stopAllAnimations()
+    resetInteraction()
+    const previous = structuredClone([...geometry.objects])
+    geometry.clear()
+    try {
+      geometry.append(...file.objects)
+    } catch {
+      geometry.append(...previous)
+      return false
+    }
+    if (!resolveLoaded()) {
+      geometry.clear()
+      geometry.append(...previous)
+      settle()
+      return false
+    }
+    traces.clear()
+    if (file.view) view.restore(file.view)
+    fileName = name
+    commit()
+    refresh()
+    return true
+  }
+
+  async function openFile(): Promise<void> {
+    try {
+      const opened = await openDocumentFile()
+      if (!opened) return
+      const parsed = parseDocument(opened.text)
+      if (!parsed.ok) {
+        showToast('Aç', parsed.error)
+        return
+      }
+      if (!loadDocument(parsed, opened.name)) {
+        showToast('Aç', 'Belgedeki nesneler kurulamadı.')
+        return
+      }
+      fileTarget = opened.target
+      showToast('Aç', `${opened.name} açıldı.`)
+    } catch {
+      showToast('Aç', 'Dosya açılamadı.')
+    }
+  }
+
+  async function saveFile(saveAs: boolean): Promise<void> {
+    commitSlider()
+    try {
+      const saved = await saveDocumentFile(documentText(), fileName ?? DEFAULT_FILE_NAME, fileTarget, saveAs)
+      if (!saved) return
+      fileName = saved.name.endsWith(FILE_EXTENSION) ? saved.name : `${saved.name}${FILE_EXTENSION}`
+      fileTarget = saved.target
+      showToast('Kaydet', `${baseName(saved.name)} kaydedildi.`)
+    } catch {
+      showToast('Kaydet', 'Dosya kaydedilemedi.')
+    }
+  }
+
+  /** The drawing without tool previews, as PNG (the canvas raster) or SVG (vector). */
+  async function exportImage(kind: 'png' | 'svg'): Promise<void> {
+    const stem = (fileName ?? DEFAULT_FILE_NAME).replace(/\.drw2$/i, '')
+    try {
+      let blob: Blob | null
+      if (kind === 'svg') {
+        blob = new Blob([svgDrawing()], { type: 'image/svg+xml' })
+      } else {
+        const previous = cursor
+        cursor = null
+        paint()
+        cursor = previous
+        blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
+        frameRenderer.request()
+      }
+      if (!blob) throw new Error('Görüntü oluşturulamadı.')
+      const saved = await exportFile(blob, `${stem}.${kind}`, kind)
+      if (saved) showToast('Dışa Aktar', `${saved} kaydedildi.`)
+    } catch {
+      showToast('Dışa Aktar', 'Görüntü kaydedilemedi.')
+    }
+  }
+
+  function newDocument(): void {
+    stopAllAnimations()
+    resetInteraction()
+    traces.clear()
+    // Like Temizle, an undoable step; the next save asks for a new file.
+    if (geometry.clear()) commit()
+    fileName = null
+    fileTarget = null
+    refresh()
+  }
+
+  createFileMenu(required<HTMLButtonElement>('fileMenuButton'), {
+    onNew: newDocument,
+    onOpen: () => void openFile(),
+    onSave: saveAs => void saveFile(saveAs),
+    onExport: kind => void exportImage(kind),
+  })
+  document.addEventListener('keydown', event => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return
+    const key = event.key.toLowerCase()
+    if (key === 'o') {
+      event.preventDefault()
+      void openFile()
+    } else if (key === 's') {
+      event.preventDefault()
+      void saveFile(event.shiftKey)
+    }
+  })
+
+  /** Reopen the last work of this browser; its history starts here. */
+  function restoreAutosave(): void {
+    let text: string | null = null
+    try {
+      text = localStorage.getItem(AUTOSAVE_KEY)
+    } catch {
+      return
+    }
+    const parsed = text ? parseDocument(text) : null
+    if (!parsed?.ok || parsed.objects.length === 0) return
+    try {
+      geometry.reset(parsed.objects)
+      if (!resolveLoaded()) throw new Error('Belge kurulamadı.')
+      geometry.reset([...geometry.objects])
+    } catch {
+      geometry.reset([])
+      return
+    }
+    autosaved = text!
+    if (parsed.view) view.restore(parsed.view)
+    showToast('Otomatik Kayıt', 'Son çalışmanız geri yüklendi. Boş bir belge için Dosya → Yeni.')
+  }
   required('btnStandartWiew').addEventListener('click', () => {
     resetInteraction()
     view.resetStandard()
@@ -672,5 +930,6 @@ export function startApp(): void {
     view.setOrigin(-surface.width / 2 / scaleY, -surface.height / 2 / scaleX)
   }
   view.saveStandard()
+  restoreAutosave()
   refresh()
 }

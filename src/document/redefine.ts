@@ -18,6 +18,7 @@ const FAMILIES: readonly (readonly string[])[] = [
   ['function', 'lineWithEquation', 'functioncomposition', 'derivative', 'limit', 'tangent', 'tangentHX'],
 ]
 const ATTACHMENTS = new Set<PointConstraint['type']>(['onLine', 'onCircle', 'onCircleTangent', 'onAngle'])
+const IMAGE_HELPERS = new Set<PointConstraint['type']>(['reflectPoint', 'reflectLine', 'rotate', 'translate', 'anchor'])
 
 export type RedefineResult =
   | { ok: true; append: GeometryDocumentObject[]; remove: ObjectId[]; changedNames: string[] }
@@ -74,15 +75,23 @@ function rename(objects: readonly GeometryDocumentObject[], target: GeometryDocu
 
 /** Points that exist only as parts of a construction: tangent touch points, the second intersection. */
 type BoundConstraint = Extract<PointConstraint, {
-  type: 'circleTangentTouchPoint' | 'intersectLines' | 'analysisPoint' | 'midpoint' | 'lineHelper'
+  type: 'circleTangentTouchPoint' | 'intersectLines' | 'analysisPoint' | 'midpoint' | 'lineHelper' | 'regularVertex'
+    | 'reflectPoint' | 'reflectLine' | 'rotate' | 'translate' | 'anchor'
 }>
+
+/** Constraints of points that belong to another object through `ownerId`. */
+const OWNED = new Set<PointConstraint['type']>([
+  'intersectLines', 'analysisPoint', 'midpoint', 'lineHelper', 'regularVertex', 'reflectPoint', 'reflectLine', 'rotate',
+  'translate', 'anchor',
+])
 
 function boundTo(object: GeometryDocumentObject, ownerId: ObjectId | null): BoundConstraint | null {
   if (object.type !== 'point') return null
   for (const constraint of object.onOther) {
     if ((constraint.type === 'circleTangentTouchPoint' && constraint.tangentId === ownerId)
-      || ((constraint.type === 'intersectLines' || constraint.type === 'analysisPoint' || constraint.type === 'midpoint'
-        || constraint.type === 'lineHelper') && constraint.ownerId === ownerId)) return constraint
+      || (OWNED.has(constraint.type) && 'ownerId' in constraint && constraint.ownerId !== undefined && constraint.ownerId === ownerId)) {
+      return constraint as BoundConstraint
+    }
   }
   return null
 }
@@ -143,8 +152,10 @@ function redefineConstruction(objects: readonly GeometryDocumentObject[], target
     const constraint = boundTo(helper, fresh.id)
     const match = constraint && existing.find(object => {
       const other = boundTo(object, targetId)!
-      const index = (bound: BoundConstraint) => 'pointIndex' in bound ? bound.pointIndex : 0
-      return other.type === constraint.type && index(other) === index(constraint)
+      const index = (bound: BoundConstraint) => 'pointIndex' in bound ? bound.pointIndex ?? 0 : 'index' in bound ? bound.index : 0
+      // The helpers of an image are matched by position whatever transformation made them.
+      const kind = (bound: BoundConstraint) => IMAGE_HELPERS.has(bound.type) ? 'image' : bound.type
+      return kind(other) === kind(constraint) && index(other) === index(constraint)
     })
     if (match) pairs.push([match, helper])
     else added.push(helper)
@@ -163,9 +174,16 @@ function redefineConstruction(objects: readonly GeometryDocumentObject[], target
   for (const [match, helper] of pairs) {
     remapIds(helper, fresh.id!, targetId)
     adopt(match, helper)
-    remapIds(target, helper.id!, match.id!)
   }
   for (const helper of added) remapIds(helper, fresh.id!, targetId)
+  // Matched helpers keep their identity: references to the fresh ones, by ID or as the
+  // object's own points, go to them.
+  const kept = [target, ...pairs.map(([match]) => match), ...added]
+  for (const [match, helper] of pairs) for (const object of kept) remapIds(object, helper.id!, match.id!)
+  const swap = new Map<unknown, GeometryDocumentObject>(pairs.map(([match, helper]) => [helper, match]))
+  const record = target as unknown as Record<string, unknown>
+  for (const key of ['A', 'B', 'C', 'M']) if (swap.has(record[key])) record[key] = swap.get(record[key])
+  if (target.type === 'polygon') target.points = target.points.map(point => (swap.get(point) as typeof point | undefined) ?? point)
   return { ok: true, append: added, remove: unmatched.map(object => object.id!) }
 }
 

@@ -116,7 +116,36 @@ integral taramasını arayüzde denetler.
 `math-keyboard.spec.ts` matematik klavyesini sınar: düğmeyle açma/kapama ve
 `inputmode`, fonksiyon tuşunun imleci parantezin içine koyması ve ⏎ ile gönderme,
 komut şablonunun klavyeden doldurulması (⇥ ve eksik alan uyarısı dahil), ⌫ ve ok
-tuşları, parantez eşleme ve Türkçe harfler; dokunmatik ekranda ilk dokunuşta açılma.
+tuşları, parantez eşleme ve Türkçe harfler; dokunmatik ekranda ilk dokunuşta açılma;
+⇧ tuşunun bir harfi, iki kez basılınca bütün harfleri büyük yazması (i → İ, ı → I).
+`curves.spec.ts` kapalı eğri, eğri ve eşitsizlikleri tarayıcı açmadan sınar: x ve y
+içeren denklemin kapalı eğri, `y = f(x)`, `x = c`, `a = 2` ve `r = f(θ)` ayrımı,
+eşitsizliğin koşullu ifade ve parçalı fonksiyonla karışmaması, marching squares'in
+çemberi eğri üstünde tek kapalı çizgi olarak bulması, kutup üstünde çizgi
+çizmemesi, bölge hücrelerinin alanı doğru kaplaması, parametrik örneklemenin eğri
+üstünde kalıp tanımsız yerde kesilmesi, kart metinleri, parametreyle yeniden hesap
+ve isabet testi (bölge yalnız sınırından seçilir).
+`analysis-extensions.spec.ts` doğrudan ifadeli analiz komutlarını (`Kök(x^2-4)`),
+parçalı fonksiyonların ve köşelerin (`|x|`) ekstremumlarını, kutbun ekstremum
+sayılmamasını, `Asimptot`'un düşey/yatay/eğik asimptotlarını ve yokluklarını,
+parametreli arama aralığını, çözüm sayısı artınca nokta kümesinin büyümesini ve
+parçalı fonksiyonun parametreli aralık sınırlarını sınar.
+`constructions-extensions.spec.ts` vektörü ve vektörle ötelemeyi, düzgün çokgeni,
+merkezli yayı, alan ve eğim ölçümlerini, doğru/çember/çokgen/denklemli doğrunun
+yansıtılmasını, döndürülmesini ve ötelenmesini (gizli yardımcı noktalar, zincirleme
+silme), döndürme açısının kaydırıcıyla değişmesini, görüntü nesnesinin karttan
+yeniden tanımlanınca yardımcılarını korumasını ve fonksiyon grafiğinin
+`f(x − dx) + dy` olarak sürüklenmesini sınar.
+`document-files.spec.ts` `.drw2` biçimini (paylaşılan nesnelerin `$ref` ile bir kez
+yazılması, açınca paylaşımın ve canlı tanımların geri gelmesi, bozuk/yabancı/yeni
+sürüm belgelerin reddi), otomatik kayıttan dönen belgenin geçmişini, doğru, çember ve
+grafik izlerinin kaydını ve SVG çıktısını sınar.
+`features-integration.spec.ts` aynı özellikleri arayüzde denetler: değer soran
+düzgün çokgen ve merkez-yarıçap aracı (iptal dahil), nesne seçen dönüşüm aracı,
+vektör, alan ve asimptot araçları, tuvaldeki kaydırıcının sürüklenmesi ve taşınması,
+grafiğin sürüklenmesi, doğrunun izi, kapalı eğri/eğri/eşitsizlik girişi, otomatik
+kayıt ve Dosya → Yeni, `.drw2` kaydetme/açma (indirme ve dosya seçiciyle) ile PNG ve
+SVG dışa aktarma.
 `command-templates.spec.ts` dil tablosunu (her komut adının ayrıştırılması, her yardım
 örneğinin çözümlenmesi, her şablonun kendi komutunu adlandırması) ve girişteki
 önerileri sınar: komut adı yazınca öneri, Enter/Tab/tıklama ile şablon yerleştirme,
@@ -240,9 +269,11 @@ npm run test:electron
 
 Bu kontrol derlenmiş uygulamayı `file://` üzerinden açar; türev çıktısını, araç
 çubuğunu, simge/ses yüklemesini ve renderer'ın Node.js erişiminin kapalı olmasını
-denetler. Başlık çubuğunun sürümlü başlığı, düğmeleri, tuval ile panelin çubuğun
+denetler. Başlık çubuğunun başlığı, düğmeleri, tuval ile panelin çubuğun
 altında başlaması ve Büyüt düğmesinin pencere durumunu değiştirmesi de sınanır;
-preload yalnızca `drAW2DDesktop.windowControls` nesnesini açar. `<img>` öğelerinin yanında CSS
+preload yalnızca `drAW2DDesktop.windowControls` ve `drAW2DDesktop.files` (aç, kaydet,
+dışa aktar) nesnelerini açar. Kontrol, önceki çalıştırmanın otomatik kaydını silerek
+boş belgeyle başlar. `<img>` öğelerinin yanında CSS
 arka plan görselleri (kart silme simgesi gibi) de paketten yüklenebilmelidir. Hazır Linux paket klasöründeki çalıştırılabilir dosya da aynı kontrolle
 açılabilir:
 

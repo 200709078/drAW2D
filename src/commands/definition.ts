@@ -34,10 +34,17 @@ function expressionTexts(command: Command): string[] {
     case 'tangentH': case 'tangentX': return [command.expression, numberText(command.at), numberText(command.h)]
     case 'derivative': case 'function': return [command.expression]
     case 'composition': return command.expressions
-    case 'piecewise': return command.sections.map(section => section.expression)
+    case 'piecewise': return command.sections.flatMap(section => [section.expression,
+      numberText(section.startX ?? undefined), numberText(section.endX ?? undefined)])
     case 'parameter': return [numberText(command.value)]
     case 'integral': return [command.function, numberText(command.start), numberText(command.end)]
+    case 'root': case 'extremum': case 'inflection': case 'asymptote':
+      return [command.function, numberText(command.start), numberText(command.end)]
+    case 'intersect': return [command.first, command.second, numberText(command.start), numberText(command.end)]
     case 'rotate': return [numberText(command.angle)]
+    case 'curve': return [command.x, command.y, numberText(command.start), numberText(command.end)]
+    case 'polar': return [command.expression, numberText(command.start), numberText(command.end)]
+    case 'implicit': case 'inequality': return [command.left, command.right]
     default: return []
   }
 }

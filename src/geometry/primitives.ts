@@ -13,7 +13,7 @@ export interface PointLike {
 }
 
 export type LineLike =
-  | { type: 'lineWithPoints' | 'lineSegment' | 'distanceSegment' | 'ray'; A: PointLike; B: PointLike }
+  | { type: 'lineWithPoints' | 'lineSegment' | 'distanceSegment' | 'ray' | 'vector'; A: PointLike; B: PointLike }
   | { type: 'verLine'; x: number }
   | {
     type: 'lineWithEquation'

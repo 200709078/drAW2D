@@ -4,7 +4,10 @@ import type { GeometryDocumentObject } from '../geometry/function-types'
 import { composeExpressions } from '../math/function-algebra'
 
 export interface ExpressionOptions {
-  variable?: 'x' | 'n'
+  /** The free variable: x for functions, n for sequences, the named variable of a curve. */
+  variable?: string
+  /** Further free variables, such as y in an equation in x and y. */
+  extraVariables?: readonly string[]
   /** Named functions and parameters an expression may use. */
   references?: readonly GeometryDocumentObject[]
   /** Validate parameter names but keep them as symbols instead of their values. */
@@ -20,7 +23,7 @@ export interface ResolvedExpression<Value> {
 
 type ScalarType = 'number' | 'boolean'
 interface ResolvedNode { node: MathNode; type: ScalarType }
-interface ReferenceExpression { expression: string; variable: 'x' | 'n' }
+interface ReferenceExpression { expression: string; variable: string }
 
 const maxLength = 10_000
 const maxNodes = 2_048
@@ -114,7 +117,7 @@ function replaceVariable(node: MathNode, variable: string, replacement: MathNode
   })
 }
 
-const reservedNames = new Set(['x', 'y', 'n', 'e', 'i', 'pi', 'E', 'PI', 'tau', 'true', 'false', 'ln'])
+const reservedNames = new Set(['x', 'y', 'n', 'e', 'i', 'pi', 'π', 'E', 'PI', 'tau', 'true', 'false', 'ln'])
 
 /** Names that expressions already give a meaning to and parameters cannot take. */
 export function isReservedName(name: string): boolean {
@@ -157,6 +160,7 @@ function referenceExpressions(objects: readonly GeometryDocumentObject[]): Map<s
 
 function resolve(source: string, options: ExpressionOptions, numeric: boolean): { node: MathNode; changed: boolean; names: Set<string> } {
   const variable = options.variable ?? 'x'
+  const free = new Set([variable, ...options.extraVariables ?? []])
   const references = referenceExpressions(options.references ?? [])
   const parameters = parameterValues(options.references ?? [])
   const names = new Set<string>()
@@ -169,14 +173,16 @@ function resolve(source: string, options: ExpressionOptions, numeric: boolean): 
     if (stack.has(name)) throw new RangeError('Döngüsel fonksiyon başvurusu kullanılamaz.')
     const nextStack = new Set(stack)
     nextStack.add(name)
-    const resolved = visit(parse(reference.expression), reference.variable, nextStack, depth + 1)
+    const resolved = visit(parse(reference.expression), new Set([reference.variable]), nextStack, depth + 1)
     if (resolved.type !== 'number') throw new TypeError('Fonksiyon sayısal bir ifade olmalıdır.')
     changed = true
     names.add(name)
     return replaceVariable(resolved.node, reference.variable, argument)
   }
 
-  function visit(node: MathNode, activeVariable: 'x' | 'n', stack: ReadonlySet<string>, depth: number): ResolvedNode {
+  /** `variables` are free here; the first is the argument of a bare function name. */
+  function visit(node: MathNode, variables: ReadonlySet<string>, stack: ReadonlySet<string>, depth: number): ResolvedNode {
+    const activeVariable = variables.values().next().value!
     if (++visits > maxNodes || depth > maxDepth) throw new RangeError('Matematik ifadesi çok karmaşık.')
     if (math.isConstantNode(node)) {
       if (typeof node.value === 'boolean') return { node, type: 'boolean' }
@@ -188,9 +194,9 @@ function resolve(source: string, options: ExpressionOptions, numeric: boolean): 
       throw new TypeError('Yalnız sayısal sabitler kullanılabilir.')
     }
     if (math.isSymbolNode(node)) {
-      if (!numeric && node.name === activeVariable) return { node, type: 'number' }
+      if (!numeric && variables.has(node.name)) return { node, type: 'number' }
       if (constants.has(node.name)) return { node, type: 'number' }
-      if (node.name === 'E' || node.name === 'PI') {
+      if (node.name === 'E' || node.name === 'PI' || node.name === 'π') {
         changed = true
         return { node: new math.SymbolNode(node.name === 'E' ? 'e' : 'pi'), type: 'number' }
       }
@@ -213,11 +219,11 @@ function resolve(source: string, options: ExpressionOptions, numeric: boolean): 
       throw new ReferenceError(`Bilinmeyen simge: ${node.name}`)
     }
     if (math.isParenthesisNode(node)) {
-      const child = visit(node.content, activeVariable, stack, depth + 1)
+      const child = visit(node.content, variables, stack, depth + 1)
       return { node: new math.ParenthesisNode(child.node), type: child.type }
     }
     if (math.isOperatorNode(node)) {
-      const args = node.args.map(child => visit(child, activeVariable, stack, depth + 1))
+      const args = node.args.map(child => visit(child, variables, stack, depth + 1))
       const count = args.length
       const numbers = args.every(child => child.type === 'number')
       let type: ScalarType
@@ -229,21 +235,21 @@ function resolve(source: string, options: ExpressionOptions, numeric: boolean): 
       return { node: new math.OperatorNode(node.op, node.fn, args.map(child => child.node), node.implicit), type }
     }
     if (math.isRelationalNode(node)) {
-      const args = node.params.map(child => visit(child, activeVariable, stack, depth + 1))
+      const args = node.params.map(child => visit(child, variables, stack, depth + 1))
       if (!node.conditionals.every(operator => comparisons.has(operator))
         || !args.every(child => child.type === 'number')) throw new TypeError('Geçersiz karşılaştırma.')
       return { node: new math.RelationalNode(node.conditionals, args.map(child => child.node)), type: 'boolean' }
     }
     if (math.isConditionalNode(node)) {
-      const condition = visit(node.condition, activeVariable, stack, depth + 1)
-      const whenTrue = visit(node.trueExpr, activeVariable, stack, depth + 1)
-      const whenFalse = visit(node.falseExpr, activeVariable, stack, depth + 1)
+      const condition = visit(node.condition, variables, stack, depth + 1)
+      const whenTrue = visit(node.trueExpr, variables, stack, depth + 1)
+      const whenFalse = visit(node.falseExpr, variables, stack, depth + 1)
       if (whenTrue.type !== whenFalse.type) throw new TypeError('Koşul dalları aynı skaler türde olmalıdır.')
       return { node: new math.ConditionalNode(condition.node, whenTrue.node, whenFalse.node), type: whenTrue.type }
     }
     if (math.isFunctionNode(node)) {
       if (!math.isSymbolNode(node.fn)) throw new TypeError('Fonksiyon adı bir simge olmalıdır.')
-      const args = node.args.map(child => visit(child, activeVariable, stack, depth + 1))
+      const args = node.args.map(child => visit(child, variables, stack, depth + 1))
       if (!args.every(child => child.type === 'number')) throw new TypeError('Fonksiyon bağımsız değişkenleri sayısal olmalıdır.')
       if (!numeric && references.has(node.fn.name)) {
         if (args.length !== 1) throw new TypeError('Adlandırılmış fonksiyon bir bağımsız değişken alır.')
@@ -261,7 +267,7 @@ function resolve(source: string, options: ExpressionOptions, numeric: boolean): 
     throw new TypeError(`Bu matematik yapısı kullanılamaz: ${node.type}`)
   }
 
-  const resolved = visit(parse(source), variable, new Set(), 0)
+  const resolved = visit(parse(source), free, new Set(), 0)
   if (resolved.type !== 'number') throw new TypeError('İfade sayısal bir sonuç üretmelidir.')
   nodeSize(resolved.node)
   return { node: resolved.node, changed, names }
@@ -295,6 +301,22 @@ export function resolveFunctionExpression(source: string, options: ExpressionOpt
 
 export function parseFunctionExpression(source: string, options: ExpressionOptions = {}): string {
   return resolveFunctionExpression(source, options).value
+}
+
+/**
+ * An expression in a curve's own variable (`cos(t)`), stored in x so that the same
+ * evaluators as for graphs apply.
+ */
+export function parseCurveExpression(source: string, variable: string, options: ExpressionOptions = {}): string {
+  const resolved = parseFunctionExpression(source, { ...options, variable })
+  return variable === 'x' ? resolved : expressionString(replaceVariable(parse(resolved), variable, new math.SymbolNode('x')))
+}
+
+/** `left − right` of an equation or inequality in x and y, with parameters and named functions resolved. */
+export function parseTwoVariableExpression(left: string, right: string, options: ExpressionOptions = {}): string {
+  const scope = { ...options, variable: 'x', extraVariables: ['y'] }
+  const sides = [left, right].map(side => parseFunctionExpression(side, scope))
+  return `(${sides[0]})-(${sides[1]})`
 }
 
 interface Affine { m: number; n: number }

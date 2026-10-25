@@ -3,13 +3,17 @@ import {
   distanceAB,
   getAngleMeasure,
   getCircleDescriptor,
+  getLineDescriptor,
   getPositiveArcMeasure,
+  getProjectionOnLine,
   numericPoint,
 } from '../geometry/primitives'
 import type { BasicGeometryObject, GeometryObject } from '../geometry/types'
 import type {
   ArcMeasure,
   CircleTangent,
+  CircularArc,
+  Vector,
   DistanceSegment,
   GeometryAngle,
   GeometryCircle,
@@ -20,7 +24,8 @@ import type {
   LineWithPoints,
   RadiusCircle,
 } from '../geometry/types'
-import type { EquationLine, VerticalLine } from '../geometry/function-types'
+import type { AreaMeasure, EquationLine, SlopeMeasure, VerticalLine } from '../geometry/function-types'
+import { arcData, polygonArea, slopeOf } from '../geometry/constructions'
 import { getCircleTangentLines } from '../geometry/tangents'
 import { formatDisplayNumber, formatMeasure } from '../math/format-display'
 import { lineDash } from './line-style'
@@ -254,11 +259,108 @@ function paintArcMeasure(_frame: PainterFrame, primitives: DrawingPrimitives, ar
   }, captioned(arc, measure), { color: color(arc) })
 }
 
+/** A segment from A to B with a filled arrowhead at B. */
+function paintVector(frame: PainterFrame, primitives: DrawingPrimitives, vector: Vector): void {
+  if (!vector.visibility) return
+  const A = numericPoint(vector.A)
+  const B = numericPoint(vector.B)
+  if (!A || !B) return
+  const style = stroke(frame, vector)
+  const { ctx, transform } = frame
+  const ax = transform.xToPixel(A.a)
+  const ay = transform.yToPixel(A.b)
+  const bx = transform.xToPixel(B.a)
+  const by = transform.yToPixel(B.b)
+  const length = Math.hypot(bx - ax, by - ay)
+  if (!Number.isFinite(length) || length === 0) return
+  const head = Math.min(length, 8 + 2 * style.width)
+  const ux = (bx - ax) / length
+  const uy = (by - ay) / length
+  // The shaft stops at the head so a wide stroke does not blunt the tip.
+  const end = { a: transform.pixelToX(bx - ux * head * 0.8), b: transform.pixelToY(by - uy * head * 0.8) }
+  primitives.line({ type: 'lineSegment', A, B: end }, style)
+  ctx.save()
+  ctx.beginPath()
+  ctx.moveTo(bx, by)
+  ctx.lineTo(bx - ux * head - uy * head * 0.45, by - uy * head + ux * head * 0.45)
+  ctx.lineTo(bx - ux * head + uy * head * 0.45, by - uy * head - ux * head * 0.45)
+  ctx.closePath()
+  ctx.fillStyle = style.color
+  ctx.fill()
+  ctx.restore()
+  if (!vector.temp) primitives.textPixel((ax + bx) / 2 - uy * 14, (ay + by) / 2 + ux * 14, label(vector), { color: style.color })
+}
+
+function paintCircularArc(frame: PainterFrame, primitives: DrawingPrimitives, arc: CircularArc): void {
+  if (!arc.visibility) return
+  const data = arcData(arc)
+  if (!data) return
+  const style = stroke(frame, arc)
+  primitives.arc({ a: data.m, b: data.n }, data.r, data.start, data.span, style)
+  const middle = (data.start + data.span / 2) * Math.PI / 180
+  const labelRadius = data.r + 12 / frame.transform.pixelsPerUnitX
+  if (!arc.temp) {
+    primitives.text({ a: data.m + labelRadius * Math.cos(middle), b: data.n + labelRadius * Math.sin(middle) }, label(arc), { color: style.color })
+  }
+}
+
+/** The measured value under the polygon's or circle's centre. */
+function paintArea(frame: PainterFrame, primitives: DrawingPrimitives, area: AreaMeasure): void {
+  if (!area.visibility) return
+  const source = frame.objects.find(object => object.id === area.sourceId)
+  let center: { a: number; b: number } | null = null
+  let value: number | null = null
+  if (source?.type === 'polygon') {
+    const vertices = source.points.map(point => numericPoint(point))
+    if (vertices.every(vertex => vertex !== null) && vertices.length) {
+      center = {
+        a: vertices.reduce((sum, vertex) => sum + vertex!.a, 0) / vertices.length,
+        b: vertices.reduce((sum, vertex) => sum + vertex!.b, 0) / vertices.length,
+      }
+    }
+    value = polygonArea(source.points)
+  } else if (source?.type === 'circleR' || source?.type === 'circle2' || source?.type === 'circle3') {
+    const circle = getCircleDescriptor(source)
+    if (circle.status) {
+      center = { a: circle.m, b: circle.n }
+      value = Math.PI * circle.r * circle.r
+    }
+  }
+  if (!center || value === null) return
+  primitives.textPixel(frame.transform.xToPixel(center.a), frame.transform.yToPixel(center.b) + 20,
+    captioned(area, formatMeasure(value)), { color: color(area) })
+}
+
+/** A slope triangle with a horizontal leg of one unit, at the point of the line nearest the view's centre. */
+function paintSlope(frame: PainterFrame, primitives: DrawingPrimitives, slope: SlopeMeasure): void {
+  if (!slope.visibility) return
+  const source = frame.objects.find(object => object.id === slope.sourceId)
+  const m = slopeOf(source)
+  if (!source || m === null) return
+  const descriptor = getLineDescriptor(source as Parameters<typeof getLineDescriptor>[0])
+  if (!descriptor.status) return
+  const { bounds } = frame.transform
+  const center = descriptor.limited
+    // A segment or ray: its first point, so the triangle stays on it.
+    ? descriptor.origin
+    : getProjectionOnLine(source as Parameters<typeof getProjectionOnLine>[0], (bounds.left + bounds.right) / 2, (bounds.bottom + bounds.top) / 2)
+  if (!('a' in center)) return
+  const P = { a: center.a, b: center.b }
+  const Q = { a: P.a + 1, b: P.b }
+  const R = { a: P.a + 1, b: P.b + m }
+  const style = stroke(frame, slope)
+  primitives.line({ type: 'lineSegment', A: P, B: Q }, style)
+  primitives.line({ type: 'lineSegment', A: Q, B: R }, style)
+  primitives.text({ a: P.a + 0.5, b: P.b }, '1', { color: style.color })
+  primitives.textPixel(frame.transform.xToPixel(Q.a) + 8, frame.transform.yToPixel(P.b + m / 2), captioned(slope, formatMeasure(m)),
+    { color: style.color, align: 'left' })
+}
+
 /** Paint one persistent geometric object without reading document or DOM state. */
 export function paintGeometryObject(
   frame: PainterFrame,
   primitives: DrawingPrimitives,
-  object: BasicGeometryObject | VerticalLine | EquationLine,
+  object: BasicGeometryObject | VerticalLine | EquationLine | AreaMeasure | SlopeMeasure,
 ): void {
   switch (object.type) {
     case 'point': paintPoint(frame, primitives, object); break
@@ -275,5 +377,9 @@ export function paintGeometryObject(
     case 'circleTangent': paintCircleTangent(frame, primitives, object); break
     case 'angle': paintAngle(frame, primitives, object); break
     case 'arcMeasure': paintArcMeasure(frame, primitives, object); break
+    case 'vector': paintVector(frame, primitives, object); break
+    case 'circularArc': paintCircularArc(frame, primitives, object); break
+    case 'area': paintArea(frame, primitives, object); break
+    case 'slope': paintSlope(frame, primitives, object); break
   }
 }

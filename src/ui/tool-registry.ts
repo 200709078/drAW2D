@@ -24,6 +24,13 @@ export type ToolAction =
   | 'reflectline'
   | 'rotate'
   | 'translate'
+  | 'vector'
+  | 'regularpolygon'
+  | 'circleradius'
+  | 'circulararc'
+  | 'area'
+  | 'slope'
+  | 'asymptote'
 
 export type ToolGroupId =
   | 'move' | 'point' | 'line' | 'specialLine' | 'polygon' | 'circle'
@@ -67,6 +74,7 @@ export const TOOLS: readonly ToolDefinition[] = [
   { action: 'line', group: 'line', label: 'Doğru', icon: 'line.svg', instruction: 'Farklı iki nokta seçiniz.' },
   { action: 'linesegment', group: 'line', label: 'Doğru Parçası', icon: 'linesegment.svg', instruction: 'Farklı iki nokta seçiniz.' },
   { action: 'ray', group: 'line', label: 'Işın', icon: 'ray.svg', instruction: 'Başlangıç noktasını, sonra ışının geçtiği noktayı seçiniz.' },
+  { action: 'vector', group: 'line', label: 'Vektör', icon: 'vector.svg', instruction: 'Başlangıç ve bitiş noktasını seçiniz.' },
   { action: 'perpendicular', group: 'specialLine', label: 'Dik Doğru', icon: 'perpendicular.svg', instruction: 'Bir nokta, sonra bir doğru seçiniz.' },
   { action: 'parallel', group: 'specialLine', label: 'Paralel Doğru', icon: 'parallel.svg', instruction: 'Bir nokta, sonra bir doğru seçiniz.' },
   { action: 'bisector', group: 'specialLine', label: 'Kenar Orta Dikmesi', icon: 'bisector.svg', instruction: 'İki nokta seçiniz.' },
@@ -83,28 +91,42 @@ export const TOOLS: readonly ToolDefinition[] = [
     instruction: 'Köşeleri sırayla seçiniz; kapatmak için ilk köşeye tıklayınız.',
   },
   {
+    action: 'regularpolygon', group: 'polygon', label: 'Düzgün Çokgen', icon: 'regularpolygon.svg',
+    instruction: 'İki köşe seçiniz, sonra köşe sayısını giriniz.',
+  },
+  {
     action: 'circle2', group: 'circle', label: 'Merkez ve Nokta ile Çember', icon: 'circle2.svg',
     instruction: 'Merkez nokta ve çember üzerinde bir nokta seçiniz.',
   },
   { action: 'circle3', group: 'circle', label: 'Üç Noktadan Çember', icon: 'circle3.svg', instruction: 'Çember üzerinde üç nokta seçiniz.' },
+  {
+    action: 'circleradius', group: 'circle', label: 'Merkez ve Yarıçap ile Çember', icon: 'circleradius.svg',
+    instruction: 'Merkezi seçiniz, sonra yarıçapı giriniz.',
+  },
+  {
+    action: 'circulararc', group: 'circle', label: 'Merkez ve İki Noktadan Yay', icon: 'circulararc.svg',
+    instruction: 'Merkezi, yayın başlangıç noktasını ve bitişini belirleyen noktayı seçiniz.',
+  },
   { action: 'angle', group: 'measure', label: 'Açı', icon: 'angle.svg', instruction: 'Üç nokta seçiniz.' },
   { action: 'distancesegment', group: 'measure', label: 'Uzaklık', icon: 'distance.svg', instruction: 'Farklı iki nokta seçiniz.' },
   { action: 'arcmeasure', group: 'measure', label: 'Yay Ölçüsü', icon: 'arcmeasure.svg', instruction: 'Aynı çember üzerinde iki nokta seçiniz.' },
+  { action: 'area', group: 'measure', label: 'Alan', icon: 'area.svg', instruction: 'Bir çokgen veya çember seçiniz.' },
+  { action: 'slope', group: 'measure', label: 'Eğim', icon: 'slope.svg', instruction: 'Bir doğru seçiniz.' },
   {
     action: 'reflectpoint', group: 'transform', label: 'Noktaya Göre Yansıt', icon: 'reflect.svg',
-    instruction: 'Yansıtılacak noktayı ve yansıtma merkezini seçiniz.',
+    instruction: 'Yansıtılacak nokta veya nesneyi, sonra yansıtma merkezini seçiniz.',
   },
   {
     action: 'reflectline', group: 'transform', label: 'Doğruya Göre Yansıt', icon: 'reflectline.svg',
-    instruction: 'Yansıtılacak noktayı, sonra doğruyu seçiniz.',
+    instruction: 'Yansıtılacak nokta veya nesneyi, sonra doğruyu seçiniz.',
   },
   {
     action: 'rotate', group: 'transform', label: 'Döndür', icon: 'rotate.svg',
-    instruction: 'Döndürülecek noktayı, sonra merkezi seçiniz; açı kaydırıcıyla değişir.',
+    instruction: 'Döndürülecek nokta veya nesneyi, sonra merkezi seçiniz; açı kaydırıcıyla değişir.',
   },
   {
     action: 'translate', group: 'transform', label: 'Ötele', icon: 'translate.svg',
-    instruction: 'Ötelenecek noktayı, sonra öteleme vektörünün başlangıcını ve bitişini seçiniz.',
+    instruction: 'Ötelenecek nokta veya nesneyi, sonra bir vektörü ya da öteleme vektörünün başlangıcını ve bitişini seçiniz.',
   },
   { action: 'root', group: 'function', label: 'Kök', icon: 'root.svg', instruction: 'Görünür aralıktaki kökler için bir fonksiyon seçiniz.' },
   {
@@ -114,6 +136,10 @@ export const TOOLS: readonly ToolDefinition[] = [
   {
     action: 'inflection', group: 'function', label: 'Dönüm Noktası', icon: 'inflection.svg',
     instruction: 'Görünür aralıktaki dönüm noktaları için bir fonksiyon seçiniz.',
+  },
+  {
+    action: 'asymptote', group: 'function', label: 'Asimptot', icon: 'asymptote.svg',
+    instruction: 'Bir fonksiyon seçiniz; düşey asimptotlar görünür aralıkta aranır.',
   },
 ]
 

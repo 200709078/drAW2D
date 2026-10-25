@@ -1,14 +1,15 @@
-import type { PreparedCommand } from '../commands/prepare'
+import { parseCommand } from '../commands/parser'
+import { isTransformable, type PreparedCommand } from '../commands/prepare'
 import type { Command, PointArgument } from '../commands/types'
 import type { GeometryDocument } from '../document/geometry-document'
 import { pointConstraint } from '../document/dependencies'
 import type { GeometryDocumentObject } from '../geometry/function-types'
 import { analysisPoints, curveOf, isGraphObject } from '../geometry/analysis'
-import { constructedLocation, isLineObject } from '../geometry/constructions'
+import { arcData, constructedLocation, isLineObject } from '../geometry/constructions'
 import { getObjectIntersection } from '../geometry/intersections'
 import type { createGeometryModels } from '../geometry/models'
 import {
-  getCircleDescriptor, getProjectionOnAngle, getProjectionOnCircle, getProjectionOnLine, getReflectedPoint,
+  getCircleDescriptor, getLineDescriptor, getProjectionOnAngle, getProjectionOnCircle, getProjectionOnLine, getReflectedPoint,
   isPointOnCircleData, numericPoint, type NumericPoint,
 } from '../geometry/primitives'
 import { getCircleTangentLines, getProjectionOnCircleTangent } from '../geometry/tangents'
@@ -37,16 +38,26 @@ export interface ToolMessage {
   text: string
 }
 
+/** A value the tool needs typed in (a radius, a side count) before it can finish. */
+export interface ToolQuestion {
+  title: string
+  label: string
+  initial: string
+  /** Finish with the typed text; an outcome that is not completed leaves the drafts to be cancelled. */
+  answer(text: string): ToolOutcome
+}
+
 export interface ToolOutcome {
   /** Document membership or selection changed. */
   changed: boolean
   /** A construction was added; the caller records one history step. */
   completed: boolean
   message?: ToolMessage
+  ask?: ToolQuestion
 }
 
 type IntersectableObject = Extract<GeometryDocumentObject, {
-  type: 'lineWithPoints' | 'lineWithEquation' | 'verLine' | 'lineSegment' | 'ray' | 'circleR' | 'circle2' | 'circle3'
+  type: 'lineWithPoints' | 'lineWithEquation' | 'verLine' | 'lineSegment' | 'ray' | 'vector' | 'circleR' | 'circle2' | 'circle3'
 }>
 
 type PointCandidate =
@@ -78,6 +89,45 @@ const POINT_TOOLS: Partial<Record<ToolAction, PointToolSpec>> = {
   translate: {
     title: 'Ötele', count: 3, command: ([point, from, to]) => ({ kind: 'translate', point: point!, from: from!, to: to! }),
   },
+  vector: { title: 'Vektör', count: 2, command: ([A, B]) => ({ kind: 'vector', A: A!, B: B! }) },
+  circulararc: {
+    title: 'Yay', count: 3, command: ([center, A, B]) => ({ kind: 'circularArc', center: center!, A: A!, B: B! }),
+  },
+}
+
+/** Tools whose first pick may be a whole object instead of a point. */
+const TRANSFORM_TOOLS = new Set<ToolAction>(['reflectpoint', 'reflectline', 'rotate', 'translate'])
+
+/** Tools that pick points and then ask for a value typed in as text. */
+const ASKING_TOOLS: Partial<Record<ToolAction, { title: string; count: number; label: string; initial: string; command(names: string[], text: string): string }>> = {
+  regularpolygon: {
+    title: 'Düzgün Çokgen', count: 2, label: 'Köşe sayısı', initial: '5',
+    command: ([A, B], text) => `DüzgünÇokgen(${A},${B},${text})`,
+  },
+  circleradius: {
+    title: 'Çember', count: 1, label: 'Yarıçap', initial: '1',
+    command: ([center], text) => `Çember(${center},${text})`,
+  },
+}
+
+/** Tools that act on one object of a kind, with the command they build. */
+const OBJECT_TOOLS: Partial<Record<ToolAction, { title: string; accepts(object: GeometryDocumentObject): boolean; text: string
+  command(object: GeometryDocumentObject, range: { start: number; end: number }): Command }>> = {
+  area: {
+    title: 'Alan', text: 'Bir çokgen veya çember seçiniz.',
+    accepts: object => object.type === 'polygon' || isCircle(object),
+    command: object => ({ kind: 'area', object: object.name! }),
+  },
+  slope: {
+    title: 'Eğim', text: 'Bir doğru seçiniz.',
+    accepts: object => ['lineWithPoints', 'lineSegment', 'ray', 'vector', 'lineWithEquation', 'verLine'].includes(object.type),
+    command: object => ({ kind: 'slope', line: object.name! }),
+  },
+  asymptote: {
+    title: 'Asimptot', text: 'Bir fonksiyon seçiniz.',
+    accepts: object => isGraphObject(object),
+    command: (object, { start, end }) => ({ kind: 'asymptote', function: object.name!, start, end }),
+  },
 }
 
 /** Tools that take a point and then a line. */
@@ -89,6 +139,10 @@ const POINT_LINE_TOOLS: Partial<Record<ToolAction, { title: string; command(poin
 
 const NOTHING: ToolOutcome = { changed: false, completed: false }
 
+function toolTitle(action: ToolAction): string {
+  return POINT_TOOLS[action]?.title ?? POINT_LINE_TOOLS[action]?.title ?? action
+}
+
 export function isCircle(object: GeometryDocumentObject | null | undefined): object is GeometryCircle {
   return object?.type === 'circleR' || object?.type === 'circle2' || object?.type === 'circle3'
 }
@@ -96,7 +150,7 @@ export function isCircle(object: GeometryDocumentObject | null | undefined): obj
 /** Lines and circles, intersected exactly. */
 export function isLineOrCircle(object: GeometryDocumentObject | null | undefined): object is IntersectableObject {
   return isCircle(object) || object?.type === 'lineWithPoints' || object?.type === 'lineWithEquation'
-    || object?.type === 'verLine' || object?.type === 'lineSegment' || object?.type === 'ray'
+    || object?.type === 'verLine' || object?.type === 'lineSegment' || object?.type === 'ray' || object?.type === 'vector'
 }
 
 /** Lines, circles and function graphs; graphs are intersected numerically. */
@@ -122,7 +176,7 @@ export function pointCandidate(input: ToolInput): PointCandidate {
     const projection = getProjectionOnCircle(object, a, b)
     if (projection.status) return { position: projection, constraint: { type: 'onCircle', circleId: object.id } }
   } else if (object?.type === 'lineWithPoints' || object?.type === 'lineWithEquation'
-    || object?.type === 'verLine' || object?.type === 'lineSegment' || object?.type === 'ray') {
+    || object?.type === 'verLine' || object?.type === 'lineSegment' || object?.type === 'ray' || object?.type === 'vector') {
     const projection = getProjectionOnLine(object, a, b)
     if (projection.status) return { position: projection, constraint: { type: 'onLine', lineId: object.id } }
   } else if (object?.type === 'circleTangent') {
@@ -173,6 +227,19 @@ export class ToolController {
   }
 
   press(input: ToolInput): ToolOutcome {
+    // A transformation can start with a whole object instead of a point.
+    const hovered = input.hit?.kind === 'object' ? input.hit.object : null
+    if (TRANSFORM_TOOLS.has(this.current) && !this.points.length && !this.target && isTransformable(hovered)) {
+      this.target = hovered
+      this.services.document.activeId = hovered!.id
+      const next = this.current === 'reflectline' ? 'Şimdi bir doğru seçiniz.' : this.current === 'translate'
+        ? 'Şimdi bir vektör ya da öteleme vektörünün başlangıcını seçiniz.' : 'Şimdi merkezi seçiniz.'
+      return { changed: true, completed: false, message: { title: toolTitle(this.current), text: next } }
+    }
+    const asking = ASKING_TOOLS[this.current]
+    if (asking) return this.pressAsking(asking, input)
+    const objectTool = OBJECT_TOOLS[this.current]
+    if (objectTool) return this.pressObject(objectTool, input)
     switch (this.current) {
       case 'select': return NOTHING
       case 'point': return this.pressPoint(input)
@@ -193,6 +260,10 @@ export class ToolController {
   paintPreview(painter: TransientPainter, input: ToolInput | null): void {
     const [A, B] = this.points
     const cursor = input ? candidatePosition(pointCandidate(input)) : null
+    if (this.target && TRANSFORM_TOOLS.has(this.current)) {
+      this.previewConstruction(painter, input, cursor)
+      return
+    }
     switch (this.current) {
       case 'line':
         if (A && cursor) painter.line({ type: 'lineWithPoints', A, B: cursor })
@@ -243,6 +314,20 @@ export class ToolController {
       case 'ray':
         if (A && cursor) painter.line({ type: 'ray', A, B: cursor })
         break
+      case 'vector':
+        if (A && cursor) painter.vector(A, cursor)
+        break
+      case 'regularpolygon':
+        if (A && cursor) painter.line({ type: 'lineSegment', A, B: cursor })
+        break
+      case 'circulararc':
+        if (A && B && cursor) {
+          const arc = arcData({ M: A, A: B, B: cursor })
+          if (arc) painter.arc({ a: arc.m, b: arc.n }, arc.r, arc.start, arc.span)
+        } else if (A && cursor) {
+          painter.line({ type: 'lineSegment', A, B: cursor })
+        }
+        break
       case 'bisector':
       case 'anglebisector':
       case 'rotate':
@@ -269,6 +354,10 @@ export class ToolController {
 
   /** Previews computed with the same constraints the construction will use. */
   private previewConstruction(painter: TransientPainter, input: ToolInput | null, cursor: NumericPoint | null): void {
+    if (this.target) {
+      this.previewImage(painter, input, cursor)
+      return
+    }
     const [A, B] = this.points
     if (!A || !cursor) return
     const cursorPoint = { type: 'point' as const, id: -1, a: cursor.a, b: cursor.b }
@@ -296,6 +385,11 @@ export class ToolController {
         break
       }
       case 'translate': {
+        if (hovered?.type === 'vector') {
+          const moved = at({ type: 'translate', sourceId: A.id, fromId: null, toId: null, vectorId: hovered.id })
+          if (moved) painter.point(moved)
+          break
+        }
         if (!B) {
           painter.point(cursor)
           break
@@ -313,6 +407,89 @@ export class ToolController {
         if (isLineObject(hovered)) {
           const reflected = at({ type: 'reflectLine', sourceId: A.id, lineId: hovered!.id })
           if (reflected) painter.point(reflected)
+        }
+        break
+    }
+  }
+
+  /** The image of the staged object under the transformation the cursor completes. */
+  private previewImage(painter: TransientPainter, input: ToolInput | null, cursor: NumericPoint | null): void {
+    const target = this.target!
+    const [B] = this.points
+    const hovered = input?.hit?.object
+    const known = new Map<unknown, unknown>([[B?.id, B]])
+    if (cursor) known.set(-1, { type: 'point', id: -1, a: cursor.a, b: cursor.b })
+    if (hovered) known.set(hovered.id, hovered)
+    let constraint: (sourceId: number) => PointConstraint
+    switch (this.current) {
+      case 'reflectpoint':
+        constraint = sourceId => ({ type: 'reflectPoint', sourceId, centerId: -1 })
+        break
+      case 'rotate':
+        constraint = sourceId => ({ type: 'rotate', sourceId, centerId: -1, angle: 90 })
+        break
+      case 'reflectline':
+        if (!isLineObject(hovered) || hovered!.id === target.id) return
+        constraint = sourceId => ({ type: 'reflectLine', sourceId, lineId: hovered!.id })
+        break
+      case 'translate':
+        if (hovered?.type === 'vector') constraint = sourceId => ({ type: 'translate', sourceId, fromId: null, toId: null, vectorId: hovered.id })
+        else if (B && cursor) {
+          painter.line({ type: 'lineSegment', A: B, B: cursor })
+          constraint = sourceId => ({ type: 'translate', sourceId, fromId: B.id, toId: -1 })
+        } else return
+        break
+      default:
+        return
+    }
+    if (!cursor && this.current !== 'reflectline' && hovered?.type !== 'vector') return
+    const image = (point: NumericPoint | null) => {
+      if (!point) return null
+      known.set(-2, { type: 'point', id: -2, a: point.a, b: point.b })
+      return constructedLocation(constraint(-2), id => known.get(id) as GeometryDocumentObject | undefined)
+    }
+    const segment = (P: NumericPoint | null, Q: NumericPoint | null, type: 'lineWithPoints' | 'lineSegment' | 'ray' = 'lineSegment') => {
+      if (P && Q) painter.line({ type, A: P, B: Q })
+    }
+    switch (target.type) {
+      case 'lineWithPoints':
+      case 'lineSegment':
+      case 'ray':
+        segment(image(numericPoint(target.A)), image(numericPoint(target.B)), target.type)
+        break
+      case 'vector': {
+        const P = image(numericPoint(target.A))
+        const Q = image(numericPoint(target.B))
+        if (P && Q) painter.vector(P, Q)
+        break
+      }
+      case 'lineWithEquation':
+      case 'verLine': {
+        const line = getLineDescriptor(target)
+        if (line.status) {
+          segment(image(line.origin), image({ a: line.origin.a + line.direction.a, b: line.origin.b + line.direction.b }), 'lineWithPoints')
+        }
+        break
+      }
+      case 'circleR':
+      case 'circle2':
+      case 'circle3': {
+        const circle = getCircleDescriptor(target)
+        if (!circle.status) break
+        const center = image({ a: circle.m, b: circle.n })
+        const rim = image({ a: circle.m + circle.r, b: circle.n })
+        if (center && rim) painter.circle({ type: 'circle2', A: center, B: rim })
+        break
+      }
+      case 'polygon': {
+        const vertices = target.points.map(point => image(numericPoint(point)))
+        vertices.forEach((vertex, index) => segment(vertex, vertices[(index + 1) % vertices.length]!))
+        break
+      }
+      case 'circularArc':
+        for (const point of [target.M, target.A, target.B]) {
+          const moved = image(numericPoint(point))
+          if (moved) painter.point(moved)
         }
         break
     }
@@ -355,22 +532,65 @@ export class ToolController {
   }
 
   private pressPointSequence(spec: PointToolSpec, input: ToolInput): ToolOutcome {
+    // A staged object is the first argument of a transformation.
+    const first = this.target ? [{ kind: 'reference', name: this.target.name! } as PointArgument] : []
+    const hovered = input.hit?.kind === 'object' ? input.hit.object : null
+    if (this.current === 'translate' && hovered?.type === 'vector' && first.length + this.points.length === 1
+      && hovered.id !== this.target?.id) {
+      const [source] = [...first, ...this.points.map(reference)]
+      return this.finish({ kind: 'translateVector', point: source!, vector: hovered.name! }, spec.title, null)
+    }
     const candidate = pointCandidate(input)
     if ('existing' in candidate && this.points.includes(candidate.existing)) {
       return { ...NOTHING, message: { title: spec.title, text: 'Farklı bir nokta seçiniz.' } }
     }
-    const last = this.points.length + 1 === spec.count
+    const last = first.length + this.points.length + 1 === spec.count
     const { point, created } = this.materialize(candidate, true)
     if (!last) {
       this.points.push(point)
       return { changed: created, completed: false }
     }
-    return this.finish(spec.command([...this.points, point].map(reference)), spec.title, created ? point : null)
+    return this.finish(spec.command([...first, ...[...this.points, point].map(reference)]), spec.title, created ? point : null)
+  }
+
+  /** Points, then a value typed in; the command is built as text so the value may name parameters. */
+  private pressAsking(spec: NonNullable<(typeof ASKING_TOOLS)[ToolAction]>, input: ToolInput): ToolOutcome {
+    const candidate = pointCandidate(input)
+    if ('existing' in candidate && this.points.includes(candidate.existing)) {
+      return { ...NOTHING, message: { title: spec.title, text: 'Farklı bir nokta seçiniz.' } }
+    }
+    const { point, created } = this.materialize(candidate, true)
+    this.points.push(point)
+    if (this.points.length < spec.count) return { changed: created, completed: false }
+    const names = this.points.map(item => item.name!)
+    return {
+      changed: true, completed: false,
+      ask: {
+        title: spec.title, label: spec.label, initial: spec.initial,
+        answer: text => {
+          const parsed = parseCommand(spec.command(names, text.trim() || spec.initial))
+          if (!parsed.ok) return { ...NOTHING, message: { title: spec.title, text: parsed.error } }
+          return this.finish(parsed.command, spec.title, null)
+        },
+      },
+    }
+  }
+
+  /** One click on an object of the right kind. */
+  private pressObject(spec: NonNullable<(typeof OBJECT_TOOLS)[ToolAction]>, input: ToolInput): ToolOutcome {
+    const object = input.hit?.object
+    if (!object || !spec.accepts(object)) return { ...NOTHING, message: { title: spec.title, text: spec.text } }
+    return this.finish(spec.command(object, this.services.visibleRange()), spec.title, null)
   }
 
   /** A point first (picked like any point), then a line, which is not turned into a point. */
   private pressPointThenLine(spec: { title: string; command(point: PointArgument, line: string): Command }, input: ToolInput): ToolOutcome {
     const [point] = this.points
+    if (this.target) {
+      const object = input.hit?.object
+      if (!isLineObject(object) || object!.id === this.target.id) return { ...NOTHING, message: { title: spec.title, text: 'Bir doğru seçiniz.' } }
+      return this.finish(spec.command({ kind: 'reference', name: this.target.name! }, object!.name!), spec.title, null)
+    }
     if (!point) {
       const { point: picked, created } = this.materialize(pointCandidate(input), true)
       this.points = [picked]

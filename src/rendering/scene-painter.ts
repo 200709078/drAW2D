@@ -1,14 +1,48 @@
 import { paintAnalysisObject } from './analysis-painter'
 import { createCanvasPrimitives } from './canvas-primitives'
+import { paintCanvasSliders } from './canvas-slider'
+import { paintCurveObject } from './curve-painter'
 import { paintGeometryObject } from './geometry-painter'
-import type { PainterFrame } from './painter-types'
+import type { DrawingPrimitives, PainterFrame, ShapeTrace } from './painter-types'
 
 const TAU = Math.PI * 2
 
-/** Translucent copies of traced points at every recorded position inside the view. */
-function paintTraces(frame: PainterFrame): void {
+/** Translucent copies of a traced line or curve as it was at each recorded change. */
+function paintShapeTrace(frame: PainterFrame, primitives: DrawingPrimitives, trace: ShapeTrace): void {
+  const { ctx, transform } = frame
+  const style = { color: `${trace.color}80`, width: trace.width }
+  // Lines and circles stroke themselves; paths are then stroked together.
+  for (const shape of trace.shapes) {
+    if (shape.kind === 'line') primitives.line(shape.line, style)
+    else if (shape.kind === 'circle') primitives.circle(shape.center, shape.r, style)
+  }
+  ctx.save()
+  ctx.beginPath()
+  for (const shape of trace.shapes) {
+    if (shape.kind !== 'path') continue
+    for (const line of shape.lines) {
+      line.forEach((point, index) => {
+        const x = transform.xToPixel(point.a)
+        const y = transform.yToPixel(point.b)
+        if (index === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      })
+    }
+  }
+  ctx.strokeStyle = style.color
+  ctx.lineWidth = style.width
+  ctx.stroke()
+  ctx.restore()
+}
+
+/** Translucent copies of traced points at every recorded position inside the view, and of traced lines and curves. */
+function paintTraces(frame: PainterFrame, primitives: DrawingPrimitives): void {
   const { ctx, transform, width, height } = frame
   for (const trace of frame.traces ?? []) {
+    if ('shapes' in trace) {
+      paintShapeTrace(frame, primitives, trace)
+      continue
+    }
     ctx.save()
     ctx.fillStyle = `${trace.color}80`
     ctx.beginPath()
@@ -30,7 +64,7 @@ function paintTraces(frame: PainterFrame): void {
  */
 export function paintDocumentScene(frame: PainterFrame): void {
   const primitives = createCanvasPrimitives(frame)
-  paintTraces(frame)
+  paintTraces(frame, primitives)
   for (const object of frame.objects) {
     // A definition without a value for the current parameters is not drawn.
     if (object.invalid) continue
@@ -49,7 +83,17 @@ export function paintDocumentScene(frame: PainterFrame): void {
       case 'circleTangent':
       case 'angle':
       case 'arcMeasure':
+      case 'vector':
+      case 'circularArc':
+      case 'area':
+      case 'slope':
         paintGeometryObject(frame, primitives, object)
+        break
+      case 'curve':
+      case 'implicit':
+      case 'inequality':
+      case 'asymptote':
+        paintCurveObject(frame, primitives, object)
         break
       case 'sequence':
       case 'limit':
@@ -64,4 +108,5 @@ export function paintDocumentScene(frame: PainterFrame): void {
         break
     }
   }
+  paintCanvasSliders(frame)
 }
