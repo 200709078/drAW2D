@@ -27,13 +27,14 @@ import { ObjectPanel } from '../ui/object-panel'
 import { createToolbar } from '../ui/main-toolbar'
 import { createSidePanel, NARROW_LAYOUT_QUERY } from '../ui/side-panel'
 import { createFileMenu } from '../ui/file-menu'
-import { promptValue } from '../ui/prompt-dialog'
+import { closePrompt, promptValue } from '../ui/prompt-dialog'
 import { createToast } from '../ui/toast'
 import type { ToolAction } from '../ui/tool-registry'
 import { HIT_TOLERANCE_PX, hitTest } from './hit-test'
 import { applyStyle, describeCard, editText, styleSpec } from './object-cards'
 import { beginObjectDrag, moveObjectDrag, type ObjectDrag } from './object-drag'
-import { exportFile, openDocumentFile, saveDocumentFile, type FileTarget } from './files'
+import { exportFile, openDocumentFile, readHandedFile, saveDocumentFile, type FileTarget, type OpenedFile } from './files'
+import { bindAndroid } from './native'
 import { ToolController, type ToolInput, type ToolOutcome } from './tools'
 import { TraceRecorder } from './traces'
 import { ViewportState, type PixelPoint, type ViewAxis } from './viewport-state'
@@ -768,23 +769,38 @@ export function startApp(): void {
   }
 
   async function openFile(): Promise<void> {
+    let opened: OpenedFile | null
     try {
-      const opened = await openDocumentFile()
-      if (!opened) return
-      const parsed = parseDocument(opened.text)
-      if (!parsed.ok) {
-        showToast('Aç', parsed.error)
-        return
-      }
-      if (!loadDocument(parsed, opened.name)) {
-        showToast('Aç', 'Belgedeki nesneler kurulamadı.')
-        return
-      }
-      fileTarget = opened.target
-      showToast('Aç', `${opened.name} açıldı.`)
+      opened = await openDocumentFile()
+    } catch {
+      showToast('Aç', 'Dosya açılamadı.')
+      return
+    }
+    if (opened) showOpened(opened)
+  }
+
+  /** A .drw2 file tapped in another app (Android), at start or while running. */
+  async function openHandedFile(uri: string): Promise<void> {
+    try {
+      showOpened(await readHandedFile(uri))
     } catch {
       showToast('Aç', 'Dosya açılamadı.')
     }
+  }
+
+  /** Put an opened file's document in place (one undoable step) and say so. */
+  function showOpened(opened: OpenedFile): void {
+    const parsed = parseDocument(opened.text)
+    if (!parsed.ok) {
+      showToast('Aç', parsed.error)
+      return
+    }
+    if (!loadDocument(parsed, opened.name)) {
+      showToast('Aç', 'Belgedeki nesneler kurulamadı.')
+      return
+    }
+    fileTarget = opened.target
+    showToast('Aç', `${opened.name} açıldı.`)
   }
 
   async function saveFile(saveAs: boolean): Promise<void> {
@@ -894,7 +910,7 @@ export function startApp(): void {
     },
   })
   document.getElementById('helpMenuButton')?.addEventListener('click', () => help.open())
-  createMathKeyboard(commandInput, required('rightWrapper'), required<HTMLButtonElement>('keyboardToggle'))
+  const mathKeyboard = createMathKeyboard(commandInput, required('rightWrapper'), required<HTMLButtonElement>('keyboardToggle'))
   // Template suggestions handle their keys before the input submits.
   const templates = bindCommandTemplates(commandInput)
   bindCommandInput(commandInput, submitCommand, () => {
@@ -914,6 +930,8 @@ export function startApp(): void {
       if (sidePanel.isHidden) sidePanel.setHidden(false)
       sidePanel.showTab('tools')
     },
+    // Dar çubukta "⋯" menüsüne bu sırayla geçer; Dosya, Geri Al, Yinele ve panel düğmesi kalır.
+    overflowActions: ['helpMenuButton', 'btnStandartWiew', 'clear'].map(id => required<HTMLButtonElement>(id)),
   })
 
   // Layout changes (window, panel, DPR) resize the canvas; card slider ranges follow the view.
@@ -932,4 +950,33 @@ export function startApp(): void {
   view.saveStandard()
   restoreAutosave()
   refresh()
+  bindAndroid({ back: closeSomething, pause: autosave, openFile: uri => void openHandedFile(uri) })
+
+  /** Android's back button: close one open thing, innermost first. */
+  function closeSomething(): boolean {
+    if (closePrompt()) return true
+    if (document.querySelector('#mainToolbar [aria-expanded="true"]')) {
+      // Every toolbar menu closes on Escape.
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+      return true
+    }
+    if (document.getElementById('help-popup')?.style.display === 'flex') {
+      help.close()
+      return true
+    }
+    if (mathKeyboard.isOpen) {
+      mathKeyboard.setOpen(false)
+      return true
+    }
+    if (tools.action !== 'select' || geometry.hasDraft || geometry.isEditing) {
+      cancelInteraction()
+      return true
+    }
+    if (window.matchMedia(NARROW_LAYOUT_QUERY).matches && !sidePanel.isHidden) {
+      sidePanel.setHidden(true)
+      refresh()
+      return true
+    }
+    return false
+  }
 }

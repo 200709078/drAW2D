@@ -8,11 +8,12 @@ made by **mADEMatik Solutions** — [madematik.com](https://www.madematik.com/dr
 
 ## İndir
 
-Masaüstü uygulamasının son sürümü (bağlantılar her zaman en yeni sürümü indirir):
+Uygulamanın son sürümü (bağlantılar her zaman en yeni sürümü indirir):
 
 - **Windows 10/11 (64-bit):** [drAW2D-win-x64.exe](https://github.com/200709078/drAW2D/releases/latest/download/drAW2D-win-x64.exe)
 - **Linux DEB (Pardus, Debian, Ubuntu):** [drAW2D-linux-amd64.deb](https://github.com/200709078/drAW2D/releases/latest/download/drAW2D-linux-amd64.deb)
 - **Linux AppImage:** [drAW2D-linux-x86_64.AppImage](https://github.com/200709078/drAW2D/releases/latest/download/drAW2D-linux-x86_64.AppImage)
+- **Android 7.0 ve üstü (telefon, tablet):** [drAW2D-android.apk](https://github.com/200709078/drAW2D/releases/latest/download/drAW2D-android.apk) — Play Store dışından kurulur; Android bir kez "bilinmeyen uygulamaları yükleme" izni ister.
 
 Bütün sürümler, kurulum adımları ve SHA-256 değerleri: [Releases](https://github.com/200709078/drAW2D/releases).
 
@@ -103,6 +104,8 @@ Node.js son kullanıcının bilgisayarında veya web sunucusunda gerekli değild
 npm run pack          # Kurulum paketi oluşturmadan uygulama klasörü
 npm run dist:linux    # Linux/Pardus için AppImage ve .deb
 npm run dist:win      # Windows için NSIS .exe kurulum paketi
+npm run android:apk   # Android APK (JDK 21 ve Android SDK gerekir; imza için ANDROID_KEYSTORE* ortam değişkenleri)
+bash scripts/icons.sh # bütün simgeleri public/img/app-icon.svg'den yeniden üretir (Inkscape, ImageMagick)
 ```
 
 Paketler `release/` altında oluşur. Linux paketlerini Linux üzerinde, Windows paketini
@@ -144,8 +147,9 @@ drAW2D/
 │   └── styles/       # Mevcut stiller
 ├── public/           # SVG simgeler, uygulama simgesi ve ses
 ├── electron/         # TypeScript masaüstü kabuğu; pencere denetimi ve dosya diyalogları preload'u
+├── android/          # Android projesi (Capacitor; dosya eklentisi, simgeler)
 ├── build/            # Linux ve Windows paket simgeleri
-├── scripts/          # Electron geliştirme başlatıcısı
+├── scripts/          # Electron başlatıcıları, simge üretimi, sürüm notları
 ├── tests/            # Tarayıcı regresyon kontrolleri
 └── docs/             # Yol haritası
 ```

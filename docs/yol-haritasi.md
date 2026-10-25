@@ -21,11 +21,13 @@ Kullanıcıyla kararlaştırılan uygulama sırası; her adımdan sonra durulur.
    düzeni (İ5, seçenek 1 ve 2). **Tamamlandı (2026-10-23).**
 10. Kapalı, parametrik ve kutupsal eğriler, eşitsizlik bölgeleri. **Tamamlandı (2026-10-25).**
 11. Kaydetme, açma, otomatik kayıt ve dışa aktarma (öneri 1). **Tamamlandı (2026-10-25).**
-12. Android/iOS paketleme.
+12. Android/iOS paketleme. **Android uygulandı (2026-10-25)**, drAW3D'deki gibi; imza
+    secret'ları ve telefonda deneme bekleniyor. iOS beklemede. Bkz. "Android paketi".
 
 ## Kullanıcı istekleri
 
-Kullanıcının bildirdiği istekler, bildirildiği tarihle. Henüz eklenmedi.
+Kullanıcının bildirdiği istekler, bildirildiği tarihle. Uygulananlar maddelerinde
+"Uygulandı" olarak işaretlidir; sonraya bırakılan kısımlar ayrıca belirtilir.
 
 ### İ1. Matematik klavyesi (2026-10-23)
 
@@ -374,5 +376,126 @@ yükleniyor. Electron kontrolü artık CSS arka plan görsellerini de denetliyor
 - Aralarında tanımsız noktalar olan çok seyrek tanımlı fonksiyonlarda (`x^x`,
   negatif taraf) çizgi tanımsız bölgenin üstünden geçebilir; düzeltmek her
   grafiğin maliyetini ikiye katlar.
-- Android/iOS paketleme: platform ve dağıtım yolu (mağaza, APK, PWA) kararı
-  bekliyor.
+- ~~Android/iOS paketleme: platform ve dağıtım yolu (mağaza, APK, PWA) kararı
+  bekliyor.~~ Android uygulandı (2026-10-25), bkz. "Android paketi"; iOS beklemede.
+- ~~**Matematik klavyesinin yüksekliği sabit olmalı (2026-10-25, kullanıcı notu,
+  drAW3D'nin telefon denemesinden):** Sekmeler ("123", "f(x)", "abc", "Komutlar")
+  arasında geçince klavyenin yüksekliği değişiyor; uzun sekmede giriş alanının üstü
+  kapanıyor. Yükseklik sabit olsun, giriş alanı açık kalsın.~~ **Uygulandı
+  (2026-10-25, drAW3D ile birlikte):** Bütün sekmeler beş satır yüksekliğinde; az satırlı
+  sekmelerin tuşları uzar, komutlar sayfanın içinde kayar. Dar ekranda klavye açıkken
+  alt panel uzar (`clamp(42%, 440px, 80%)`), giriş alanı klavyenin üstünde kalır. Test:
+  `tests/math-keyboard.spec.ts` (dokunmatik ekran).
+- **Logo/simge (2026-10-25, kullanıcı notu):** Şu anki simge y = x² grafiği gibi.
+  Grafik yerine drAW2D'nin "W" harfi eksenler üzerinde çizilmiş gibi tasarlanabilir.
+  Karar verilmedi; drAW3D'nin simgesi için de benzer bir not var (küpün içinde "AW").
+  **Uygulandı (2026-10-25, kullanıcının "drAW3D aşamasına getirelim" isteğiyle):**
+  drAW3D'de seçilen E taslağının ailesinden A taslağı — noktalar ve doğru parçalarıyla
+  çizilmiş mavi A ve kırmızı W, oklu eksenler ve hafif ızgaralı bir koordinat düzleminde.
+  Taslaklar kullanıcının masaüstünde (`drAW2D-logo-A/B/C`): B, ortada kesişen kırmızı
+  eksenler üzerinde tek W; C, A'nın mavi kâğıtlı, harfleri x ekseninde duran biçimi.
+  Kaynak `public/img/app-icon.svg`; web, masaüstü paketleri ve Android simgeleri
+  `scripts/icons.sh` ile ondan üretilir. **Karar (2026-10-25, kullanıcı):** A kalır.
+
+## Android paketi
+
+**İstek (2026-10-25, kullanıcı):** drAW2D de drAW3D'nin aşamasına getirilsin: Android
+sürümü, logo, APK imza anahtarı.
+
+**Uygulandı (2026-10-25):** drAW3D'deki Capacitor 8 projesi `android/` olarak alındı;
+kararlar drAW3D yol haritasının A2 maddesindeki gibi (yalnız GitHub Releases, ileride
+Play Store'a geçilebilecek biçimde; iOS beklemede).
+- Kimlik `com.madematik.draw2d` (Electron'daki `AppUserModelId` ile aynı; Play Store'da
+  yayımlanınca değişmez). Sürüm adı ve kodu `package.json`'dan (0.1.1 → 101), Android
+  7.0+ (minSdk 24).
+- Dosyalar Android'in belge seçicileriyle açılır ve kaydedilir (izin istemez, açılan
+  dosyaya Kaydet aynı dosyaya yazar), PNG ve SVG aynı yolla. Kaydetmede önce yer
+  sorulur, veri sonra yazılır; belge `application/octet-stream` türüyle kaydedilir, adı
+  `.drw2` kalır (drAW3D'nin telefon denemesinde bulunan iki hata baştan yok). drAW2D'de
+  yazdırma olmadığı için eklentide yazdırma yok.
+- `.drw2` dosyasına dokununca drAW2D ile açılır (uygulama kapalıyken ve açıkken); açmak
+  geri alınabilir.
+- Geri tuşu önce açık olanı kapatır: aracın sorduğu değer penceresi, araç çubuğu ya da
+  Dosya menüsü, yardım, matematik klavyesi, yarım çizim ya da araç, dar ekranda alt
+  panel; sonra uygulamayı arka plana alır. Arka plana geçerken belge otomatik kaydedilir.
+- Sürüm iş akışı ve `release-assets.mjs` drAW3D ile yine aynı dosya: Android işi APK'yı
+  üretir, imzasını denetler, `drAW2D-android.apk` olarak yayımlar; sürüm notu ve
+  `SHA256SUMS.txt` APK'yı içerir. İmza ortam değişkenleri iki projede ortak adlarla
+  `ANDROID_KEYSTORE*` oldu (drAW3D eski `DRAW3D_*` adlarını da okur). drAW da aynı
+  dosyayı kullanır.
+- Yerelde test anahtarıyla imzalı APK derlendi ve denetlendi (`apksigner`, kimlik,
+  sürüm, etiket, paketteki web dosyaları).
+
+**İmza anahtarı (2026-10-25, kullanıcı kararı):** drAW3D ile aynı anahtar kullanılır;
+ortak kullanıldığı için dosyanın adı `draw3d-release.jks` iken `draw-general-release.jks`
+oldu (kullanıcının `~/drAW-anahtar/` klasöründe, yalnız sahibi okuyabilir). Ad imzayı ve
+secret'ları etkilemez. Play Store'a geçişte bu anahtar iki uygulamanın da uygulama imza
+anahtarı olur (Play buna izin verir); risk, kaybolursa ya da ele geçerse iki uygulamanın
+birden etkilenmesidir. Anahtar dosyası drAW2D deposuna `ANDROID_KEYSTORE_BASE64` secret'ı
+olarak yüklendi.
+
+**Bekleyen:**
+- Dört imza secret'ı drAW2D deposunda (2026-10-25). Kullanıcı aynı gün anahtarın takma
+  adını (alias) değiştirdi; sertifika SHA-256 aynı kaldı, anahtar dosyası secret'ı iki
+  depoda yenilendi, drAW3D'nin `ANDROID_KEY_ALIAS` secret'ı da güncellendi. Parolaların
+  doğruluğu ilk Android derlemesinde (yayımlamadan çalıştırılabilir) görülecek.
+- Sürüm yükseltme ve yayımlama drAW de aynı aşamaya gelince yapılacak (kullanıcı kararı,
+  2026-10-25).
+- Telefonda deneme yapıldı (aşağıda); bulunan 3 sorun karar bekliyor.
+- drAW'ın iş akışı artık Android işi olan ortak kopya (2026-10-25); CLAUDE.md'deki
+  "drAW'da Android işi yok" geçici istisna notu drAW gönderilince kaldırılabilir.
+
+### Telefonda deneme (2026-10-25)
+
+Xiaomi 2201116TG, Android 13, MIUI 14, sistem yazı ölçeği 1,5×; test anahtarıyla imzalı
+APK, USB ile kuruldu (gerçek anahtarlı APK'dan önce kaldırılmalı).
+
+**Çalışanlar:** açılış; matematik klavyesi (sistem klavyesi açılmıyor); `x^2` ve
+`sin(x)` girişi, kart ve grafik; geri tuşu sırası (matematik klavyesi → alt panel →
+arka plan); uygulama kapatılıp açılınca otomatik kayıttan geri yükleme; Kaydet (belge
+seçicisi, `adsız.drw2` 282 bayt, geçerli içerik); Aç (seçiciden aynı dosya geri geldi,
+geri alınabilir); PNG dışa aktarma (785×1646, doğru görüntü); iki parmakla yakınlaştırma
+ve kaydırma; standart görünüm; `.drw2` dosyasını "görüntüle" isteğiyle açma (Android
+"Şununla aç" seçicisinde drAW2D ilk sırada, yeni simgesiyle): uygulama açıkken ve
+kapalıyken belge yüklendi.
+
+**Bulunanlar (henüz düzeltilmedi):**
+1. **Sistem yazı ölçeği bütün arayüz yazılarını büyütüyor.** Android WebView, yazı boyutu
+   ayarını (bu telefonda 1,5×) sayfaya uyguluyor: 100 px'lik yazı 150 px oluyor (giriş
+   alanı, kartlar, menüler, yardım). drAW'da düğme yazıları taştı ve metin düzenleyici
+   tuvaldeki yazıdan büyük göründü; drAW'da `MainActivity.onCreate` içinde
+   `getBridge().getWebView().getSettings().setTextZoom(100)` ile düzeltildi. drAW2D ve
+   drAW3D için de aynı satır önerilir (drAW3D de aynı biçimde etkilenir).
+2. **Yatay ekranda üst çubuk üst üste biniyor** (839×343 CSS px, alt panel yanda sütun):
+   araç grupları ile işlem düğmeleri (Dosya, Geri al, Yinele, Sil, Standart görünüm)
+   aynı yere çiziliyor; Dosya çokgen grubunun, Geri al çember grubunun üstünde.
+   Ekran görüntüsü kullanıcının masaüstünde: `drAW2D-yatay-ust-cubuk.png`. Dikeyde
+   (392 px) yalnız etkin araç ve işlemler görünüyor, sorun yok. Bkz. "Üst çubuk önerisi".
+3. **Dosya menüsü telefonda klavye kısayollarını gösteriyor** (Ctrl+O, Ctrl+S,
+   Ctrl+Shift+S); dokunmatik telefonda anlamsız. Android'de (ya da klavyesiz dokunmatik
+   cihazda) gizlenmeli.
+4. Android'in belge seçicisi kaydedilen dosyaları "0 B" gösteriyor; dosyalar diskte dolu
+   (drAW3D'ninkiler de). Android'in medya dizini boyutu geç güncelliyor; uygulama hatası
+   değil, işlem gerekmiyor.
+
+### Üst çubuk önerisi (2026-10-25, kullanıcı isteği: önce öneri, uygulanmayacak)
+
+Kullanıcı üst çubuğun iki satır ya da başka biçimde tasarlanmasını sordu; drAW3D yol
+haritasındaki Y11 notuyla aynı konu (iki uygulama `main-toolbar.ts`'yi paylaşır, birlikte
+değiştirilmeli). Seçenekler: iki satır, "⋯" menüsü, alt panel düğmesini panelin
+tutamacına taşımak. Kullanıcı "⋯" menüsünün denenmesini istedi.
+
+**Denendi (2026-10-25, drAW2D'de; drAW3D'ye henüz taşınmadı):** Çubuk sığmadığında
+az kullanılan işlemler (Yardım, Standart Görünüm, Temizle, bu sırayla), sonra sondaki
+araç grupları "⋯" menüsüne geçer; Dosya, Geri Al, Yinele, panel düğmesi ve ilk grup
+(Taşı) hep çubukta kalır. "⋯" yalnız bir şey sığmadığında görünür; menüde işlemler ve
+grup başlıkları altında araçlar durur; etkin araç menüdeyse "⋯" vurgulanır. Esc, dışarı
+dokunuş ve Android geri tuşu menüyü kapatır. Genişlik değişince (pencere, yan panel)
+yeniden hesaplanır. Sonuç: 1600/1100 px'de değişiklik yok; 839×343'te (yatay telefon,
+panel açık) üst üste binme yok, 4 grup ve 3 işlem menüde; 360 px'de Yardım ve Standart
+Görünüm menüde. `tests/toolbar-overflow.spec.ts` (7 test) ve bütün testler (281) geçti;
+telefonda yatayda menüyü açma, parmakla kaydırma, araç seçme ve geri tuşu denendi.
+**Bekleyen:** kullanıcının değerlendirmesi; beğenilirse drAW3D'ye taşınması (aynı
+`main-toolbar.ts`/`toolbar.css`, drAW3D kendi `overflowActions` listesini verir).
+
+

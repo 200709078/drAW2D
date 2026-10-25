@@ -168,6 +168,39 @@ body {
   margin-left: auto;
 }
 
+/* Items moved into the "⋯" menu leave the bar. */
+.toolbar-button[hidden],
+.tool-group[hidden],
+.more-menu-wrapper[hidden] {
+  display: none;
+}
+
+.more-menu-wrapper {
+  position: relative;
+  display: flex;
+}
+
+.more-menu-wrapper .toolbar-button.is-active {
+  background: var(--toolbar-active);
+  border-color: var(--toolbar-active-border);
+}
+
+/* Opens leftwards from the right end of the bar and scrolls on short screens. */
+.more-menu {
+  left: auto;
+  right: 0;
+  max-height: calc(100vh - var(--toolbar-height) - 16px);
+  overflow-y: auto;
+}
+
+.more-menu-heading {
+  margin: 6px 8px 2px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 /* The narrow layout shows only the active tool; it opens the tools tab. */
 .current-tool {
   display: none;

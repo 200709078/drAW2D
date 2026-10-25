@@ -1,0 +1,10 @@
+{
+  "appId": "com.madematik.draw2d",
+  "appName": "drAW2D",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": false,
+    "webContentsDebuggingEnabled": false
+  }
+}

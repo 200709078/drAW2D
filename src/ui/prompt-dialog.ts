@@ -42,3 +42,10 @@ export function promptValue(options: PromptOptions): Promise<string | null> {
     input.select()
   })
 }
+
+/** Close an open question as cancelled (Android's back button); false when none is open. */
+export function closePrompt(): boolean {
+  if (!dialog?.open) return false
+  dialog.close()
+  return true
+}

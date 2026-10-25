@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>drAW2D</title>
+  <rect width="512" height="512" rx="96" fill="#ffffff"/>
+  <!-- Koordinat ızgarası, çok hafif -->
+  <g stroke="#dbe4f0" stroke-width="5">
+    <path d="M160 48V464M224 48V464M288 48V464M352 48V464M416 48V464"/>
+    <path d="M48 96H464M48 160H464M48 224H464M48 288H464M48 352H464"/>
+  </g>
+  <!-- Eksenler, oklarıyla -->
+  <g fill="none" stroke="#1f2937" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M96 456V60M44 416H452"/>
+    <path d="M74 88L96 56L118 88M424 394L456 416L424 438"/>
+  </g>
+  <!-- A: üç doğru parçası; W: dört doğru parçası -->
+  <g stroke-width="15" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M134 352L184 160L234 352M152 288H216" stroke="#2563eb"/>
+    <path d="M254 160L284 352L320 232L356 352L386 160" stroke="#e11d48"/>
+  </g>
+  <!-- Köşe noktaları -->
+  <g stroke="#ffffff" stroke-width="5">
+    <g fill="#2563eb"><circle cx="134" cy="352" r="14"/><circle cx="184" cy="160" r="14"/><circle cx="234" cy="352" r="14"/></g>
+    <g fill="#e11d48"><circle cx="254" cy="160" r="14"/><circle cx="284" cy="352" r="14"/><circle cx="320" cy="232" r="14"/>
+      <circle cx="356" cy="352" r="14"/><circle cx="386" cy="160" r="14"/></g>
+  </g>
+</svg>

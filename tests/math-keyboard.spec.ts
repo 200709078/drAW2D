@@ -81,6 +81,21 @@ test.describe('dokunmatik ekran', () => {
     await key(page, '7').tap()
     await expect(input(page)).toHaveValue('7')
   })
+
+  test('klavye her sekmede aynı yüksekliktedir; giriş alanı üstünde açık kalır', async ({ page }) => {
+    await page.goto('/')
+    await page.locator('#btnCalc').tap()
+    await input(page).tap()
+    await expect(keyboard(page)).toBeVisible()
+    const heights: number[] = []
+    for (const tab of ['numbers', 'functions', 'letters', 'commands']) {
+      await page.locator(`#keyboardtab-${tab}`).tap()
+      heights.push(Math.round((await keyboard(page).boundingBox())!.height))
+    }
+    expect(new Set(heights).size).toBe(1)
+    const field = (await input(page).boundingBox())!
+    expect(field.y + field.height).toBeLessThanOrEqual((await keyboard(page).boundingBox())!.y)
+  })
 })
 
 test.describe('büyük harf', () => {
