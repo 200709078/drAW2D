@@ -2,7 +2,7 @@
   "name": "draw2d",
   "productName": "drAW2D",
   "desktopName": "draw2d",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "drAW2D — 2B geometri ve fonksiyon çizim uygulaması",
@@ -58,7 +58,10 @@
     ],
     "asar": true,
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "build/icons",
       "category": "Education;Math",
       "executableName": "draw2d",
