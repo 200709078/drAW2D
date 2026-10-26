@@ -7,7 +7,7 @@ export type NamedCommand = 'circle' | 'line' | 'segment' | 'distance' | 'angle' 
   'intersect' | 'arc' | 'circleTangent' | 'sequence' | 'limit' | 'tangent' | 'tangentH' |
   'tangentX' | 'derivative' | 'composition' | 'piecewise' | 'root' | 'extremum' | 'inflection' | 'integral' |
   'midpoint' | 'ray' | 'perpendicular' | 'parallel' | 'bisector' | 'angleBisector' | 'polygon' | 'rotate' | 'translate' |
-  'asymptote' | 'vector' | 'regularPolygon' | 'circularArc' | 'area' | 'slope' | 'curve' | 'polar'
+  'asymptote' | 'vector' | 'regularPolygon' | 'circularArc' | 'area' | 'slope' | 'curve' | 'polar' | 'unitCircle'
 
 /** Display name first, then accepted aliases. Matching ignores case and diacritics. */
 export const COMMAND_NAMES: Readonly<Record<NamedCommand, readonly string[]>> = {
@@ -49,6 +49,7 @@ export const COMMAND_NAMES: Readonly<Record<NamedCommand, readonly string[]>> = 
   slope: ['Eğim', 'Slope'],
   curve: ['Eğri', 'Curve'],
   polar: ['Kutupsal', 'Polar'],
+  unitCircle: ['BirimÇember', 'UnitCircle'],
 }
 
 export function normalizedName(name: string): string {
@@ -126,6 +127,10 @@ export const LANGUAGE: readonly LanguageEntry[] = [
   { topic: 'Çember', syntax: 'Çember(<Merkez>, <Nokta>)', command: 'circle', examples: ['Çember((-1,1),(0,2))'] },
   { topic: 'Çember', syntax: 'Çember(<Nokta>, <Nokta>, <Nokta>)', command: 'circle', examples: ['Çember((0,0),(0,-2),(-2,0))'] },
   { topic: 'Çember', syntax: 'Yay(<Merkez>, <Başlangıç Noktası>, <Bitiş Noktası>)', command: 'circularArc', examples: ['Yay((0,0),(2,0),(0,2))'] },
+  {
+    topic: 'Çember', syntax: 'BirimÇember(<Açı (derece)>)', command: 'unitCircle',
+    examples: ['BirimÇember()', 'BirimÇember(30)'],
+  },
   { topic: 'Açı', syntax: 'Açı(<Nokta>, <Köşe>, <Nokta>)', command: 'angle', examples: ['Açı((-1,2),(0,1),(-1,0))'] },
   { topic: 'Yay Ölçüsü', syntax: 'YayÖlçüsü(<Nokta>, <Nokta>)', command: 'arc', examples: ['YayÖlçüsü(A,B)'] },
   { topic: 'Ölçüm', syntax: 'Alan(<Çokgen veya Çember>)', command: 'area', examples: ['Alan(a)'] },

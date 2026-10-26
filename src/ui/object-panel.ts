@@ -1,4 +1,5 @@
-import type { CardModel, StylePatch, StyleSpec } from '../app/object-cards'
+import type { CardModel, StylePatch, StyleSpec, UnitCircleControls } from '../app/object-cards'
+import type { UnitCirclePart } from '../geometry/function-types'
 import type { LineStyle, ObjectId } from '../geometry/types'
 
 export interface PanelEntry {
@@ -27,6 +28,9 @@ export interface ObjectPanelHandlers {
   toggleAnimation(id: ObjectId): void
   /** Show or hide a parameter's slider on the plane. */
   parameterOnCanvas(id: ObjectId, shown: boolean): void
+  /** A unit circle's check box: A or one of its values. */
+  unitCirclePart(id: ObjectId, part: UnitCirclePart, checked: boolean): void
+  unitCircleUnit(id: ObjectId, unit: 'degree' | 'radian'): void
   /** Apply an edited card; true when accepted, false to keep editing (an error was shown). */
   redefine(id: ObjectId, text: string): boolean
   /** An appearance change; changes until `styleCommit` are one undoable step. */
@@ -54,6 +58,14 @@ interface CardView {
   display: string
   editText: string | null
   editing: boolean
+  /** A unit circle's check boxes and angle unit, made when first needed. */
+  unitCircle: UnitCircleView | null
+}
+
+interface UnitCircleView {
+  root: HTMLDivElement
+  boxes: Map<UnitCirclePart, HTMLInputElement>
+  unit: HTMLSelectElement
 }
 
 interface StyleView {
@@ -74,6 +86,9 @@ const LINE_STYLES: readonly [LineStyle, string, string][] = [
 ]
 
 const SLIDER_COUNT = 2
+
+/** The first row of a unit circle's check boxes. */
+const MAIN_PARTS = new Set<UnitCirclePart>(['sin', 'cos', 'tan', 'cot'])
 
 function element<Tag extends keyof HTMLElementTagNameMap>(tag: Tag, className = ''): HTMLElementTagNameMap[Tag] {
   const node = document.createElement(tag)
@@ -221,7 +236,7 @@ export class ObjectPanel {
     root.append(block, sliders, settings, style.root, element('hr'))
     const view: CardView = {
       root, input, output, hide, labels, ranges, outputKey: '', settings, bounds, play, onCanvas, edit, styleButton, style,
-      styleOpen: false, display: '', editText: null, editing: false,
+      styleOpen: false, display: '', editText: null, editing: false, unitCircle: null,
     }
     this.views.set(id, view)
     return view
@@ -306,6 +321,40 @@ export class ObjectPanel {
     setIfChanged(style.trace, 'checked', spec.trace === true)
   }
 
+  /** Check boxes for A and the values (`<id>-show-sin`, …) and the angle unit (`<id>-angleUnit`). */
+  private createUnitCircle(id: ObjectId, view: CardView, controls: UnitCircleControls): UnitCircleView {
+    const root = element('div', 'unit-circle-options')
+    root.id = `${id}-unitCircle`
+    // sin, cos, tan, cot on the first row; A, sec, csc and the angle unit on the second.
+    const main = element('div', 'unit-circle-row')
+    const rest = element('div', 'unit-circle-row')
+    root.append(main, rest)
+    const boxes = new Map<UnitCirclePart, HTMLInputElement>()
+    for (const toggle of controls.toggles) {
+      const label = element('label', `unit-circle-toggle part-${toggle.part}`)
+      const box = element('input')
+      box.type = 'checkbox'
+      box.id = `${id}-show-${toggle.part}`
+      box.addEventListener('change', () => this.handlers.unitCirclePart(id, toggle.part, box.checked))
+      label.append(box, toggle.label)
+      boxes.set(toggle.part, box)
+      ;(MAIN_PARTS.has(toggle.part) ? main : rest).append(label)
+    }
+    const unit = element('select')
+    unit.id = `${id}-angleUnit`
+    unit.title = 'Açı birimi'
+    for (const [value, caption] of [['degree', 'Derece'], ['radian', 'Radyan']] as const) {
+      const option = element('option')
+      option.value = value
+      option.textContent = caption
+      unit.append(option)
+    }
+    unit.addEventListener('change', () => this.handlers.unitCircleUnit(id, unit.value as 'degree' | 'radian'))
+    rest.append(unit)
+    view.settings.before(root)
+    return { root, boxes, unit }
+  }
+
   private startEdit(view: CardView): void {
     if (view.editing || view.editText === null) return
     view.editing = true
@@ -359,6 +408,17 @@ export class ObjectPanel {
       setIfChanged(range, 'value', String(spec.value))
       setIfChanged(label, 'textContent', spec.label)
     })
+    const controls = card.unitCircle
+    if (controls) {
+      view.unitCircle ??= this.createUnitCircle(entry.id, view, controls)
+      for (const toggle of controls.toggles) {
+        const box = view.unitCircle.boxes.get(toggle.part)!
+        setIfChanged(box, 'checked', toggle.checked)
+        setIfChanged(box, 'disabled', toggle.disabled)
+        box.parentElement!.classList.toggle('is-locked', toggle.disabled)
+      }
+      setIfChanged(view.unitCircle.unit, 'value', controls.unit)
+    }
     const settings = card.parameter
     setIfChanged(view.settings, 'hidden', !settings || !active)
     if (settings) {

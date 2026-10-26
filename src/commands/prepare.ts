@@ -757,6 +757,17 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         definition = command
         break
       }
+      case 'unitCircle': {
+        // The angle is a slider θ (θ2, θ3 … when taken) from 0° to 720°.
+        const occupied = new Set(allObjects().map(object => object.name))
+        let theta = 'θ'
+        for (let index = 2; occupied.has(theta); index++) theta = `θ${index}`
+        const angle = sliderArgument(command.angle, 30, theta, { min: 0, max: 720, step: 1 })
+        active = add({ type: 'unitCircle', name: context.createName('circleR'), id: context.nextId(), angle: value(angle),
+          color: options.randomColor(), visibility: true, size: 2, temp: false })
+        definition = { kind: 'unitCircle', angle }
+        break
+      }
       case 'implicit': {
         const func = parseTwoVariableExpression(command.left, command.right, { references: allObjects() })
         active = add({ type: 'implicit', name: context.createName('curve'), id: context.nextId(), func,

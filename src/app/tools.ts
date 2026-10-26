@@ -243,6 +243,8 @@ export class ToolController {
     switch (this.current) {
       case 'select': return NOTHING
       case 'point': return this.pressPoint(input)
+      // Always at O, wherever the click is.
+      case 'unitcircle': return this.finish({ kind: 'unitCircle' }, 'Birim Çember', null)
       case 'intersect': return this.pressIntersect(input)
       case 'circletangent': return this.pressCircleTangent(input)
       case 'arcmeasure': return this.pressArcMeasure(input)

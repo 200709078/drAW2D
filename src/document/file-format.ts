@@ -18,7 +18,7 @@ const OBJECT_TYPES: ReadonlySet<string> = new Set<GeometryDocumentObject['type']
   'point', 'circleR', 'circle2', 'circle3', 'angle', 'arcMeasure', 'lineWithPoints', 'lineSegment', 'distanceSegment',
   'circleTangent', 'ray', 'polygon', 'vector', 'circularArc', 'verLine', 'lineWithEquation', 'sequence', 'limit',
   'function', 'functioncomposition', 'tangent', 'tangentHX', 'derivative', 'sectionalFunctions', 'integral', 'asymptote',
-  'area', 'slope', 'curve', 'implicit', 'inequality', 'parameter',
+  'area', 'slope', 'curve', 'implicit', 'inequality', 'unitCircle', 'parameter',
 ])
 
 /** A shared document object inside another one, such as a circle's centre point. */

@@ -173,6 +173,21 @@ export interface Inequality extends GeometryObject<'inequality'> {
   bound?: { variable: 'x' | 'y'; expression: string; below: boolean }
 }
 
+/** The values a unit circle can show; `A` is the point on the circle with the ray OA and the arc θ. */
+export type UnitCirclePart = 'A' | 'sin' | 'cos' | 'tan' | 'cot' | 'sec' | 'csc'
+
+/**
+ * The circle x² + y² = 1 with the angle θ (degrees, from a parameter) and the
+ * trigonometric values chosen on its card, each drawn as a segment of its own colour.
+ */
+export interface UnitCircle extends GeometryObject<'unitCircle'> {
+  angle: number
+  /** Shown parts in UNIT_CIRCLE_PARTS order; absent means only the circle. */
+  show?: UnitCirclePart[]
+  /** Absent means degrees. */
+  angleUnit?: 'radian'
+}
+
 export type FunctionGeometryObject =
   | VerticalLine
   | EquationLine
@@ -191,5 +206,6 @@ export type FunctionGeometryObject =
   | ParametricCurve
   | ImplicitCurve
   | Inequality
+  | UnitCircle
 
 export type GeometryDocumentObject = BasicGeometryObject | FunctionGeometryObject | Parameter

@@ -173,6 +173,9 @@ function namedCommand(kind: NamedCommand, args: string[]): Command {
       if (!identifier.test(variable)) throw new Error('Eğrinin değişkeni bir ad olmalı.')
       return { kind, x: args[0]!, y: args[1]!, variable, start: numberArgument(args[3]!), end: numberArgument(args[4]!) }
     }
+    case 'unitCircle':
+      if (args.length > 1) throw new Error('BirimÇember en çok bir açı alır.')
+      return args.length ? { kind, angle: numberArgument(args[0]!) } : { kind }
     case 'polar':
       if (args.length !== 1 && args.length !== 3) throw new Error('Kutupsal bir r(θ) ifadesi ve isteğe bağlı bir aralık alır.')
       return { kind, expression: args[0]!, start: args.length === 3 ? numberArgument(args[1]!) : 0,

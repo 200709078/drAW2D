@@ -9,6 +9,8 @@ export type PrepareCommand = (command: Command) => PreparedCommand
 /** Identity, style and the definition itself survive a recomputation. */
 const PRESERVED_FIELDS = new Set([
   'id', 'name', 'color', 'visibility', 'size', 'temp', 'lineStyle', 'labelHidden', 'trace', 'definition',
+  // A unit circle's chosen values and angle unit are settings, like the line style.
+  'show', 'angleUnit',
 ])
 
 /** Definitions ordered so that every object comes after the names it uses. */
@@ -96,6 +98,10 @@ function updateInPlace(object: GeometryDocumentObject, definition: Command, obje
   }
   if (object.type === 'asymptote' && definition.kind === 'asymptote') {
     Object.assign(object, range(definition.start, definition.end, object))
+    return true
+  }
+  if (object.type === 'unitCircle' && definition.kind === 'unitCircle') {
+    object.angle = evaluate(definition.angle ?? 0, objects)
     return true
   }
   if (object.imageOf?.kind === 'rotate' && definition.kind === 'rotate') {

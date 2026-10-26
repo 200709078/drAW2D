@@ -2,6 +2,7 @@ import { paintAnalysisObject } from './analysis-painter'
 import { createCanvasPrimitives } from './canvas-primitives'
 import { paintCanvasSliders } from './canvas-slider'
 import { paintCurveObject } from './curve-painter'
+import { paintUnitCircle } from './unit-circle-painter'
 import { paintGeometryObject } from './geometry-painter'
 import type { DrawingPrimitives, PainterFrame, ShapeTrace } from './painter-types'
 
@@ -94,6 +95,9 @@ export function paintDocumentScene(frame: PainterFrame): void {
       case 'inequality':
       case 'asymptote':
         paintCurveObject(frame, primitives, object)
+        break
+      case 'unitCircle':
+        paintUnitCircle(frame, primitives, object)
         break
       case 'sequence':
       case 'limit':

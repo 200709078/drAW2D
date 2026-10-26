@@ -184,6 +184,118 @@ olsun (ör. `Noktalı · · · ·`).
 - Seçili kartın tamamı vurgulanır.
 - Sonraya kalan: görüntüleme kipi ayarı (3) ve KaTeX gösterimi (4).
 
+### İ7. Birim çember aracı (2026-10-26)
+
+**Durum:** Uygulandı (2026-10-26, kullanıcı onayıyla); ayrıntılar maddenin sonunda.
+
+**İstek:** Birim çember üzerinde bir açının sinüs, kosinüs, tanjant ve kotanjant
+değerlerini animasyon tarzında gösteren bir araç. Örnek görsel kullanıcının masaüstünde:
+`Unit_Circle_Definitions_of_Six_Trigonometric_Functions.png`. Görselde O merkezli birim
+çember, çember üzerinde A noktası ve θ açısı var. sin θ ve cos θ, A'nın eksenlere
+uzaklıklarıdır; tan θ x = 1 doğrusunda (B), cot θ y = 1 doğrusunda (C), sec θ x
+ekseninde (E), csc θ y ekseninde (D) gösterilir. Her biri ayrı renkte bir doğru parçasıdır.
+- Araç seçilip tuvale tıklanınca bu şekle benzer bir çizim yapılır. sin, cos, tan ve cot
+  farklı renklerle gösterilir.
+- Nesnenin kartında birim çemberin denklemi yazar (`x² + y² = 1`).
+- Kartın altında sin, cos, tan, cot kutucukları bulunur. Kutucuk işaretliyse o değer
+  gösterilir, değilse gösterilmez.
+- Açı kartta bir kaydırıcıyla değiştirilir.
+
+**Öneriler (2026-10-26):**
+1. Açı, uygulamadaki olağan bir parametre olur (ör. `θ = 40`). `Teğet`'in x₀
+   kaydırıcısını kendisi oluşturması gibi araç da açıyı kendisi oluşturur. Böylece
+   Oynat düğmesiyle sürekli döner (animasyon), kaydırıcı tuvalde de gösterilebilir,
+   açı başka ifadelerde kullanılabilir (`sin(θ)` grafiği, `(cos(θ), sin(θ))` noktası).
+   Kaydırıcı birim çember kartında da görünür.
+2. A noktası çember üzerinde sürüklenebilir; açı ve bütün değerler canlı değişir.
+   Tahtada kaydırıcıdan daha doğal olur.
+3. Değerler kartta sayıyla da yazar (`sin θ = 0,64`, `tan θ = 0,84`). Tanımsızken
+   (tan 90°, cot 0°) "tanımsız" yazar, o parça çizilmez.
+4. İşaretler görünür olur: II., III. ve IV. bölgede parçalar eksenin öbür yanına düşer,
+   değer eksiyle yazılır. Hangi bölgede hangisinin pozitif olduğu kendiliğinden görülür.
+5. sec ve csc de seçenek olur (görselde mor ve turuncu). sin, cos, tan, cot varsayılan
+   açık; sec ve csc varsayılan kapalı.
+6. Renkler görseldekine yakın: sin camgöbeği, cos yeşil, tan mavi, cot koyu yeşil, sec
+   mor, csc turuncu. Etiketler parçanın yanında aynı renkte (`sin θ`, `cos θ`).
+7. Yardımcılar yalnız gerektiğinde çizilir: x = 1 ve y = 1 kesikli doğruları yalnız tan
+   ya da cot açıkken; A'dan eksenlere dikmeler kesikli; θ yayı ve derecesi her zaman.
+8. Kartta derece / radyan seçimi; radyanda `π/6` gibi yazım ve kaydırıcıda π'nin katları.
+9. Özel açılarda (30°, 45°, 60° …) tam değer (`√3/2`, `1/2`) yazılabilir; kaydırıcı bu
+   açılara hafifçe yapışabilir (isteğe bağlı).
+10. Aracın komut karşılığı (`BirimÇember()`, `BirimÇember(30)`); kart düzenleme,
+    kaydetme/açma, geri alma ve SVG/PNG dışa aktarma diğer nesneler gibi çalışır.
+11. Araç çubuğunda "Fonksiyon" grubunda ya da ileride başka trigonometri araçları
+    gelecekse yeni bir "Trigonometri" grubunda.
+
+**Kullanıcı kararları (2026-10-26):** Kodlama yine kullanıcının onayını bekliyor.
+- **Yer:** Birim çember her zaman orijindedir; tuvalin neresine tıklanırsa tıklansın merkez
+  O(0,0) olur, kart `x² + y² = 1` yazar. Çember sürüklenemez.
+- **Açı:** Ayrı bir parametre (`θ`); araç onu kendisi oluşturur (öneri 1). Kaydırıcı
+  çember kartında da görünür (2026-10-26'da değişti, aşağıya bkz.).
+- **Değerler:** Altısı sunulur; sin, cos, tan, cot varsayılan açık, sec ve csc kutucukları
+  var ama başta kapalı (öneri 5).
+- **İlk sürümde olacaklar:** A noktası sürüklenebilir (öneri 2), derece/radyan seçimi
+  (öneri 8), özel açılarda tam değer ve kaydırıcının bu açılara yapışması (öneri 9).
+- **Araç çubuğunda yeri:** Çember grubu (öneri 11'in yerine).
+- Öneri 3, 4, 6, 7 ve 10 (değerlerin kartta sayıyla yazılması, işaretler, renkler,
+  yardımcı çizgiler, `BirimÇember()` komutu) için ayrı bir itiraz yok; plan bunlarla
+  birlikte.
+
+**Kullanıcı ayrıntıları (2026-10-26, yalnız not; kodlama onay bekliyor):**
+- **Başlangıç:** Araçla oluşturulunca tuvalde yalnız birim çember görünür. θ açısı yine
+  baştan bir kaydırıcıya (θ parametresi) bağlıdır.
+- **OA ışını:** Karttaki kaydırıcı değiştirildikçe ya da A noktası sürüklendikçe görseldeki
+  OA ışını çizilir.
+- **Değerlerin kutucukları:** Kartın altındaki her kutucuk kendi değerini çizer ve tuvalde
+  gösterir: sin seçilince sin, cos seçilince cos çizilir; diğerleri de öyle. Kutucuklar
+  birbirinden bağımsızdır: istenirse yalnız tan, istenirse altısı birden gösterilir. Bu
+  yüzden başlangıçta hiçbir kutucuk işaretli değildir (yukarıdaki "sin, cos, tan, cot
+  varsayılan açık" kararının yerine).
+- **Yardımcı doğrular:** tan seçiliyse x = 1, cot seçiliyse y = 1 doğrusu da görünür.
+- **Kaydırıcı aralığı:** θ 0°–720° arasındadır.
+- **Çember sabit:** Birim çember her zaman merkezdedir (O), sürüklenemez.
+- **A için kutucuk:** "Başlangıçta yalnız çember" ile "A sürüklenebilir" arasındaki soru bir
+  kutucukla çözülür (kullanıcı önerisi). Kartta değer kutucuklarının yanında bir de A
+  kutucuğu olur; işaretliyken A noktası görünür ve sürüklenebilir, değilse görünmez.
+  Başlangıçta işaretli değildir.
+- **A kutucuğunun gösterdikleri (kullanıcı onayı, 2026-10-26):** A kutucuğu A noktasıyla
+  birlikte OA ışınını ve θ yayını da gösterir. Kapalıyken açı kaydırıcıdan yine değişir.
+- **Değer seçilince A da seçilir (kullanıcı kararı, 2026-10-26):** sin, cos, tan, cot, sec ya
+  da csc kutucuklarından biri seçilince A kutucuğu kendiliğinden işaretlenir; A noktası, OA
+  ışını ve θ yayı da çizilir. Değerler A'ya göre çizildiği için ışın olmadan anlamları
+  kaybolur.
+- **A kilitli (kullanıcı kararı, 2026-10-26):** Bir değer kutucuğu seçiliyken A kutucuğu
+  işaretli ve pasif (soluk, tıklanamaz) kalır; iptal edilemez. Bütün değer kutucukları
+  kaldırılınca A yeniden tıklanabilir olur ama işaretli kalır; kullanıcı isterse kaldırır
+  (kullanıcı onayı, 2026-10-26).
+
+**Uygulandı (2026-10-26):** Çember grubunda "Birim Çember" aracı ve `BirimÇember()` /
+`BirimÇember(45)` komutu. Yukarıdaki kararların hepsi uygulandı; ayrıca:
+- Yeni nesne türü `unitCircle` (`geometry/unit-circle.ts` hesaplar, `rendering/unit-circle-painter.ts`
+  çizer). Açı θ parametresidir (ikinci çemberde θ2 …), başlangıç değeri 30°, aralığı
+  0°–720°, adımı 1°; komutta açı ifade olarak verilirse (`BirimÇember(a)`) kaydırıcı
+  oluşturulmaz. θ silinince çember de silinir.
+- Değerler kartta sayıyla yazılır: 30°, 45°, 60° … katlarında tam değer (`1/2`, `√3/3`,
+  `-√2`), diğer açılarda iki ondalık, tanımsızken "tanımsız" (o parça çizilmez). Çeyrek
+  turlar tam hesaplanır, böylece tan 90° gerçekten tanımsızdır.
+- Renkler: sin camgöbeği, cos yeşil, tan mavi, cot koyu yeşil, sec mor, csc turuncu;
+  kutucuk adları kartta aynı renkte. tan ve cot seçiliyken x = 1, y = 1 ve O'dan geçen OA
+  doğrusu, sec ve csc seçiliyken A'daki teğet kesikli çizilir; B, C, D, E görseldeki gibi.
+- Yapışma: sürüklenen A, 30° ve 45° katlarına 2° yakınlıkta yapışır ve tam turlarla
+  sürekli kalır (350°'den 10°'ye geçince 370° olur). θ kaydırıcısı 1° adımlı olduğu için
+  özel açılara zaten tam iner.
+- Radyanda açı `π/6`, `3π/2` biçiminde, 15°'nin katı olmayan açılar ondalık olarak yazılır.
+- Kutucuklar ve birim seçimi birer geri alma adımıdır; ayarlar kaydetme/açma, otomatik
+  kayıt ve karttan yeniden tanımlamada korunur.
+- Testler: `tests/unit-circle.spec.ts`, `tests/unit-circle-integration.spec.ts`.
+
+**Kullanıcı istekleri (2026-10-26, uygulandı):**
+- Kartta sin, cos, tan, cot bir satırda; A, sec, csc ve Derece/Radyan seçimi ikinci satırda.
+- Kaydırıcı birim çember kartında görünmez; açı yalnız ayrı üretilen θ parametresinin
+  kartındaki (ya da tuvaldeki) kaydırıcıdan ve A sürüklenerek değişir.
+- θ silinince birim çember de silinir (θ çemberin tanımında kullanıldığı için); geri alma
+  ikisini birlikte getirir.
+
 ## Önerilen geliştirmeler
 
 Önem sırasıyla (2026-10-23).
@@ -428,7 +540,7 @@ Play Store'a geçilebilecek biçimde; iOS beklemede).
 
 **İmza anahtarı (2026-10-25, kullanıcı kararı):** drAW3D ile aynı anahtar kullanılır;
 ortak kullanıldığı için dosyanın adı `draw3d-release.jks` iken `draw-general-release.jks`
-oldu (kullanıcının `~/drAW-anahtar/` klasöründe, yalnız sahibi okuyabilir). Ad imzayı ve
+oldu (kullanıcının `~/Belgeler/drAW-anahtar/` klasöründe, yalnız sahibi okuyabilir). Ad imzayı ve
 secret'ları etkilemez. Play Store'a geçişte bu anahtar iki uygulamanın da uygulama imza
 anahtarı olur (Play buna izin verir); risk, kaybolursa ya da ele geçerse iki uygulamanın
 birden etkilenmesidir. Anahtar dosyası drAW2D deposuna `ANDROID_KEYSTORE_BASE64` secret'ı

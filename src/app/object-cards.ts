@@ -3,8 +3,10 @@ import type { NumberArgument } from '../commands/types'
 import { asymptotesOf, curveOf, definiteIntegral } from '../geometry/analysis'
 import { arcData, polygonArea, slopeOf } from '../geometry/constructions'
 import type {
-  Asymptote, GeometryDocumentObject, Inequality, Integral, ParametricCurve, Tangent, TangentHX,
+  Asymptote, GeometryDocumentObject, Inequality, Integral, Parameter, ParametricCurve, Tangent, TangentHX, UnitCircle,
+  UnitCirclePart,
 } from '../geometry/function-types'
+import { angleText, exactTrig, TRIG_FUNCTIONS, trigValue, UNIT_CIRCLE_PARTS, type TrigFunction } from '../geometry/unit-circle'
 import {
   createLineEquation, distanceAB, getAngleMeasure, getCircleDescriptor, getPositiveArcMeasure, numericPoint,
 } from '../geometry/primitives'
@@ -31,6 +33,20 @@ export interface ParameterSettings {
   onCanvas: boolean
 }
 
+/** One check box under a unit circle card. */
+export interface UnitCircleToggle {
+  part: UnitCirclePart
+  label: string
+  checked: boolean
+  /** A stays on while a value is shown: the values are drawn from it. */
+  disabled: boolean
+}
+
+export interface UnitCircleControls {
+  toggles: UnitCircleToggle[]
+  unit: 'degree' | 'radian'
+}
+
 export interface CardModel {
   /** The definition: what was typed, with names for created objects. */
   input: string
@@ -44,6 +60,8 @@ export interface CardModel {
   sliders: SliderSpec[]
   /** Present on a slider parameter: its slider stays visible and its bounds are editable. */
   parameter?: ParameterSettings
+  /** Present on a unit circle: its value check boxes and angle unit. */
+  unitCircle?: UnitCircleControls
 }
 
 /** Appearance settings a card offers; a null field is not offered for the object. */
@@ -228,6 +246,76 @@ function formatBoundShort(value: number): string {
 
 const inequalityText = (item: Inequality) => `${item.left} ${item.operator} ${item.right}`
 
+/** The slider parameter a unit circle's angle is, or null when the angle is a formula. */
+export function unitCircleParameter(item: UnitCircle, objects: readonly GeometryDocumentObject[]): Parameter | null {
+  const angle = item.definition?.kind === 'unitCircle' ? item.definition.angle : undefined
+  if (angle === undefined || typeof angle === 'number') return null
+  const parameter = objects.find(object => object.type === 'parameter' && object.name === angle.expression.trim())
+  return parameter?.type === 'parameter' && !parameter.definition ? parameter : null
+}
+
+/** `1/2`, `√3`, `tanımsız` at special angles, otherwise the rounded value. */
+function trigText(fn: TrigFunction, degrees: number): string {
+  const exact = exactTrig(fn, degrees)
+  if (exact !== null) return exact
+  const value = trigValue(fn, degrees)
+  return value === null ? 'tanımsız' : formatDisplayNumber(value)
+}
+
+const PART_LABELS: Readonly<Record<UnitCirclePart, string>> = {
+  A: 'A', sin: 'sin', cos: 'cos', tan: 'tan', cot: 'cot', sec: 'sec', csc: 'csc',
+}
+
+function describeUnitCircle(item: UnitCircle, objects: readonly GeometryDocumentObject[], base: CardModel): CardModel {
+  const shown = new Set(item.show ?? [])
+  const parameter = unitCircleParameter(item, objects)
+  const theta = parameter?.name ?? 'θ'
+  const output = [
+    ...shown.has('A') ? [`${theta} = ${angleText(item.angle, item.angleUnit, formatDisplayNumber)}`] : [],
+    ...TRIG_FUNCTIONS.filter(fn => shown.has(fn)).map(fn => `${fn} ${theta} = ${trigText(fn, item.angle)}`),
+  ]
+  const valueShown = TRIG_FUNCTIONS.some(fn => shown.has(fn))
+  // The angle's slider is on θ's own card only.
+  return {
+    ...base,
+    output,
+    unitCircle: {
+      toggles: UNIT_CIRCLE_PARTS.map(part => ({
+        part, label: PART_LABELS[part], checked: shown.has(part), disabled: part === 'A' && valueShown,
+      })),
+      unit: item.angleUnit ?? 'degree',
+    },
+  }
+}
+
+/**
+ * Turn a value of a unit circle on or off. A value turns A on too; A cannot be turned off
+ * while a value is shown. True when something changed.
+ */
+export function setUnitCirclePart(item: UnitCircle, part: UnitCirclePart, checked: boolean): boolean {
+  const shown = new Set(item.show ?? [])
+  if (part === 'A' && !checked && TRIG_FUNCTIONS.some(fn => shown.has(fn))) return false
+  if (checked) {
+    shown.add(part)
+    shown.add('A')
+  } else {
+    shown.delete(part)
+  }
+  const next = UNIT_CIRCLE_PARTS.filter(candidate => shown.has(candidate))
+  const before = (item.show ?? []).join()
+  if (next.length) item.show = next
+  else delete item.show
+  return before !== next.join()
+}
+
+/** Degrees are the default and stored as an absent field. True when it changed. */
+export function setUnitCircleUnit(item: UnitCircle, unit: 'degree' | 'radian'): boolean {
+  const before = item.angleUnit
+  if (unit === 'radian') item.angleUnit = 'radian'
+  else delete item.angleUnit
+  return before !== item.angleUnit
+}
+
 /** Presentation of one document object; reads the model and never changes it. */
 export function describeCard(item: GeometryDocumentObject, context: CardContext): CardModel {
   const card = describeValues(item, context)
@@ -240,7 +328,7 @@ export function describeCard(item: GeometryDocumentObject, context: CardContext)
 }
 
 const INFINITE = '∞'
-const BOTH_LINES = new Set<GeometryDocumentObject['type']>(['derivative', 'tangentHX', 'asymptote'])
+const BOTH_LINES = new Set<GeometryDocumentObject['type']>(['derivative', 'tangentHX', 'asymptote', 'unitCircle'])
 
 function describeValues(item: GeometryDocumentObject, context: CardContext): CardModel {
   const { objects } = context
@@ -398,6 +486,8 @@ function describeValues(item: GeometryDocumentObject, context: CardContext): Car
       return card(`${item.name}: ${item.left} = ${item.right}`)
     case 'inequality':
       return card(`${item.name}: ${inequalityText(item)}`)
+    case 'unitCircle':
+      return describeUnitCircle(item, objects, card(`${item.name}: x² + y² = 1`))
   }
 }
 
@@ -507,6 +597,8 @@ export function editText(item: GeometryDocumentObject, context: CardContext): st
       return `${name}: ${item.left} = ${item.right}`
     case 'inequality':
       return `${name}: ${inequalityText(item)}`
+    case 'unitCircle':
+      return `${name}: BirimÇember(${definition?.kind === 'unitCircle' ? typed(definition.angle, item.angle) : formatDisplayNumber(item.angle)})`
   }
 }
 
@@ -516,14 +608,14 @@ type ObjectType = GeometryDocumentObject['type']
 const STROKED = new Set<ObjectType>([
   'circleR', 'circle2', 'circle3', 'angle', 'lineWithEquation', 'lineWithPoints', 'lineSegment', 'circleTangent',
   'verLine', 'ray', 'polygon', 'function', 'functioncomposition', 'derivative', 'sectionalFunctions', 'limit',
-  'tangent', 'tangentHX', 'vector', 'circularArc', 'asymptote', 'curve', 'implicit', 'slope',
+  'tangent', 'tangentHX', 'vector', 'circularArc', 'asymptote', 'curve', 'implicit', 'slope', 'unitCircle',
 ])
 
 /** Objects whose name (or name and value) is written on the plane. */
 const LABELLED = new Set<ObjectType>([
   'point', 'circleR', 'circle2', 'circle3', 'angle', 'arcMeasure', 'lineWithEquation', 'lineWithPoints',
   'lineSegment', 'distanceSegment', 'circleTangent', 'verLine', 'ray', 'polygon', 'sequence', 'tangent', 'tangentHX',
-  'vector', 'circularArc', 'area', 'slope', 'curve', 'implicit', 'inequality',
+  'vector', 'circularArc', 'area', 'slope', 'curve', 'implicit', 'inequality', 'unitCircle',
 ])
 
 /** The boundary of an inequality is solid or dashed by its operator, so only its width is offered. */

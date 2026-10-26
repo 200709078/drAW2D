@@ -140,6 +140,15 @@ yeniden tanımlanınca yardımcılarını korumasını ve fonksiyon grafiğinin
 yazılması, açınca paylaşımın ve canlı tanımların geri gelmesi, bozuk/yabancı/yeni
 sürüm belgelerin reddi), otomatik kayıttan dönen belgenin geçmişini, doğru, çember ve
 grafik izlerinin kaydını ve SVG çıktısını sınar.
+`unit-circle.spec.ts` birim çemberi tarayıcı açmadan sınar: çeyrek turlarda tam değerler,
+özel açılarda kesin yazım ve işaretler, tanımsız değerler, sürüklenen A'nın özel açılara
+yapışması ve tam turlarla sürekliliği, radyan yazımı, θ kaydırıcısının (0°–720°, θ2 …)
+oluşması, başlangıçta yalnız çemberin görünmesi, değer kutucuğunun A'yı açıp kilitlemesi,
+yeniden tanımlamada ve dosyada ayarların korunması ve zincirleme silme.
+`unit-circle-integration.spec.ts` aynı davranışları arayüzde denetler: araçla oluşturma,
+kutucuklar ve A kilidi, θ kaydırıcısı (çember kartında kaydırıcı yok), A'yı tuvalde
+sürükleme, radyan seçimi, θ silinince çemberin de silinmesi, geri alma
+ve sayfa yenilenince otomatik kayıttan dönüş.
 `features-integration.spec.ts` aynı özellikleri arayüzde denetler: değer soran
 düzgün çokgen ve merkez-yarıçap aracı (iptal dahil), nesne seçen dönüşüm aracı,
 vektör, alan ve asimptot araçları, tuvaldeki kaydırıcının sürüklenmesi ve taşınması,

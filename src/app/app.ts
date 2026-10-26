@@ -31,7 +31,7 @@ import { closePrompt, promptValue } from '../ui/prompt-dialog'
 import { createToast } from '../ui/toast'
 import type { ToolAction } from '../ui/tool-registry'
 import { HIT_TOLERANCE_PX, hitTest } from './hit-test'
-import { applyStyle, describeCard, editText, styleSpec } from './object-cards'
+import { applyStyle, describeCard, editText, setUnitCirclePart, setUnitCircleUnit, styleSpec } from './object-cards'
 import { beginObjectDrag, moveObjectDrag, type ObjectDrag } from './object-drag'
 import { exportFile, openDocumentFile, readHandedFile, saveDocumentFile, type FileTarget, type OpenedFile } from './files'
 import { bindAndroid } from './native'
@@ -193,6 +193,20 @@ export function startApp(): void {
     toggleAnimation(id) {
       if (animations.has(id)) stopAnimation(id)
       else startAnimation(id)
+    },
+    unitCirclePart(id, part, checked) {
+      const object = geometry.objects.find(item => item.id === id)
+      if (object?.type !== 'unitCircle') return
+      commitSlider()
+      if (setUnitCirclePart(object, part, checked)) commit()
+      refresh()
+    },
+    unitCircleUnit(id, unit) {
+      const object = geometry.objects.find(item => item.id === id)
+      if (object?.type !== 'unitCircle') return
+      commitSlider()
+      if (setUnitCircleUnit(object, unit)) commit()
+      refresh()
     },
     parameterOnCanvas(id, shown) {
       const parameter = parameterById(id)
@@ -437,8 +451,8 @@ export function startApp(): void {
   function moveDragged(position: NumericPoint): void {
     if (!objectDrag) return
     moveObjectDrag(objectDrag, position)
-    // A moved equation line or graph is used by name in other definitions.
-    const name = objectDrag.line?.object.name
+    // A moved equation line or graph is used by name in other definitions; A turns an angle parameter.
+    const name = objectDrag.line?.object.name ?? objectDrag.angle?.parameter.name
     if (name) recompute([name])
   }
 
@@ -483,7 +497,7 @@ export function startApp(): void {
     if (hit) geometry.activeId = hit.object.id
     grabbing = true
     // Objects computed from others or from parameters are selected, not dragged.
-    objectDrag = hit ? beginObjectDrag(hit.object, geometry.objects, input.position, dragPrecision()) : null
+    objectDrag = hit ? beginObjectDrag(hit.object, geometry.objects, input.position, dragPrecision(), grabRadius(touch)) : null
     if (objectDrag) {
       geometry.beginEdit()
       canvas.style.cursor = 'grabbing'
@@ -507,6 +521,11 @@ export function startApp(): void {
     const [first, second] = pointers.values()
     view.beginPinch(first!, second!, transform())
     refresh()
+  }
+
+  /** How near a handle (a unit circle's A) the pointer must be, in plane units. */
+  function grabRadius(touch: boolean): number {
+    return (touch ? TOUCH_HIT_TOLERANCE_PX : HIT_TOLERANCE_PX) / transform().pixelsPerUnitX
   }
 
   /** A dragged graph's offset is rounded to about a pixel, so its equation stays short. */
@@ -646,7 +665,8 @@ export function startApp(): void {
       return
     }
     const axis = tools.action === 'select' && !input.hit ? axisAt(pixel, touch) : null
-    const movable = tools.action === 'select' && input.hit && beginObjectDrag(input.hit.object, geometry.objects, input.position)
+    const movable = tools.action === 'select' && input.hit
+      && beginObjectDrag(input.hit.object, geometry.objects, input.position, undefined, grabRadius(touch))
     const slider = sliderAt(geometry.objects, pixel.x, pixel.y, touch)
     canvas.style.cursor = slider ? (slider.part === 'caption' ? 'move' : 'ew-resize')
       : movable ? 'grab' : input.hit ? 'pointer' : axis ? axisCursor(axis) : 'default'

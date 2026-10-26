@@ -22,6 +22,7 @@ Bütün sürümler, kurulum adımları ve SHA-256 değerleri: [Releases](https:/
 - **Geometrik araçlar**: nokta, orta nokta, doğru, doğru parçası, ışın, vektör, dik ve paralel doğru, kenar orta dikmesi, açıortay, çokgen ve düzgün çokgen (alanıyla), çember (merkez + nokta / merkez + yarıçap / üç nokta), merkez ve iki noktadan yay, çembere teğet, açı, yay ölçüsü
 - **Dönüşümler**: noktaya ve doğruya göre yansıtma, döndürme (açı kaydırıcısıyla), iki noktayla veya bir vektörle öteleme; noktaların yanında doğrular, vektörler, çemberler, yaylar ve çokgenler de dönüştürülür
 - **İşlemler ve ölçümler**: kesiştir, uzaklık, alan (çokgen, çember), eğim (eğim üçgeniyle)
+- **Birim çember**: Çember grubundaki araç ya da `BirimÇember()` O merkezli birim çember ve 0°–720° θ kaydırıcısı oluşturur; kartındaki kutucuklarla A noktası ve OA ışını ile sin, cos, tan, cot, sec, csc ayrı renklerde çizilir, değerleri özel açılarda tam (`√3/2`) yazılır. A sürüklenerek açı değiştirilir; açı derece ya da radyan gösterilir.
 - **Eğriler ve bölgeler**: kapalı eğriler (`x^2+y^2=4`), parametrik eğriler (`Eğri(cos(t), sin(t), t, 0, 2π)`), kutupsal grafikler (`Kutupsal(1+cos(θ))`, `r=2sin(3θ)`), eşitsizlik bölgeleri (`y<x^2`, `x^2+y^2<=4`)
 - **Fonksiyon çizimi**: trigonometrik (`sin`, `cos`, `tan`, `cot`), üstel, logaritmik, parçalı fonksiyonlar
 - **Analiz komutları**: `Türev`, `Limit`, `Bileşke`, `Teğet` / `TeğetH` / `TeğetX` / `TeğetC`, `Dizi`
@@ -68,6 +69,7 @@ y<x^2                        # eşitsizlik bölgesi
 Vektör((0,0),(3,2))          # vektör
 DüzgünÇokgen((0,0),(2,0),6)  # düzgün altıgen
 Yay((0,0),(2,0),(0,2))       # merkez ve iki noktadan yay
+BirimÇember(30)              # birim çember, θ = 30° kaydırıcısıyla
 Yansıt(a,f)                  # nesneyi doğruya göre yansıtma
 ```
 

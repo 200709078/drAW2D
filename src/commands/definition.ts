@@ -45,6 +45,7 @@ function expressionTexts(command: Command): string[] {
     case 'curve': return [command.x, command.y, numberText(command.start), numberText(command.end)]
     case 'polar': return [command.expression, numberText(command.start), numberText(command.end)]
     case 'implicit': case 'inequality': return [command.left, command.right]
+    case 'unitCircle': return [numberText(command.angle)]
     default: return []
   }
 }

@@ -2,6 +2,7 @@ import { asymptotesOf, curveOf, isGraphObject } from '../geometry/analysis'
 import { arcData } from '../geometry/constructions'
 import type { GeometryDocumentObject } from '../geometry/function-types'
 import { implicitDistance } from '../geometry/implicit'
+import { unitPoint } from '../geometry/unit-circle'
 import { getProjectionOnAngle, getProjectionOnCircle, getProjectionOnLine, numericPoint, type NumericPoint } from '../geometry/primitives'
 import { getProjectionOnCircleTangent } from '../geometry/tangents'
 import type { GeometryPoint } from '../geometry/types'
@@ -54,6 +55,13 @@ function objectDistance(object: GeometryDocumentObject, position: NumericPoint, 
     case 'ray':
     case 'vector':
       return scaled(getProjectionOnLine(object, a, b))
+    case 'unitCircle': {
+      // The circle, and A while it is shown.
+      const circle = Math.abs(Math.hypot(a, b) - 1) * pixelsPerUnit
+      if (!object.show?.includes('A')) return circle
+      const A = unitPoint(object.angle)
+      return Math.min(circle, Math.hypot(transform.xToPixel(A.a) - transform.xToPixel(a), transform.yToPixel(A.b) - transform.yToPixel(b)))
+    }
     case 'circularArc': {
       const arc = arcData(object)
       if (!arc) return null

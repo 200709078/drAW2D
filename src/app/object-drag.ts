@@ -1,4 +1,6 @@
-import type { EquationLine, FunctionCurve, GeometryDocumentObject, VerticalLine } from '../geometry/function-types'
+import type { EquationLine, FunctionCurve, GeometryDocumentObject, Parameter, VerticalLine } from '../geometry/function-types'
+import { angleTowards, unitPoint } from '../geometry/unit-circle'
+import { unitCircleParameter } from './object-cards'
 import { numericPoint, type NumericPoint } from '../geometry/primitives'
 import { isDerivedPoint } from '../document/dependencies'
 import type { GeometryPoint } from '../geometry/types'
@@ -23,6 +25,8 @@ export interface ObjectDrag {
   line: DraggedLine | null
   /** A graph's offset is rounded to this step, so its equation stays readable. */
   precision: number
+  /** A unit circle's A turns its angle parameter. */
+  angle?: { parameter: Parameter; raw: number }
 }
 
 /** `value` on the grid of `step`, without float noise in its decimal digits. */
@@ -81,8 +85,15 @@ function definingPoints(object: GeometryDocumentObject, objects: readonly Geomet
  * equation line moves by changing its equation. Null when the object stays in place.
  */
 export function beginObjectDrag(object: GeometryDocumentObject, objects: readonly GeometryDocumentObject[],
-  cursor: NumericPoint, precision = 1e-6): ObjectDrag | null {
+  cursor: NumericPoint, precision = 1e-6, grab = 0.1): ObjectDrag | null {
   if (object.invalid || object.imageOf) return null
+  // A unit circle stays at O; only its A moves, within `grab` (plane units) of the cursor.
+  if (object.type === 'unitCircle') {
+    const parameter = object.show?.includes('A') ? unitCircleParameter(object, objects) : null
+    const A = unitPoint(object.angle)
+    if (!parameter || Math.hypot(cursor.a - A.a, cursor.b - A.b) > grab) return null
+    return { cursor, points: [], line: null, precision, angle: { parameter, raw: parameter.value } }
+  }
   const dragged = (points: readonly GeometryPoint[]): ObjectDrag | null => {
     const unique = [...new Set(points)]
     if (!unique.length || !unique.every(isFreePoint)) return null
@@ -117,6 +128,11 @@ export function moveObjectDrag(drag: ObjectDrag, position: NumericPoint): void {
   const dx = position.a - drag.cursor.a
   const dy = position.b - drag.cursor.b
   const home = dx === 0 && dy === 0
+  if (drag.angle) {
+    const { parameter, raw } = drag.angle
+    parameter.value = home ? raw : angleTowards(position, parameter.value, parameter.min, parameter.max)
+    return
+  }
   // Back at the start, the stored values are restored exactly so history sees no change.
   for (const { point, origin, raw } of drag.points) {
     point.a = home ? raw.a : origin.a + dx

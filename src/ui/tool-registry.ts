@@ -31,6 +31,7 @@ export type ToolAction =
   | 'area'
   | 'slope'
   | 'asymptote'
+  | 'unitcircle'
 
 export type ToolGroupId =
   | 'move' | 'point' | 'line' | 'specialLine' | 'polygon' | 'circle'
@@ -102,6 +103,10 @@ export const TOOLS: readonly ToolDefinition[] = [
   {
     action: 'circleradius', group: 'circle', label: 'Merkez ve Yarıçap ile Çember', icon: 'circleradius.svg',
     instruction: 'Merkezi seçiniz, sonra yarıçapı giriniz.',
+  },
+  {
+    action: 'unitcircle', group: 'circle', label: 'Birim Çember', icon: 'unitcircle.svg',
+    instruction: 'Tuvale tıklayınız; birim çember O merkezli çizilir. Değerleri kartındaki kutucuklarla seçiniz.',
   },
   {
     action: 'circulararc', group: 'circle', label: 'Merkez ve İki Noktadan Yay', icon: 'circulararc.svg',

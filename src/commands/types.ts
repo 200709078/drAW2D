@@ -74,6 +74,8 @@ export type Command =
   /** An equation in x and y that is not y = f(x) or x = c. */
   | { kind: 'implicit'; left: string; right: string }
   | { kind: 'inequality'; left: string; operator: '<' | '<=' | '>' | '>='; right: string }
+  /** The unit circle at O; its angle in degrees becomes a slider when typed as a number. */
+  | { kind: 'unitCircle'; angle?: NumberArgument }
   /** `a=2` defines a slider; `b=a+1` a number that depends on other parameters. */
   | { kind: 'parameter'; name: string; value: NumberArgument }
 
