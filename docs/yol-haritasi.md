@@ -619,7 +619,7 @@ denenir:
 
 1. **HDMI + dokunmatik USB ile tahta bilgisayara bağlı:** tahta büyük bir dokunmatik ekran olur;
    `npm run dev` ile anında deneme. Dokunma, iki parmak, araç çubuğu, kalınlık/renk görünürlüğü
-   için. DrAW2D'de ayrı bir tahta modu yok; dokunuş kayarsa ekran yansıtılır ya da
+   için. drAW2D'de ayrı bir tahta modu yok; dokunuş kayarsa ekran yansıtılır ya da
    dokunmatik HDMI çıkışına eşlenir. Çizimi bilgisayar yaptığı için tahtadaki gecikmeyi göstermez.
 2. **Tahtanın kendi bilgisayarında, kurmadan:** `npm run dev -- --host`, tahtanın tarayıcısında
    `http://<bilgisayar-IP>:5173/`. Gerçek tahta donanımında web sürümü; gecikme için. Aynı
