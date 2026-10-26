@@ -2,7 +2,7 @@
 
 Web ve masaüstü için **2B geometri ve fonksiyon çizim** uygulaması.
 
-made by **mADEMatik Solutions** — [madematik.com](https://www.madematik.com/drAW2D)
+made by **mADEMatik Solutions** — [madematik.com](https://madematik.com/drAW2D/)
 
 İlgili proje: [drAW3D](https://github.com/200709078/drAW3D)
 
