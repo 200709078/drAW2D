@@ -509,6 +509,13 @@ yükleniyor. Electron kontrolü artık CSS arka plan görsellerini de denetliyor
   Kaynak `public/img/app-icon.svg`; web, masaüstü paketleri ve Android simgeleri
   `scripts/icons.sh` ile ondan üretilir. **Karar (2026-10-25, kullanıcı):** A kalır.
 
+## Paket yeniden derlemesi (2026-10-27)
+
+Kullanıcı kararıyla v0.1.2'nin paketleri (Linux, Windows, Android) sürüm yükseltmeden `main`'in
+`ed9a4ed` commit'inden yeniden derlenip yerine kondu (Actions → Sürüm paketleri → Run workflow).
+Paketlerde birim çember aracı var; `v0.1.2` etiketi ise eski kodu (`3015973`) gösteriyor. Bir sonraki
+sürüm (0.1.3) bu farkı kapatır.
+
 ## Android paketi
 
 **İstek (2026-10-25, kullanıcı):** drAW2D de drAW3D'nin aşamasına getirilsin: Android
