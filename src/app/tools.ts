@@ -286,10 +286,12 @@ export class ToolController {
         if (A && cursor) painter.circle({ type: 'circle2', A, B: cursor })
         break
       case 'circle3':
+        // Only the circle: unlike an angle's arms, a segment between the first two points is no part of it.
+        if (A && B && cursor) painter.circle({ type: 'circle3', A, B, C: cursor })
+        break
       case 'angle':
         if (A && B && cursor) {
-          if (this.current === 'angle') painter.angle(A, B, cursor)
-          else painter.circle({ type: 'circle3', A, B, C: cursor })
+          painter.angle(A, B, cursor)
         } else if (A && B) {
           painter.line({ type: 'lineSegment', A, B })
         } else if (A && cursor) {

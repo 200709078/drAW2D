@@ -9,6 +9,7 @@ import { GeometryDocument } from '../src/document/geometry-document'
 import { createGeometryModels } from '../src/geometry/models'
 import { createCoordinateTransform } from '../src/rendering/coordinate-transform'
 import { createFunctionEvaluator } from '../src/rendering/function-evaluator'
+import type { TransientPainter } from '../src/rendering/transient-painter'
 
 const view = { width: 1000, height: 1000, minX: -5, minY: -5, scaleX: 100, scaleY: 100, unitX: 1, unitY: 1 }
 const transform = createCoordinateTransform(view)
@@ -70,6 +71,29 @@ test('doğrusal üç noktalı çember reddedilir, son nokta kaldırılır ve ilk
   expect(document.objects.map(object => object.name)).toEqual(['A', 'B'])
   expect(tools.press(at(1, 1)).completed).toBe(true)
   expect(document.objects.map(object => object.type)).toEqual(['point', 'point', 'point', 'circle3'])
+})
+
+test('üç noktalı çember önizlemesi yalnız çemberi çizer; açı önizlemesi kollarını çizer', () => {
+  const calls: string[] = []
+  const painter = new Proxy({}, { get: (_target, name) => () => calls.push(String(name)) }) as TransientPainter
+  const preview = (action: 'circle3' | 'angle') => {
+    const { tools, at } = setup()
+    tools.setAction(action)
+    const steps: string[][] = []
+    for (const [a, b, press] of [[0, 0, true], [1, 1, false], [1, 1, true], [2, 0, false]] as const) {
+      calls.length = 0
+      tools.paintPreview(painter, at(a, b))
+      steps.push([...calls])
+      if (press) tools.press(at(a, b))
+    }
+    calls.length = 0
+    tools.paintPreview(painter, null)
+    steps.push([...calls])
+    return steps
+  }
+  // Before any point, after A (cursor at B), at B, after B (cursor at C), after B without a cursor.
+  expect(preview('circle3')).toEqual([[], [], [], ['circle'], []])
+  expect(preview('angle')).toEqual([[], ['line'], ['line'], ['angle'], ['line']])
 })
 
 test('nesneye tıklanan noktalar o nesneye bağlanır', () => {

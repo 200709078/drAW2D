@@ -552,6 +552,9 @@ bekliyor.
 - **Ekran klavyesi bulgusu bu düzende denenemedi:** dizüstünde ETA Klavye / Onboard yok,
   GNOME ekran klavyesi kapalı ve yalnız dokunmatik girişte açılıyor; tahtanın kendi
   bilgisayarında denenecek.
+- **Kullanıcı bulgusu — üç noktadan çember çizerken ilk iki nokta arasında doğru parçası
+  önizlemesi çıkıyordu** (açı aracıyla ortak önizleme). **Uygulandı (2026-10-28):** yalnız çember
+  önizlenir; açı aracı kollarını çizmeye devam eder (`tests/app-tools.spec.ts`).
 - **Yan bulgu:** komut kutusunda `A=(1,2)` "Matematik ifadesi okunamadı" diyor; noktalar
   `(1,2)` ile adsız girilip kendiliğinden ad alıyor. drAW3D `A=(1,2,3)` kabul ediyor.
   **Öneri:** `A=(1,2)` biçimini de kabul etmek.
