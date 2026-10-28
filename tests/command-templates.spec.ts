@@ -82,6 +82,28 @@ test.describe('giriş alanı', () => {
     }
   })
 
+  test('elle yazılan kapanış parantezi kendiliğinden eklenenin üzerinden geçer', async ({ page }) => {
+    await input(page).click()
+    await page.keyboard.type('sin(x)')
+    await expect(input(page)).toHaveValue('sin(x)')
+    await input(page).fill('')
+    await page.keyboard.type('Çember((0,0),2)')
+    await expect(input(page)).toHaveValue('Çember((0,0),2)')
+    // A closing bracket with nothing to step over is still typed.
+    await input(page).fill('x')
+    await page.keyboard.press(')')
+    await expect(input(page)).toHaveValue('x)')
+    // The math keyboard's keys behave the same.
+    await input(page).fill('')
+    await page.locator('#keyboardToggle').click()
+    for (const label of ['(', 'x', ')', '+', '1']) {
+      await page.locator('#mathKeyboard .math-keyboard-page:not([hidden]) .math-key').filter({
+        has: page.locator(`xpath=self::*[normalize-space(.)="${label}"]`),
+      }).click()
+    }
+    await expect(input(page)).toHaveValue('(x)+1')
+  })
+
   test('tıklanan öneri şablonu girişe yerleştirir', async ({ page }) => {
     await input(page).pressSequentially('2*Tü')
     await page.locator('#commandSuggestions .command-suggestion').first().click()
