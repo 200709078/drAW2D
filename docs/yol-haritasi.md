@@ -509,6 +509,29 @@ yükleniyor. Electron kontrolü artık CSS arka plan görsellerini de denetliyor
   Kaynak `public/img/app-icon.svg`; web, masaüstü paketleri ve Android simgeleri
   `scripts/icons.sh` ile ondan üretilir. **Karar (2026-10-25, kullanıcı):** A kalır.
 
+## Akıllı tahta bulguları (2026-10-28)
+
+Yol 1: tahta dizüstünün ikinci ekranı (HDMI, 1920×1080), güncel kod `npm run dev` ile; tahtanın
+dokunmatiği bu düzende çalışmadı (drAW `docs/tahta-test-notlari.md`). Kodlama kullanıcı onayı
+bekliyor.
+
+- **Kullanıcı bulgusu — tam ekranda ekran klavyesi açılmıyor.** drAW'da Linux tahta profilinde
+  metin düzenlerken ETA Klavye / Onboard'u D-Bus ile açan köprü var
+  (`src/platform/ScreenKeyboardBridge.ts`, `electron/screen-keyboard.ts`); drAW2D'de yok.
+  **Öneri:** köprüyü drAW'dan taşımak (komut kutusu, kart düzenleme, ad alanları). Matematik
+  klavyesi yalnız komut kutusunda.
+- **Kullanıcı bulgusu — eksen yardımcı çizgileri (ızgara) tahtada görünmüyor.** Ekran
+  görüntüsünde de çok soluk.
+- **Gözlem (Claude, ekran görüntüsü):** çizgiler ince, nokta adları ve ölçü etiketleri
+  ("a", "B", "r = 3") küçük; otomatik renklerden bazıları soluk (sinüs açık gri aldı).
+  drAW2D'de tahta modu yok; boyutlar masaüstü değerlerinde.
+- **Öneri:** drAW3D'deki gibi Görünüm menüsünde "Ekran türü: Akıllı tahta" (kalın çizgi,
+  büyük nokta ve etiket, koyu ızgara, sayfa büyütme; seçim cihazda saklanır) ve tahtada
+  soluk renklerin otomatik seçilmemesi.
+- **Yan bulgu:** komut kutusunda `A=(1,2)` "Matematik ifadesi okunamadı" diyor; noktalar
+  `(1,2)` ile adsız girilip kendiliğinden ad alıyor. drAW3D `A=(1,2,3)` kabul ediyor.
+  **Öneri:** `A=(1,2)` biçimini de kabul etmek.
+
 ## Paket yeniden derlemesi (2026-10-27)
 
 Kullanıcı kararıyla v0.1.2'nin paketleri (Linux, Windows, Android) sürüm yükseltmeden `main`'in
