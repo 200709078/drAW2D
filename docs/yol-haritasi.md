@@ -527,7 +527,15 @@ bekliyor.
   tahtada yetiyor; ayrı bir tahta görünümü şimdilik gerekmiyor.
 - **Gözlem (Claude):** otomatik renklerden bazıları soluk (sinüs açık gri aldı); beyaz
   zeminde soluk renk seçilmemesi düşünülebilir.
-- **Öneri (ızgara):** ızgarayı koyulaştırmak ya da Görünüm menüsüne ızgara koyuluğu ayarı.
+- **Ölçüm (masaüstü sürüm, tahtada, 2026-10-28):** `src/rendering/coordinate-grid.ts` ara
+  çizgiler `#e8edf2` 0,6 px → zemine göre 1,1 : 1; birim çizgiler `#c7d0da` 0,9 px → 1,3 : 1;
+  eksenler `#d94b4b` 1,6 px → 3,3 : 1 (ince çizgi için önerilen en düşük 3 : 1).
+- **Öneri (ızgara):** birim çizgileri yaklaşık `#8f9cab` 1,2 px (≈ 3 : 1), ara çizgileri
+  `#cfd7df` 0,8 px; ya da Görünüm menüsüne "Izgara: açık / koyu" seçeneği. Kullanıcı onayı
+  bekliyor.
+- **Ekran klavyesi bulgusu bu düzende denenemedi:** dizüstünde ETA Klavye / Onboard yok,
+  GNOME ekran klavyesi kapalı ve yalnız dokunmatik girişte açılıyor; tahtanın kendi
+  bilgisayarında denenecek.
 - **Yan bulgu:** komut kutusunda `A=(1,2)` "Matematik ifadesi okunamadı" diyor; noktalar
   `(1,2)` ile adsız girilip kendiliğinden ad alıyor. drAW3D `A=(1,2,3)` kabul ediyor.
   **Öneri:** `A=(1,2)` biçimini de kabul etmek.
