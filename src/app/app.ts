@@ -928,6 +928,9 @@ export function startApp(): void {
       commandInput.value = command
       commandInput.focus()
     },
+    onClose() {
+      mathKeyboard.release()
+    },
   })
   document.getElementById('helpMenuButton')?.addEventListener('click', () => help.open())
   const mathKeyboard = createMathKeyboard(commandInput, required('rightWrapper'), required<HTMLButtonElement>('keyboardToggle'))

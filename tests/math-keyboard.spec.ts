@@ -98,6 +98,76 @@ test.describe('dokunmatik ekran', () => {
   })
 })
 
+// A smart board whose touch frame acts as a mouse: fine primary pointer, many touch points.
+test.describe('akıllı tahta', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => Object.defineProperty(Navigator.prototype, 'maxTouchPoints', { get: () => 20 }))
+    await page.goto('/')
+    await expect(input(page)).toBeVisible()
+  })
+
+  test('giriş alanına dokununca klavye açılır; kapatılınca o alanda kapalı kalır', async ({ page }) => {
+    await input(page).click()
+    await expect(keyboard(page)).toBeVisible()
+    await expect(input(page)).toHaveAttribute('inputmode', 'none')
+    await page.locator('#keyboardToggle').click()
+    await expect(keyboard(page)).toBeHidden()
+    await page.locator('#canvas').click({ position: { x: 300, y: 300 } })
+    await input(page).click()
+    await expect(keyboard(page)).toBeHidden()
+  })
+
+  test('kart düzenlenirken klavye karta yazar; düzenleme bitince giriş alanına döner', async ({ page }) => {
+    await input(page).fill('(1,2)')
+    await input(page).press('Enter')
+    const card = page.locator('#objectsContainer .expr-block input').first()
+    await expect(card).toHaveValue('A=(1,2)')
+    await card.dblclick()
+    await expect(card).not.toHaveAttribute('readonly')
+    await expect(keyboard(page)).toBeVisible()
+    await card.evaluate((element: HTMLInputElement) => element.setSelectionRange(element.value.indexOf('('), element.value.length))
+    await press(page, '(', '3', ',', '4')
+    await expect(card).toHaveValue('A = (3,4)')
+    await expect(input(page)).toHaveValue('')
+    await press(page, '⏎')
+    await expect(card).toHaveAttribute('readonly', '')
+    await expect(card).toHaveValue('A=(3,4)')
+    await press(page, '5')
+    await expect(input(page)).toHaveValue('5')
+    await expect(card).toHaveValue('A=(3,4)')
+  })
+
+  test('soru penceresinde klavye pencereye taşınır ve ⏎ Tamam gibi gönderir', async ({ page }) => {
+    await page.evaluate(() => window.drAW2DToolbar!.selectToolByAction('circleradius', { showToast: false }))
+    await page.locator('#canvas').click({ position: { x: 300, y: 700 } })
+    const dialog = page.locator('#promptDialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.locator('#mathKeyboard')).toBeVisible()
+    await page.locator('#promptInput').evaluate((element: HTMLInputElement) => element.select())
+    await press(page, '2', '.', '5')
+    await expect(page.locator('#promptInput')).toHaveValue('2.5')
+    await press(page, '⏎')
+    await expect(dialog).toBeHidden()
+    await expect(page.locator('#objectsContainer .expr-block input').first()).toHaveValue(/Çember\(A,2\.5\)$/)
+    await expect(page.locator('#rightWrapper #mathKeyboard')).toBeAttached()
+  })
+
+  test('yardım aramasında klavye arama kutusunun altına taşınır, kapanınca panele döner', async ({ page }) => {
+    await page.locator('#helpMenuButton').click()
+    const search = page.locator('#helpSearch')
+    await expect(search).toBeFocused()
+    await expect(page.locator('.help-search + #mathKeyboard')).toBeVisible()
+    await page.locator('#keyboardtab-letters').click()
+    await press(page, 'ç', 'e')
+    await expect(search).toHaveValue('çe')
+    await page.locator('.help-close').click()
+    await page.locator('#keyboardtab-numbers').click()
+    await press(page, '7')
+    await expect(page.locator('#rightWrapper #mathKeyboard')).toBeVisible()
+    await expect(input(page)).toHaveValue('7')
+  })
+})
+
 test.describe('büyük harf', () => {
   test('⇧ bir harfi ya da kilitliyken bütün harfleri büyük yazar', async ({ page }) => {
     await page.goto('/')

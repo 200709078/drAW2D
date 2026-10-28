@@ -528,8 +528,13 @@ bekliyor.
 - **Kullanıcı bulgusu — tam ekranda ekran klavyesi açılmıyor.** drAW'da Linux tahta profilinde
   metin düzenlerken ETA Klavye / Onboard'u D-Bus ile açan köprü var
   (`src/platform/ScreenKeyboardBridge.ts`, `electron/screen-keyboard.ts`); drAW2D'de yok.
-  **Öneri:** köprüyü drAW'dan taşımak (komut kutusu, kart düzenleme, ad alanları). Matematik
-  klavyesi yalnız komut kutusunda.
+  **Kullanıcı kararı (2026-10-28):** ETA Klavye köprüsü yerine drAW2D'nin kendi matematik
+  klavyesi her yerde kullanılır (tam ekranda da görünür; Pardus, Windows, Android, web aynı).
+  **Uygulandı (2026-10-28):** klavye odaklanan her yazı alanına yazar (komut kutusu, düzenlenen
+  kart, soru penceresi, yardım araması); modal soru penceresine ve yardım penceresine taşınır,
+  kapanınca panele döner; ⏎ pencerede Tamam'a basar. Dokunmatik ekranda alan odaklanınca açılır —
+  fare gibi tanıtılan tahta dokunmatiği de (`any-pointer: coarse` ya da `maxTouchPoints > 0`);
+  kullanıcının kapattığı alanda yeniden açılmaz. `tests/math-keyboard.spec.ts` "akıllı tahta".
 - **Kullanıcı bulgusu — eksen yardımcı çizgileri (ızgara) tahtada görünmüyor.** Ekran
   görüntüsünde de çok soluk.
 - **Kullanıcı değerlendirmesi:** eksen sayıları, nokta adları ve ölçü etiketleri okunuyor;
