@@ -296,6 +296,16 @@ ekseninde (E), csc θ y ekseninde (D) gösterilir. Her biri ayrı renkte bir do�
 - θ silinince birim çember de silinir (θ çemberin tanımında kullanıldığı için); geri alma
   ikisini birlikte getirir.
 
+## Mobilde yatay kullanım (2026-10-28)
+
+**Kullanıcı isteği (2026-10-28, yalnız not):** mobilde yatay kullanıma izin vermesek nasıl olur?
+Değerlendirme (öneri): Android'de yön `MainActivity` / manifestte `screenOrientation` ile
+kilitlenebilir; ama kilit yalnız **telefonlara** uygulanmalı (en küçük ekran genişliği < 600 dp).
+Tabletler ve Android'li akıllı tahtalar yatay ekranlıdır, dikeye kilitlemek onları bozar. Web'de
+yön ancak tam ekranda kilitlenebilir (`screen.orientation.lock`); kilitsiz yatayda bir "telefonu
+dik tutun" uyarısı alternatif. Açık sorular: yalnız telefonda mı, yalnız Android paketinde mi,
+web'de de mi? Kullanıcı kararı bekliyor.
+
 ## Önerilen geliştirmeler
 
 Önem sırasıyla (2026-10-23).
