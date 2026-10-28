@@ -522,12 +522,12 @@ bekliyor.
   klavyesi yalnız komut kutusunda.
 - **Kullanıcı bulgusu — eksen yardımcı çizgileri (ızgara) tahtada görünmüyor.** Ekran
   görüntüsünde de çok soluk.
-- **Gözlem (Claude, ekran görüntüsü):** çizgiler ince, nokta adları ve ölçü etiketleri
-  ("a", "B", "r = 3") küçük; otomatik renklerden bazıları soluk (sinüs açık gri aldı).
-  drAW2D'de tahta modu yok; boyutlar masaüstü değerlerinde.
-- **Öneri:** drAW3D'deki gibi Görünüm menüsünde "Ekran türü: Akıllı tahta" (kalın çizgi,
-  büyük nokta ve etiket, koyu ızgara, sayfa büyütme; seçim cihazda saklanır) ve tahtada
-  soluk renklerin otomatik seçilmemesi.
+- **Kullanıcı değerlendirmesi:** eksen sayıları, nokta adları ve ölçü etiketleri okunuyor;
+  çizgiler, kartlar ve araç simgeleri sınıfın arkasından seçiliyor. Masaüstü boyutları
+  tahtada yetiyor; ayrı bir tahta görünümü şimdilik gerekmiyor.
+- **Gözlem (Claude):** otomatik renklerden bazıları soluk (sinüs açık gri aldı); beyaz
+  zeminde soluk renk seçilmemesi düşünülebilir.
+- **Öneri (ızgara):** ızgarayı koyulaştırmak ya da Görünüm menüsüne ızgara koyuluğu ayarı.
 - **Yan bulgu:** komut kutusunda `A=(1,2)` "Matematik ifadesi okunamadı" diyor; noktalar
   `(1,2)` ile adsız girilip kendiliğinden ad alıyor. drAW3D `A=(1,2,3)` kabul ediyor.
   **Öneri:** `A=(1,2)` biçimini de kabul etmek.
