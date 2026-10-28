@@ -531,8 +531,9 @@ bekliyor.
   çizgiler `#e8edf2` 0,6 px → zemine göre 1,1 : 1; birim çizgiler `#c7d0da` 0,9 px → 1,3 : 1;
   eksenler `#d94b4b` 1,6 px → 3,3 : 1 (ince çizgi için önerilen en düşük 3 : 1).
 - **Öneri (ızgara):** birim çizgileri yaklaşık `#8f9cab` 1,2 px (≈ 3 : 1), ara çizgileri
-  `#cfd7df` 0,8 px; ya da Görünüm menüsüne "Izgara: açık / koyu" seçeneği. Kullanıcı onayı
-  bekliyor.
+  `#cfd7df` 0,8 px; ya da Görünüm menüsüne "Izgara: açık / koyu" seçeneği. **Uygulandı
+  (2026-10-28):** birim `#8f9cab` 1,2 px, ara `#cfd7df` 0,8 px (`coordinate-grid.ts`
+  `MAJOR_LINE`/`MINOR_LINE`; ekran ve SVG dışa aktarımı aynı renkleri kullanır).
 - **Ekran klavyesi bulgusu bu düzende denenemedi:** dizüstünde ETA Klavye / Onboard yok,
   GNOME ekran klavyesi kapalı ve yalnız dokunmatik girişte açılıyor; tahtanın kendi
   bilgisayarında denenecek.

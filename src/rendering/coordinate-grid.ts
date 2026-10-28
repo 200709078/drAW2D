@@ -226,15 +226,26 @@ function sameViewport(a: GridViewport, b: GridViewport): boolean {
     && a.scaleX === b.scaleX && a.scaleY === b.scaleY && a.unitX === b.unitX && a.unitY === b.unitY;
 }
 
+// On a classroom board the old #e8edf2 / #c7d0da lines (1.2 : 1 and 1.6 : 1 against white)
+// were invisible from the back rows; major lines now reach about 2.8 : 1, minor lines stay
+// lighter so they do not compete with them.
+const MINOR_LINE = { color: '#cfd7df', width: 0.8 };
+const MAJOR_LINE = { color: '#8f9cab', width: 1.2 };
+const AXIS_LINE = { color: '#d94b4b', width: 1.6 };
+
+function drawGridLines(ctx: CanvasRenderingContext2D, plan: GridPlan): void {
+  strokeLines(ctx, plan.minorLines, MINOR_LINE.color, MINOR_LINE.width);
+  strokeLines(ctx, plan.majorLines, MAJOR_LINE.color, MAJOR_LINE.width);
+  strokeLines(ctx, plan.axisLines, AXIS_LINE.color, AXIS_LINE.width);
+}
+
 /** The background without caching, for an export that records drawing calls. */
 export function drawGridDirect(ctx: CanvasRenderingContext2D, viewport: GridViewport): void {
   if (!validViewport(viewport)) return;
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, viewport.width, viewport.height);
   const plan = createGridPlan(viewport);
-  strokeLines(ctx, plan.minorLines, '#e8edf2', 0.6);
-  strokeLines(ctx, plan.majorLines, '#c7d0da', 0.9);
-  strokeLines(ctx, plan.axisLines, '#d94b4b', 1.6);
+  drawGridLines(ctx, plan);
   drawLabels(ctx, plan.labels, viewport.width, viewport.height);
 }
 
@@ -267,9 +278,7 @@ export function createGridRenderer(): {
         background.fillStyle = 'white';
         background.fillRect(0, 0, viewport.width, viewport.height);
         const plan = createGridPlan(viewport);
-        strokeLines(background, plan.minorLines, '#e8edf2', 0.6);
-        strokeLines(background, plan.majorLines, '#c7d0da', 0.9);
-        strokeLines(background, plan.axisLines, '#d94b4b', 1.6);
+        drawGridLines(background, plan);
         drawLabels(background, plan.labels, viewport.width, viewport.height);
         cachedViewport = { ...viewport };
         cachedDpr = pixelRatio;
