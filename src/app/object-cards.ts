@@ -1,7 +1,7 @@
 import { pointConstraint } from '../document/dependencies'
 import type { NumberArgument } from '../commands/types'
 import { asymptotesOf, curveOf, definiteIntegral } from '../geometry/analysis'
-import { arcData, polygonArea, slopeOf, vectorMeasureValue } from '../geometry/constructions'
+import { arcData, polygonArea, slopeOf, vectorMeasureValue, vectorSumOf } from '../geometry/constructions'
 import type {
   Asymptote, GeometryDocumentObject, Inequality, Integral, Parameter, ParametricCurve, Tangent, TangentHX, UnitCircle,
   UnitCirclePart, VectorMeasure,
@@ -72,6 +72,8 @@ export interface StyleSpec {
   lineStyle: LineStyle | null
   /** Whether the name is drawn on the plane. */
   label: boolean | null
+  /** Whether a sum's dashed construction is drawn; null for anything else. */
+  guides: boolean | null
   trace: boolean | null
 }
 
@@ -81,6 +83,7 @@ export interface StylePatch {
   size?: number
   lineStyle?: LineStyle
   labelHidden?: boolean
+  guidesHidden?: boolean
   trace?: boolean
 }
 
@@ -653,6 +656,7 @@ export function styleSpec(item: GeometryDocumentObject): StyleSpec | null {
     size: sized ? { value: item.size, ...(item.type === 'point' ? POINT_SIZE : STROKE_SIZE) } : null,
     lineStyle: STROKED.has(item.type) ? item.lineStyle ?? 'solid' : null,
     label: LABELLED.has(item.type) ? !item.labelHidden : null,
+    guides: item.type === 'vector' && (vectorSumOf(item)?.terms.length ?? 0) > 1 ? !item.guidesHidden : null,
     trace: isTraceable(item) ? item.trace === true : null,
   }
 }
@@ -664,7 +668,7 @@ export function styleSpec(item: GeometryDocumentObject): StyleSpec | null {
 export function applyStyle(item: GeometryDocumentObject, patch: StylePatch): boolean {
   const spec = styleSpec(item)
   if (!spec) return false
-  const before = [item.color, item.size, item.lineStyle, item.labelHidden, item.trace]
+  const before = [item.color, item.size, item.lineStyle, item.labelHidden, item.guidesHidden, item.trace]
   if (patch.color !== undefined && /^#[0-9a-f]{6}$/i.test(patch.color)) item.color = patch.color.toLowerCase()
   if (patch.size !== undefined && spec.size && Number.isFinite(patch.size)) {
     item.size = Math.min(spec.size.max, Math.max(spec.size.min, Math.round(patch.size)))
@@ -677,10 +681,14 @@ export function applyStyle(item: GeometryDocumentObject, patch: StylePatch): boo
     if (patch.labelHidden) item.labelHidden = true
     else delete item.labelHidden
   }
+  if (patch.guidesHidden !== undefined && spec.guides !== null) {
+    if (patch.guidesHidden) item.guidesHidden = true
+    else delete item.guidesHidden
+  }
   if (patch.trace !== undefined && spec.trace !== null) {
     if (patch.trace) item.trace = true
     else delete item.trace
   }
-  const after = [item.color, item.size, item.lineStyle, item.labelHidden, item.trace]
+  const after = [item.color, item.size, item.lineStyle, item.labelHidden, item.guidesHidden, item.trace]
   return before.some((value, index) => value !== after[index])
 }

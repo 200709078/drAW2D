@@ -44,7 +44,7 @@ test('grup düğmesi son aracını seçer, menüden seçilen araç grubun yüzü
   await expect(page.locator('#toolgroup-line')).not.toHaveClass(/is-active/)
   await group.click()
   await expect(toolbar).toHaveAttribute('data-action', 'linesegment')
-  await page.locator('#canvas').click({ position: { x: 300, y: 300 } })
+  await page.locator('#canvas').click({ position: { x: 700, y: 600 } })
   await expect(menu).toBeHidden()
 
   // Single-tool groups have no menu.

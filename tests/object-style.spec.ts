@@ -61,10 +61,10 @@ function recordingFrame(objects: readonly GeometryDocumentObject[]) {
 test('görünüm ayarları nesne türüne göre sunulur; varsayılanlar alan olarak saklanmaz', () => {
   const doc = documentWith('(1,2)', 'Doğru((0,0),(2,1))', 'x^2', 'Uzaklık((0,0),(3,4))', 'k=2', 'İntegral(g,0,1)')
   expect(styleSpec(doc.point('A'))).toEqual({
-    color: '#123456', size: { value: 3, min: 1, max: 9, caption: 'Boyut' }, lineStyle: null, label: true, trace: false,
+    color: '#123456', size: { value: 3, min: 1, max: 9, caption: 'Boyut' }, lineStyle: null, label: true, guides: null, trace: false,
   })
   expect(styleSpec(doc.named('g'))).toEqual({
-    color: '#123456', size: { value: 2, min: 1, max: 8, caption: 'Kalınlık' }, lineStyle: 'solid', label: null, trace: false,
+    color: '#123456', size: { value: 2, min: 1, max: 8, caption: 'Kalınlık' }, lineStyle: 'solid', label: null, guides: null, trace: false,
   })
   expect(styleSpec(doc.named('k'))).toBeNull()
   const distance = doc.objects.find(object => object.type === 'distanceSegment')!

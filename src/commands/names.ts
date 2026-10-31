@@ -11,11 +11,11 @@ export function createObjectName(group: ObjectNameGroup, names: Iterable<string 
     while (occupied.has(`denk${index}`)) index++
     return `denk${index}`
   }
-  // Parameters avoid the variables x, y and n and the constants e and i.
+  // Parameters and vectors avoid the variables x, y and n and the constants e and i.
   const alphabet = group === 'point' ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     : group === 'parameter' ? 'abcdkmpqrstuvwz'
     : group === 'angle' ? 'αβθδ'
-    : group === 'vector' ? 'uvwabcdefghijklmopqrstz'
+    : group === 'vector' ? 'uvwabcdfghjklmopqrstz'
       : ['circleR', 'lineSegment', 'distanceSegment', 'sequence', 'arcMeasure', 'integral', 'polygon', 'measure', 'region'].includes(group)
         ? 'abcdefghijklmnopqrstuvwxyz' : 'fghpqr'
   for (let index = 0; ; index++) {

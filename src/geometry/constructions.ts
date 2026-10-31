@@ -2,7 +2,7 @@ import type { GeometryDocumentObject, VectorMeasure } from './function-types'
 import {
   getCircleDescriptor, getLineDescriptor, getReflectedPoint, normalizeDegree, numericPoint, type NumericPoint, type PointLike,
 } from './primitives'
-import type { ObjectReference, PointConstraint } from './types'
+import type { ObjectReference, PointConstraint, Vector } from './types'
 
 type Lookup = (id: ObjectReference | undefined) => GeometryDocumentObject | undefined
 
@@ -180,6 +180,14 @@ export function slopeOf(object: GeometryDocumentObject | undefined): number | nu
   return line.direction.b / line.direction.a
 }
 
+/** The sum a vector was computed as; none for a vector between two points. */
+export function vectorSumOf(vector: Vector): Extract<PointConstraint, { type: 'vectorSum' }> | null {
+  for (const constraint of vector.B.onOther) {
+    if (constraint.type === 'vectorSum' && constraint.ownerId === vector.id) return constraint
+  }
+  return null
+}
+
 function vectorComponents(object: GeometryDocumentObject | undefined): NumericPoint | null {
   if (object?.type !== 'vector') return null
   const A = numericPoint(object.A)
@@ -198,4 +206,38 @@ export function vectorMeasureValue(item: VectorMeasure, get: Lookup): number | n
   // A zero vector has no direction.
   if (!Math.hypot(u.a, u.b) || !Math.hypot(v.a, v.b)) return null
   return Math.abs(Math.atan2(u.a * v.b - u.b * v.a, dot)) * 180 / Math.PI
+}
+
+const samePlace = (P: NumericPoint | null, Q: NumericPoint | null) =>
+  P !== null && Q !== null && Math.hypot(P.a - Q.a, P.b - Q.b) < 1e-9
+
+/**
+ * The dashed sides showing how a sum is built. Two vectors from the same point make a
+ * parallelogram; otherwise the terms are laid tip to tail from the result's start. A side
+ * that is already drawn as one of the vectors is left out. A single term has nothing to show.
+ */
+export function vectorGuides(vector: Vector, get: Lookup): { A: NumericPoint; B: NumericPoint }[] {
+  const sum = vectorSumOf(vector)
+  const start = numericPoint(vector.A)
+  if (!sum || !start) return []
+  const terms = sum.terms.map(term => {
+    const source = get(term.vectorId)
+    const components = vectorComponents(source)
+    return { source: source as Vector, step: components && { a: components.a * term.coefficient, b: components.b * term.coefficient } }
+  })
+  if (terms.some(term => !term.step)) return []
+  const moving = terms.filter(term => term.step!.a !== 0 || term.step!.b !== 0)
+  if (moving.length < 2) return []
+  const sides: { A: NumericPoint; B: NumericPoint }[] = []
+  const walk = (order: typeof moving) => {
+    let A = start
+    for (const { step } of order) {
+      const B = { a: A.a + step!.a, b: A.b + step!.b }
+      if (!moving.some(({ source }) => samePlace(numericPoint(source.A), A) && samePlace(numericPoint(source.B), B))) sides.push({ A, B })
+      A = B
+    }
+  }
+  walk(moving)
+  if (moving.length === 2 && moving.every(({ source }) => samePlace(numericPoint(source.A), start))) walk([...moving].reverse())
+  return sides
 }

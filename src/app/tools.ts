@@ -13,7 +13,7 @@ import {
   isPointOnCircleData, numericPoint, type NumericPoint,
 } from '../geometry/primitives'
 import { getCircleTangentLines, getProjectionOnCircleTangent } from '../geometry/tangents'
-import type { GeometryCircle, GeometryPoint, PointConstraint } from '../geometry/types'
+import type { GeometryCircle, GeometryPoint, PointConstraint, Vector } from '../geometry/types'
 import type { TransientPainter } from '../rendering/transient-painter'
 import type { ToolAction } from '../ui/tool-registry'
 import type { Hit } from './hit-test'
@@ -132,6 +132,12 @@ const OBJECT_TOOLS: Partial<Record<ToolAction, { title: string; accepts(object: 
   },
 }
 
+/** Tools that join two picked vectors with an operator, as if `u+v` had been typed. */
+const VECTOR_PAIR_TOOLS: Partial<Record<ToolAction, { title: string; operator: string }>> = {
+  vectoradd: { title: 'Vektör Topla', operator: '+' },
+  vectorsubtract: { title: 'Vektör Çıkar', operator: '-' },
+}
+
 /** Tools that take a point and then a line. */
 const POINT_LINE_TOOLS: Partial<Record<ToolAction, { title: string; command(point: PointArgument, line: string): Command }>> = {
   perpendicular: { title: 'Dik Doğru', command: (point, line) => ({ kind: 'perpendicular', point, line }) },
@@ -243,12 +249,15 @@ export class ToolController {
     if (asking) return this.pressAsking(asking, input)
     const objectTool = OBJECT_TOOLS[this.current]
     if (objectTool) return this.pressObject(objectTool, input)
+    const vectorPair = VECTOR_PAIR_TOOLS[this.current]
+    if (vectorPair) return this.pressVectorPair(vectorPair, input)
     switch (this.current) {
       case 'select': return NOTHING
       case 'point': return this.pressPoint(input)
       // Always at O, wherever the click is.
       case 'unitcircle': return this.finish({ kind: 'unitCircle' }, 'Birim Çember', null)
       case 'intersect': return this.pressIntersect(input)
+      case 'vectorscale': return this.pressVectorScale(input)
       case 'circletangent': return this.pressCircleTangent(input)
       case 'arcmeasure': return this.pressArcMeasure(input)
       case 'root':
@@ -588,6 +597,46 @@ export class ToolController {
     const object = input.hit?.object
     if (!object || !spec.accepts(object)) return { ...NOTHING, message: { title: spec.title, text: spec.text } }
     return this.finish(spec.command(object, this.services.visibleRange()), spec.title, null)
+  }
+
+  /** The picked vector; its visible tip point counts, since points win over objects when hit. */
+  private vectorAt(input: ToolInput): Vector | null {
+    const object = input.hit?.object
+    if (object?.type === 'vector') return object
+    if (object?.type !== 'point') return null
+    const ending = this.services.document.objects.filter(item => item.type === 'vector' && item.B === object)
+    return ending.length === 1 ? ending[0] as Vector : null
+  }
+
+  private pressVectorPair(spec: { title: string; operator: string }, input: ToolInput): ToolOutcome {
+    const { title, operator } = spec
+    const vector = this.vectorAt(input)
+    if (!vector) return { ...NOTHING, message: { title, text: 'Bir vektör seçiniz.' } }
+    if (!this.target) {
+      this.target = vector
+      this.services.document.activeId = vector.id
+      return { changed: true, completed: false, message: { title, text: 'Şimdi ikinci vektörü seçiniz.' } }
+    }
+    return this.finish({ kind: 'vectorExpression', name: null, expression: `${this.target.name}${operator}${vector.name}` }, title, null)
+  }
+
+  /** A vector, then a coefficient; the coefficient may name parameters. */
+  private pressVectorScale(input: ToolInput): ToolOutcome {
+    const title = 'Vektörü Sayıyla Çarp'
+    const vector = this.vectorAt(input)
+    if (!vector) return { ...NOTHING, message: { title, text: 'Bir vektör seçiniz.' } }
+    this.services.document.activeId = vector.id
+    return {
+      changed: true, completed: false,
+      ask: {
+        title, label: 'Katsayı', initial: '2',
+        answer: text => {
+          const value = text.trim() || '2'
+          const factor = /[+-]/.test(value.slice(1)) ? `(${value})` : value
+          return this.finish({ kind: 'vectorExpression', name: null, expression: `${factor}*${vector.name}` }, title, null)
+        },
+      },
+    }
   }
 
   /** A point first (picked like any point), then a line, which is not turned into a point. */

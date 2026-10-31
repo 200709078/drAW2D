@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { parseCommand } from '../src/commands/parser'
-import { vectorMeasureValue } from '../src/geometry/constructions'
+import { createObjectName } from '../src/commands/names'
+import { vectorGuides, vectorMeasureValue } from '../src/geometry/constructions'
 import type { GeometryDocumentObject, VectorMeasure } from '../src/geometry/function-types'
 
 test('yazımlar nesne komutuna çevrilir; sayılar ve noktalar eskisi gibi kalır', () => {
@@ -49,6 +50,42 @@ test('değerler: dik, zıt, aynı yön ve sıfır vektörü', () => {
   expect(value('dot', 1, 5)).toBe(0)
   expect(value('length', 99)).toBeNull()
   expect(value('dot', 1, 99)).toBeNull()
+})
+
+test('sıradaki vektör adı ayrılmış e, i, n harflerini atlar', () => {
+  expect(createObjectName('vector', ['u', 'v', 'w', 'a', 'b', 'c', 'd'])).toBe('f')
+})
+
+test('yapım çizgileri: paralelkenar, uç uca, katsayı ve tek terim', () => {
+  const point = (a: number, b: number, onOther: unknown[] = []) => ({ a, b, onOther })
+  const vector = (id: number, A: unknown, B: unknown) => ({ type: 'vector', id, A, B }) as unknown as GeometryDocumentObject
+  const O = point(0, 0)
+  const tip = point(3, 2)
+  const objects = [vector(1, O, tip), vector(2, O, point(1, 4)), vector(3, tip, point(4, 6)), vector(4, point(5, 5), point(6, 6))]
+  const get = (id: number | null | undefined) => objects.find(object => object.id === id)
+  const guides = (...terms: [number, number][]) => {
+    const coefficient = terms.map(([vectorId, value]) => ({ vectorId, coefficient: value }))
+    const sum = coefficient.reduce((total, term) => {
+      const source = get(term.vectorId) as unknown as { A: { a: number; b: number }; B: { a: number; b: number } }
+      return { a: total.a + term.coefficient * (source.B.a - source.A.a), b: total.b + term.coefficient * (source.B.b - source.A.b) }
+    }, { a: 0, b: 0 })
+    const result = vector(9, O, point(sum.a, sum.b, [{ type: 'vectorSum', baseId: 0, terms: coefficient, ownerId: 9 }]))
+    return vectorGuides(result as never, get).map(({ A, B }) => `${A.a},${A.b}>${B.a},${B.b}`)
+  }
+  // u+v aynı noktadan: u ve v zaten çizili, kalan iki kenar.
+  expect(guides([1, 1], [2, 1])).toEqual(['3,2>4,6', '1,4>4,6'])
+  // u-v: -v kenarı da kesikli çizilir.
+  expect(guides([1, 1], [2, -1])).toEqual(['3,2>2,-2', '0,0>-1,-4', '-1,-4>2,-2'])
+  // 2u+v: 2u çizili değildir.
+  expect(guides([1, 2], [2, 1])).toEqual(['0,0>6,4', '6,4>7,8', '1,4>7,8'])
+  // v, u'nun ucundan başlıyorsa uç uca dizilmiştir, çizilecek bir şey kalmaz.
+  expect(guides([1, 1], [3, 1])).toEqual([])
+  // Başka yerdeki vektör u'nun ucuna taşınır.
+  expect(guides([1, 1], [4, 1])).toEqual(['3,2>4,3'])
+  // Üç terim uç uca.
+  expect(guides([1, 1], [2, 1], [4, 1])).toEqual(['3,2>4,6', '4,6>5,7'])
+  expect(guides([1, 2])).toEqual([])
+  expect(guides([1, 1], [2, 0])).toEqual([])
 })
 
 /** Every text of a card: its definition and value rows. */
@@ -362,6 +399,106 @@ test.describe('arayüz', () => {
     await enter(page, 'd=Açı(u,w)')
     await expectCard(page, 'd', 'd = 11.31°')
     expect((await shot()).equals(plain)).toBe(true)
+  })
+
+  const selectTool = (page: Page, action: string) =>
+    page.evaluate(action => window.drAW2DToolbar!.selectToolByAction(action as 'select', { showToast: false }), action)
+  /** u'nun ve v'nin orta noktaları ile u'nun ucu, tuvalde. */
+  const U = { x: 650, y: 400 }
+  const V = { x: 550, y: 300 }
+  const U_TIP = { x: 800, y: 300 }
+  const pick = (page: Page, at: { x: number; y: number }) => page.locator('#canvas').click({ position: at })
+
+  test('Vektör Topla: iki tıklama yazılmış gibi canlı bir toplam verir, tek adımda geri alınır', async ({ page }) => {
+    await selectTool(page, 'vectoradd')
+    await pick(page, U)
+    await expect(page.locator('#snackContent')).toContainText('ikinci vektörü')
+    await pick(page, V)
+    await expect(page.locator('#objectsContainer .is-active input').first()).toHaveValue('w: u+v')
+    await expectCard(page, 'w', 'w=(4,6)')
+    await page.locator('#undo').click()
+    await expect.poll(async () => (await card(page, 'w')).length).toBe(0)
+    await expectCard(page, 'v', 'v=(1,4)')
+  })
+
+  test('Vektör Çıkar sıraya uyar; vektörün ucundaki noktaya tıklamak da seçer; başka nesne reddedilir', async ({ page }) => {
+    await enter(page, 'Çember((-3,-2),1)')
+    const count = await page.locator('#objectsContainer .expr-block').count()
+    await selectTool(page, 'vectorsubtract')
+    // Boş yer.
+    await pick(page, { x: 200, y: 700 })
+    await expect(page.locator('#snackContent')).toContainText('Bir vektör seçiniz')
+    await expect(page.locator('#objectsContainer .expr-block')).toHaveCount(count)
+    await pick(page, V)
+    await pick(page, U_TIP)
+    await expect(page.locator('#objectsContainer .is-active input').first()).toHaveValue('w: v-u')
+    await expectCard(page, 'w', 'w=(-2,2)')
+  })
+
+  test('Sayıyla Çarp katsayı sorar; kesir, parametre ve ifade kabul eder', async ({ page }) => {
+    await enter(page, 'a=2')
+    const scale = async (factor: string) => {
+      await selectTool(page, 'vectorscale')
+      await pick(page, U)
+      await expect(page.locator('#promptLabel')).toHaveText('Katsayı')
+      await page.locator('#promptInput').fill(factor)
+      await page.locator('#promptInput').press('Enter')
+    }
+    await scale('-1/2')
+    await expectCard(page, 'w', 'w=(-1.50,-1)')
+    await scale('a')
+    await expectCard(page, 'b', 'b=(6,4)')
+    await scale('a+1')
+    await expectCard(page, 'c', 'c=(9,6)')
+    await expect.poll(async () => (await card(page, 'c')).join(' ')).toContain('(a+1)*u')
+    await enter(page, 'a=3')
+    await expectCard(page, 'c', 'c=(12,8)')
+    await expectCard(page, 'b', 'b=(9,6)')
+    // Olmayan ad işlemi bitirmez, nesne eklenmez.
+    const count = await page.locator('#objectsContainer .expr-block').count()
+    await scale('t')
+    await expect(page.locator('#objectsContainer .expr-block')).toHaveCount(count)
+  })
+
+  test('üslü adlı görüntü vektörleri işlemde kullanılır', async ({ page }) => {
+    await enter(page, 'Yansıt(u,(0,0))')
+    await expectCard(page, "u'", "u'=(-3,-2)")
+    await enter(page, "w=u'+v")
+    await expectCard(page, 'w', 'w=(-2,2)')
+    await enter(page, "2u'")
+    await expect.poll(async () => (await values(page)).join(' ')).toContain('(-6,-4)')
+  })
+
+  test('yapım çizgileri düzlemde görünür, kartın ayarıyla kapanır, ayar kayıtta kalır', async ({ page }) => {
+    await enter(page, 'k=2u')
+    const shot = await planeShot(page)
+    await enter(page, 'w=u+v')
+    await expectCard(page, 'w', 'w=(4,6)')
+    const active = page.locator('#objectsContainer .is-active')
+    await active.locator('[id$="-style"]').click()
+    const guides = page.locator('#objectsContainer [id$="-guides"]:visible')
+    await expect(guides).toBeChecked()
+    const drawn = await shot()
+    await guides.uncheck()
+    const hidden = await shot()
+    expect(hidden.equals(drawn)).toBe(false)
+    // Geri alma seçimi de kaldırır; seçili çizim kalın olduğu için aynı kart yeniden seçilir.
+    await page.locator('#undo').click()
+    await page.locator('#objectsContainer .expr-block').first().click()
+    expect((await shot()).equals(drawn)).toBe(true)
+    await page.locator('#redo').click()
+    await page.waitForTimeout(1200)
+    await page.reload()
+    await expectCard(page, 'w', 'w=(4,6)')
+    await page.locator('#objectsContainer .expr-block').first().click()
+    await page.locator('#objectsContainer .is-active [id$="-style"]').click()
+    await expect(page.locator('#objectsContainer [id$="-guides"]:visible')).not.toBeChecked()
+  })
+
+  test('tek terimli sonuçta ve sıradan vektörde yapım ayarı görünmez', async ({ page }) => {
+    await enter(page, 'k=2u')
+    await page.locator('#objectsContainer .is-active [id$="-style"]').click()
+    await expect(page.locator('#objectsContainer [id$="-guides"]:visible')).toHaveCount(0)
   })
 
   test('otomatik kayıttan ölçümler de canlı geri gelir', async ({ page }) => {

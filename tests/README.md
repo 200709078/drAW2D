@@ -301,3 +301,5 @@ vektörü, noktaya vektör ekleme, anlamsız işlemlerin mesajları, silme ve ge
 otomatik kayıttan dönüş.
 Ölçümlerde `Uzunluk`, `İçÇarpım`, `Açı(u,v)` yazımları, dik, zıt ve aynı yönlü vektörlerde değerler, sıfır vektörü, sürükleme ve
 kaydırıcıyla canlı değişim, ifade argümanı (`Uzunluk(u+v)`), düzlemdeki çizim (görüntü karşılaştırması) ve hata mesajları sınanır.
+Araçlarda Topla, Çıkar, Sayıyla Çarp tıklamaları, uç noktasıyla seçim, tek adımda geri alma; yapım çizgilerinde paralelkenar, uç uca,
+katsayılı ve tek terimli durumlar, görünüm ayarı ve kayıttan dönüş; üslü adlar sınanır.

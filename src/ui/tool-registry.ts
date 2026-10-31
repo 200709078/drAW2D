@@ -32,6 +32,9 @@ export type ToolAction =
   | 'slope'
   | 'asymptote'
   | 'unitcircle'
+  | 'vectoradd'
+  | 'vectorsubtract'
+  | 'vectorscale'
 
 export type ToolGroupId =
   | 'move' | 'point' | 'line' | 'specialLine' | 'polygon' | 'circle'
@@ -76,6 +79,9 @@ export const TOOLS: readonly ToolDefinition[] = [
   { action: 'linesegment', group: 'line', label: 'Doğru Parçası', icon: 'linesegment.svg', instruction: 'Farklı iki nokta seçiniz.' },
   { action: 'ray', group: 'line', label: 'Işın', icon: 'ray.svg', instruction: 'Başlangıç noktasını, sonra ışının geçtiği noktayı seçiniz.' },
   { action: 'vector', group: 'line', label: 'Vektör', icon: 'vector.svg', instruction: 'Başlangıç ve bitiş noktasını seçiniz.' },
+  { action: 'vectoradd', group: 'line', label: 'Vektör Topla', icon: 'vectoradd.svg', instruction: 'İki vektör seçiniz.' },
+  { action: 'vectorsubtract', group: 'line', label: 'Vektör Çıkar', icon: 'vectorsubtract.svg', instruction: 'İki vektör seçiniz; ikincisi birincisinden çıkarılır.' },
+  { action: 'vectorscale', group: 'line', label: 'Vektörü Sayıyla Çarp', icon: 'vectorscale.svg', instruction: 'Bir vektör seçiniz, sonra katsayıyı giriniz.' },
   { action: 'perpendicular', group: 'specialLine', label: 'Dik Doğru', icon: 'perpendicular.svg', instruction: 'Bir nokta, sonra bir doğru seçiniz.' },
   { action: 'parallel', group: 'specialLine', label: 'Paralel Doğru', icon: 'parallel.svg', instruction: 'Bir nokta, sonra bir doğru seçiniz.' },
   { action: 'bisector', group: 'specialLine', label: 'Kenar Orta Dikmesi', icon: 'bisector.svg', instruction: 'İki nokta seçiniz.' },

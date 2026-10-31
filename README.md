@@ -36,7 +36,8 @@ Bütün sürümler, kurulum adımları ve SHA-256 değerleri: [Releases](https:/
 - **Bütün nesneyi sürükleme**: serbest noktalardan kurulan doğru, doğru parçası, ışın, vektör, çember, yay, açı ve çokgen sürüklenince bütün olarak taşınır; denklemle verilmiş doğru denklemi değişerek kayar, kendi başına bir fonksiyon grafiği `f(x − a) + b` olarak ötelenir.
 - **Vektör ölçümleri**: `Uzunluk(u)`, `İçÇarpım(u,v)`, `Açı(u,v)` değeri kartta canlı gösterir; uzunluk vektörün yanına, aynı noktadan başlayan vektörlerde açı yay olarak düzleme çizilir.
 - **Vektör işlemleri**: `w=u+v`, `u-v`, `2u`, `a*u-v` canlı bir sonuç vektörü çizer; `u=(3,2)` orijinden vektör, `B=A+u`
-  ötelenmiş nokta verir.
+  ötelenmiş nokta verir. Araç çubuğundaki Vektör Topla, Çıkar ve Sayıyla Çarp araçları da aynı sonucu verir; toplamın yapımı kesikli
+  çizgiyle (paralelkenar ya da uç uca) gösterilir, kartın görünüm ayarından kapatılır.
 - **Karelere yapıştırma**: serbest noktalar koyulurken ve sürüklenirken en yakın küçük kare köşesine yapışır; adım
   ızgarayla birlikte yakınlaştırmaya uyar. Araç çubuğundaki mıknatıs düğmesi açıp kapatır (varsayılan açık).
 - **Parametreler ve kaydırıcılar**: `a=2` bir kaydırıcı oluşturur; `a·x^2+1`, `(a,1)`, `Çember((0,0),a)`, `x=a`, `Teğet(f,a)`, parçalı fonksiyonun aralık sınırları, analiz komutlarının arama aralığı gibi her tanım ona bağlanır ve kaydırıcıyla canlı değişir. Kaydırıcının aralığı ve adımı kartta düzenlenir, değer canlandırılabilir, kaydırıcı tuvalde de gösterilebilir. `Teğet`, `TeğetH/X` ve `Limit` yaklaşım değerleri için kaydırıcıyı kendisi oluşturur.

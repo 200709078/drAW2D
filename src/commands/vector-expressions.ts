@@ -14,6 +14,11 @@ export interface VectorCombination {
 
 type ValueKind = 'number' | 'vector' | 'point'
 
+const NAME = /[\p{L}_][\p{L}\p{N}_']*/gu
+
+/** Image vectors are named `u'`, which math.js would read as a transpose. */
+const plainName = (name: string) => name.replace(/'/g, '_prime')
+
 const POINT_ERROR = 'Noktaya yalnız vektör eklenip çıkarılabilir (ör. A+u).'
 
 function sumKind(left: ValueKind, right: ValueKind, subtract: boolean): ValueKind {
@@ -59,7 +64,7 @@ function valueKind(node: MathNode, names: ReadonlyMap<string, ValueKind>): Value
  * terms are recomputed when one changes; the vectors themselves are read live.
  */
 export function vectorCombination(source: string, objects: readonly GeometryDocumentObject[]): VectorCombination | null {
-  const tokens = [...source.matchAll(/[\p{L}_][\p{L}\p{N}_]*/gu)].map(match => match[0])
+  const tokens = [...source.matchAll(NAME)].map(match => match[0])
   if (tokens.includes('x') || tokens.includes('y')) return null
   const named = (type: string) => tokens.flatMap(token => objects.filter(object => object.type === type
     && object.name === token && !isReservedName(token)))
@@ -67,17 +72,17 @@ export function vectorCombination(source: string, objects: readonly GeometryDocu
   if (!vectors.length) return null
   const points = [...new Set(named('point'))] as GeometryPoint[]
   const names = new Map<string, ValueKind>([
-    ...vectors.map(vector => [vector.name!, 'vector'] as const),
-    ...points.map(point => [point.name!, 'point'] as const),
+    ...vectors.map(vector => [plainName(vector.name!), 'vector'] as const),
+    ...points.map(point => [plainName(point.name!), 'point'] as const),
   ])
 
-  const node = parseMathExpression(source)
+  const node = parseMathExpression(source.replace(NAME, plainName))
   valueKind(node, names)
   const coefficient = (vector: Vector) => {
     // The expression is linear in its vectors, so one vector set to 1 leaves its coefficient.
     const unit = node.transform((child, path, parent) => math.isSymbolNode(child) && names.has(child.name)
       && !(parent && math.isFunctionNode(parent) && path === 'fn')
-      ? new math.ConstantNode(child.name === vector.name ? 1 : 0) : child)
+      ? new math.ConstantNode(child.name === plainName(vector.name!) ? 1 : 0) : child)
     return evaluateNumericExpression(unit.toString(), { references: objects }).value
   }
   return {

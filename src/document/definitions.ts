@@ -9,7 +9,7 @@ export type PrepareCommand = (command: Command) => PreparedCommand
 
 /** Identity, style and the definition itself survive a recomputation. */
 const PRESERVED_FIELDS = new Set([
-  'id', 'name', 'color', 'visibility', 'size', 'temp', 'lineStyle', 'labelHidden', 'trace', 'definition',
+  'id', 'name', 'color', 'visibility', 'size', 'temp', 'lineStyle', 'labelHidden', 'guidesHidden', 'trace', 'definition',
   // A unit circle's chosen values and angle unit are settings, like the line style.
   'show', 'angleUnit',
 ])

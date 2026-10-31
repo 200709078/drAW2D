@@ -713,7 +713,7 @@ test yeni değerlere çekildi, keskin konuma bağlı 2 `rendering` testi anahtar
 Masaüstü ve telefon boyutunda ekran görüntüleriyle bakıldı. Gerçek tahtada denenmedi.
 
 
-## Vektör işlemleri (istek 2026-10-31; 1. ve 2. aşama uygulandı)
+## Vektör işlemleri (istek 2026-10-31; üç aşama da uygulandı)
 
 **Kullanıcı isteği:** Vektörlerle işlem yapılabilsin. **Kararlar (kullanıcı, 2026-10-31, "önerilerin hepsi uygun"):**
 üç aşama sırayla, her aşamadan sonra kullanıcı dener; sonuç vektörü ilk yazılan vektörün başlangıcından çıkar;
@@ -750,4 +750,15 @@ Masaüstü ve telefon boyutunda ekran görüntüleriyle bakıldı. Gerçek tahta
 - Ölçüm sonucu başka ifadede sayı olarak kullanılamaz (`u/Uzunluk(u)` ile birim vektör, `2k` olmaz); Alan ve Eğim de öyledir.
 - `tests/vector-operations.spec.ts`: 10 test daha (toplam 23); bütün testler geçti; ekranda bakıldı. Gerçek tahtada denenmedi.
 
-**3. aşama (bekliyor):** Araç çubuğunda Vektör Topla / Çıkar / Sayıyla Çarp; uç uca ve paralelkenar gösterimi (kesikli).
+**3. aşama, uygulandı (2026-10-31):** Tahtada gösterim.
+- Araç çubuğunda Doğru grubuna, `Vektör`ün altına üç araç: Vektör Topla, Vektör Çıkar (iki vektör seçilir, ikincisi birincisinden
+  çıkarılır), Vektörü Sayıyla Çarp (vektör seçilir, katsayı sorulur: `2`, `-1/2`, `a`, `a+1`). Araçlar yazılmış ifadeyle aynı yoldan
+  gider (`vectorExpression`), sonuç canlıdır, tek adımda geri alınır. Vektörün ucundaki nokta tıklanırsa da o vektör seçilir.
+  Ayrı grup denendi; 1100 piksel genişlikte çubuğu taşırdığı için Doğru grubuna alındı.
+- Kesikli yapım çizgileri (`constructions.ts` `vectorGuides`): aynı noktadan başlayan iki vektörde paralelkenar; öteki durumlarda
+  terimler sonucun başlangıcından uç uca dizilir. Zaten çizili olan vektörle çakışan kenar çizilmez; katsayılı terim (`2u`) ve
+  çıkarma (`-v`) kesikli görünür. Tek terimli sonuçta (`2u`) çizgi yoktur.
+- Sonucun görünüm ayarında "Yapımı göster" kutusu (`guidesHidden`, varsayılan açık); dosyaya yazılır, geri alınır.
+- Araçların ortaya çıkaracağı iki eksik de giderildi: `u'` gibi üslü adlar işlemde kullanılır (`u'+v`); vektör adları ayrılmış `e`
+  harfini atlar (sekizinci vektör `e` olup işlemde sabit sayılıyordu).
+- `tests/vector-operations.spec.ts`: toplam 31 test; ekranda bakıldı. Gerçek tahtada denenmedi.

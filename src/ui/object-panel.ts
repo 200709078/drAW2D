@@ -75,6 +75,7 @@ interface StyleView {
   sizeCaption: HTMLSpanElement
   lineStyle: HTMLSelectElement
   label: HTMLInputElement
+  guides: HTMLInputElement
   trace: HTMLInputElement
 }
 
@@ -298,9 +299,10 @@ export class ObjectPanel {
       return control
     }
     const label = toggle('label', 'Etiket', checked => ({ labelHidden: !checked }))
+    const guides = toggle('guides', 'Yapımı göster', checked => ({ guidesHidden: !checked }))
     const trace = toggle('trace', 'İz bırak', checked => ({ trace: checked }))
     root.append(toggles)
-    return { root, color, size, sizeCaption, lineStyle, label, trace }
+    return { root, color, size, sizeCaption, lineStyle, label, guides, trace }
   }
 
   private updateStyle(view: CardView, spec: StyleSpec | null, open: boolean): void {
@@ -321,6 +323,8 @@ export class ObjectPanel {
     if (spec.lineStyle) setIfChanged(style.lineStyle, 'value', spec.lineStyle)
     setIfChanged(style.label.parentElement!, 'hidden', spec.label === null)
     setIfChanged(style.label, 'checked', spec.label === true)
+    setIfChanged(style.guides.parentElement!, 'hidden', spec.guides === null)
+    setIfChanged(style.guides, 'checked', spec.guides === true)
     setIfChanged(style.trace.parentElement!, 'hidden', spec.trace === null)
     setIfChanged(style.trace, 'checked', spec.trace === true)
   }

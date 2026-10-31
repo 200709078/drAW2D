@@ -37,6 +37,8 @@ export interface GeometryObject<Type extends string> {
   temp: boolean
   /** Absent means a solid stroke. */
   lineStyle?: LineStyle
+  /** A vector's dashed construction is not drawn. */
+  guidesHidden?: boolean
   /** The name is not drawn on the plane. */
   labelHidden?: boolean
   /** A point leaves a trace of the positions it passes through. */

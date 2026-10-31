@@ -26,7 +26,7 @@ import type {
   RadiusCircle,
 } from '../geometry/types'
 import type { AreaMeasure, EquationLine, SlopeMeasure, VectorMeasure, VerticalLine } from '../geometry/function-types'
-import { arcData, polygonArea, slopeOf, vectorMeasureValue } from '../geometry/constructions'
+import { arcData, polygonArea, slopeOf, vectorGuides, vectorMeasureValue } from '../geometry/constructions'
 import { getCircleTangentLines } from '../geometry/tangents'
 import { formatDisplayNumber, formatMeasure } from '../math/format-display'
 import { lineDash } from './line-style'
@@ -274,6 +274,10 @@ function paintVector(frame: PainterFrame, primitives: DrawingPrimitives, vector:
   const by = transform.yToPixel(B.b)
   const length = Math.hypot(bx - ax, by - ay)
   if (!Number.isFinite(length) || length === 0) return
+  if (!vector.temp && !vector.guidesHidden) {
+    const sides = vectorGuides(vector, id => frame.objects.find(object => object.id === id))
+    for (const side of sides) primitives.line({ type: 'lineSegment', ...side }, { color: style.color, width: 1, dash: lineDash('dashed', 1) })
+  }
   const head = Math.min(length, 8 + 2 * style.width)
   const ux = (bx - ax) / length
   const uy = (by - ay) / length
