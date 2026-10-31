@@ -272,8 +272,8 @@ test.describe('arayüz', () => {
     await enter(page, 'c=İçÇarpım(u+v,u-v)')
     await expectCard(page, 'c', 'c = -4')
     await enter(page, 'Döndür(u,90,A)')
-    await enter(page, "n=Uzunluk(u')")
-    await expectCard(page, 'n', 'n = 3.61')
+    await enter(page, "h=Uzunluk(u')")
+    await expectCard(page, 'h', 'h = 3.61')
   })
 
   test('sıfır vektöründe açı tanımsızdır, uzunluk 0; yanlış girdiler reddedilir', async ({ page }) => {
