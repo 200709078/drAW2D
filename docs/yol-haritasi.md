@@ -713,15 +713,27 @@ test yeni değerlere çekildi, keskin konuma bağlı 2 `rendering` testi anahtar
 Masaüstü ve telefon boyutunda ekran görüntüleriyle bakıldı. Gerçek tahtada denenmedi.
 
 
-## Vektör işlemleri (istek, 2026-10-31, kodlanmadı)
+## Vektör işlemleri (istek 2026-10-31; 1. aşama uygulandı)
 
-**Kullanıcı isteği:** Vektörlerle işlem yapılabilsin; önce nasıl yapılacağı kararlaştırılacak.
+**Kullanıcı isteği:** Vektörlerle işlem yapılabilsin. **Kararlar (kullanıcı, 2026-10-31, "önerilerin hepsi uygun"):**
+üç aşama sırayla, her aşamadan sonra kullanıcı dener; sonuç vektörü ilk yazılan vektörün başlangıcından çıkar;
+`u=(3,2)` orijinden vektör verir; `B=A+u` nokta verir; iç çarpım yalnız komutla yazılır (`u*v` hata olur); komut adları
+`Uzunluk` (`Length`) ve `İçÇarpım` (`Dot`).
 
-**Bugünkü durum:** `Vektör(A,B)`, kartta bileşenler ve `Ötele(nesne, vektör)` var. `u+v`, `w=u+v`, `2u`, `u=(3,2)`,
-`Uzunluk(u)`, `Açı(u,v)` yazımlarının hiçbiri nesne oluşturmuyor (denendi).
+**1. aşama, uygulandı (2026-10-31):** Yazıyla doğrusal birleşim.
+- `w=u+v`, `u-v`, `2u`, `-u`, `u/2`, `2*(u-v)+w`, `a*u-v` (a kaydırıcı). Ad verilmezse (`u+v`) sıradaki vektör adı alınır.
+- `u=(3,2)`: küçük harfli ad orijinden vektör (orijindeki nokta ortak kullanılır, uç sürüklenir). `P=(3,2)`: büyük harfli
+  ad adlı nokta. `R=P+2u` ya da `A+u-v`: nokta.
+- Sonuç gerçek bir `vector` nesnesidir: başlangıcı ilk vektörün A noktasıdır (paylaşılır), ucu gizli yardımcı noktadır
+  (`vectorSum` kısıtı, `geometry/constructions.ts`); katsayılar kısıtta durur, vektörler canlı okunur. Kaydırıcı değişince
+  katsayılar `definitions.ts` `updateInPlace` ile yenilenir. Yazılan metin `vectorExpression` alanında durur, kartta
+  `w: u+v` görünür; ad değişince metin izler. Sonuç sürüklenmez, Ötele'de ve başka işlemde kullanılır, `.drw2`'ye yazılır.
+- Bağlı vektör silinince sonuç da silinir. `u-u` hata vermez: kartta `(0,0)`, çizilecek ok yoktur.
+- `commands/vector-expressions.ts` ifadeyi çözümler; hatalar Türkçe ve vektör diliyle: iki vektörün çarpımı, vektörle sayı
+  toplama, vektöre bölme, `sin(u)`, `2A+u`, `u-A`. Parser belgeyi görmediği için ayrım hazırlık aşamasında yapılır: yazım
+  `function`/`parameter` olarak gelir, içinde vektör adı varsa vektör ifadesidir. `e` gibi ayrılmış adlı vektör sabit sayılır.
+- Yardıma üç satır eklendi. `tests/vector-operations.spec.ts` (13 test); bütün testler geçti; ekranda bakıldı. Gerçek tahtada denenmedi.
 
-**Öneri (aşamalı):** (1) yazıyla doğrusal birleşim (`w=u+v`, `u-v`, `2u`, `a*u-v`), canlı sonuç vektörü; (2) sayısal
-sonuçlar: uzunluk, iç çarpım, açı; (3) araç çubuğu ve uç uca / paralelkenar gösterimi. Sonuç vektörü mevcut görüntü
-nesneleri gibi gizli yardımcı noktalarla kurulur, sürüklenmez.
+**2. aşama (bekliyor):** `Uzunluk(u)`, `İçÇarpım(u,v)`, `Açı(u,v)`; kartta değer, canlı.
 
-**Karar bekleyenler:** sonucun başlangıç noktası; kapsam; aşama sırası; `u=(3,2)` yazımı; `A+u` yazımı; adlandırma.
+**3. aşama (bekliyor):** Araç çubuğunda Vektör Topla / Çıkar / Sayıyla Çarp; uç uca ve paralelkenar gösterimi (kesikli).

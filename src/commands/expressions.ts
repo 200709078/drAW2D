@@ -74,6 +74,9 @@ function parse(source: string): MathNode {
   }
 }
 
+/** The syntax tree of an expression, for readers that give its names their own meaning. */
+export const parseMathExpression = parse
+
 function finiteReal(value: unknown): number {
   let numeric: number
   if (typeof value === 'number') numeric = value

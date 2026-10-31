@@ -50,6 +50,13 @@ export interface GeometryObject<Type extends string> {
   invalid?: boolean
   /** The object is the image of another under a transformation. */
   imageOf?: ImageOf
+  /** The vector expression that gave this vector or point (`u+v`, `A+u`), as typed. */
+  vectorExpression?: string
+}
+
+export interface VectorTerm {
+  vectorId: ObjectReference
+  coefficient: number
 }
 
 export type PointConstraint =
@@ -85,6 +92,8 @@ export type PointConstraint =
     type: 'rotate'; sourceId: ObjectReference; centerId: ObjectReference; angle: number
     ownerId?: ObjectReference; pointIndex?: number
   }
+  /** The point `baseId` moved by the sum of the terms: the tip of `u+v`, or `A+u`. */
+  | { type: 'vectorSum'; baseId: ObjectReference; terms: VectorTerm[]; ownerId?: ObjectReference; pointIndex?: number }
   /** Translation by the vector from `fromId` to `toId`, or by the vector object `vectorId`. */
   | {
     type: 'translate'; sourceId: ObjectReference; fromId: ObjectReference; toId: ObjectReference

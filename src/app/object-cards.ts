@@ -342,6 +342,13 @@ function describeValues(item: GeometryDocumentObject, context: CardContext): Car
     return { ...describeValues(plain as GeometryDocumentObject, context), input: `${item.name}: ${imageCall(item, nameOf)}` }
   }
 
+  if (item.vectorExpression) {
+    const input = `${item.name}: ${item.vectorExpression}`
+    if (item.type === 'point') return card(input, pointValue(item))
+    const { vectorExpression: _expression, ...plain } = item
+    return { ...describeValues(plain as GeometryDocumentObject, context), input }
+  }
+
   switch (item.type) {
     case 'parameter': {
       if (definition?.kind === 'parameter' && typeof definition.value !== 'number') {
@@ -506,6 +513,7 @@ export function editText(item: GeometryDocumentObject, context: CardContext): st
   const definition = item.definition
   const name = item.name
   if (item.imageOf) return `${name}: ${imageCall(item, nameOf)}`
+  if (item.vectorExpression) return `${name}: ${item.vectorExpression}`
   switch (item.type) {
     case 'parameter':
       return `${name} = ${definition?.kind === 'parameter' && typeof definition.value !== 'number'

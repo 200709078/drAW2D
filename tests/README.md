@@ -294,3 +294,8 @@ DRAW2D_ELECTRON_EXECUTABLE="$PWD/release/linux-unpacked/draw2d" node scripts/tes
 gürültüsüz değerler, köşede duran noktanın yeniden kullanılması, nesne üzerindeki noktanın korunması, şekil
 sürüklemede yakalanan noktanın köşeye oturması, seçerken titremenin noktayı oynatmaması, fare ve kalem girişi,
 mıknatıs düğmesi ve tercihin sayfa yenilenince korunması. Keskin konuma bağlı `rendering` testleri anahtarı kapatır.
+
+`vector-operations.spec.ts` vektör işlemlerini sınar: `u=(3,2)` ve `P=(3,2)` yazımları, toplama, çıkarma, sayıyla çarpma,
+sonucun canlılığı, sürüklenmemesi ve ilk vektörün başlangıcından çıkması, kaydırıcılı katsayı, zincirleme kullanım, sıfır
+vektörü, noktaya vektör ekleme, anlamsız işlemlerin mesajları, silme ve geri alma, kart düzenleme, yeniden adlandırma,
+otomatik kayıttan dönüş.

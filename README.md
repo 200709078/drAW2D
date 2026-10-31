@@ -34,6 +34,8 @@ Bütün sürümler, kurulum adımları ve SHA-256 değerleri: [Releases](https:/
 - **Kartlar**: değeri olmayan nesnenin kartı tek satırdır; değeri tanımından farklı olanlarda üst satır ad ve değerdir (`f: y = 2x+1`), tanım (`f: y = a*x+1`) kart seçiliyken altta görünür.
 - **Görünüm ayarları**: seçili kartın palet düğmesi renk, kalınlık/boyut, çizgi stili (düz, kesikli, noktalı), etiket ve iz bırakma ayarlarını açar. Noktalar, doğrular, çemberler, çokgenler ve fonksiyon grafikleri iz bırakır.
 - **Bütün nesneyi sürükleme**: serbest noktalardan kurulan doğru, doğru parçası, ışın, vektör, çember, yay, açı ve çokgen sürüklenince bütün olarak taşınır; denklemle verilmiş doğru denklemi değişerek kayar, kendi başına bir fonksiyon grafiği `f(x − a) + b` olarak ötelenir.
+- **Vektör işlemleri**: `w=u+v`, `u-v`, `2u`, `a*u-v` canlı bir sonuç vektörü çizer; `u=(3,2)` orijinden vektör, `B=A+u`
+  ötelenmiş nokta verir.
 - **Karelere yapıştırma**: serbest noktalar koyulurken ve sürüklenirken en yakın küçük kare köşesine yapışır; adım
   ızgarayla birlikte yakınlaştırmaya uyar. Araç çubuğundaki mıknatıs düğmesi açıp kapatır (varsayılan açık).
 - **Parametreler ve kaydırıcılar**: `a=2` bir kaydırıcı oluşturur; `a·x^2+1`, `(a,1)`, `Çember((0,0),a)`, `x=a`, `Teğet(f,a)`, parçalı fonksiyonun aralık sınırları, analiz komutlarının arama aralığı gibi her tanım ona bağlanır ve kaydırıcıyla canlı değişir. Kaydırıcının aralığı ve adımı kartta düzenlenir, değer canlandırılabilir, kaydırıcı tuvalde de gösterilebilir. `Teğet`, `TeğetH/X` ve `Limit` yaklaşım değerleri için kaydırıcıyı kendisi oluşturur.
@@ -69,6 +71,9 @@ Eğri(cos(t), sin(t), t, 0, 2π)  # parametrik eğri
 r=2sin(3θ)                   # kutupsal grafik
 y<x^2                        # eşitsizlik bölgesi
 Vektör((0,0),(3,2))          # vektör
+u=(3,2)                      # orijinden vektör
+w=u+v                        # vektör toplama; u-v, 2u, a*u-v (a kaydırıcı)
+B=A+u                        # noktaya vektör ekleme
 DüzgünÇokgen((0,0),(2,0),6)  # düzgün altıgen
 Yay((0,0),(2,0),(0,2))       # merkez ve iki noktadan yay
 BirimÇember(30)              # birim çember, θ = 30° kaydırıcısıyla

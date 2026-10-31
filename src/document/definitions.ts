@@ -2,6 +2,7 @@ import { definitionNames } from '../commands/definition'
 import { evaluateNumericExpression } from '../commands/expressions'
 import type { PreparedCommand } from '../commands/prepare'
 import type { Command, NumberArgument } from '../commands/types'
+import { vectorCombination } from '../commands/vector-expressions'
 import type { GeometryDocumentObject, Parameter } from '../geometry/function-types'
 
 export type PrepareCommand = (command: Command) => PreparedCommand
@@ -102,6 +103,18 @@ function updateInPlace(object: GeometryDocumentObject, definition: Command, obje
   }
   if (object.type === 'unitCircle' && definition.kind === 'unitCircle') {
     object.angle = evaluate(definition.angle ?? 0, objects)
+    return true
+  }
+  if (definition.kind === 'vectorExpression') {
+    // Parameters changed the coefficients; the point or the helper at the tip keeps its place in the document.
+    const combination = vectorCombination(definition.expression, objects)
+    if (!combination) throw new Error('İfadede vektör bulunamadı.')
+    for (const point of objects) {
+      if (point.type !== 'point') continue
+      for (const constraint of point.onOther) {
+        if (constraint.type === 'vectorSum' && (point === object || constraint.ownerId === object.id)) constraint.terms = combination.terms
+      }
+    }
     return true
   }
   if (object.imageOf?.kind === 'rotate' && definition.kind === 'rotate') {

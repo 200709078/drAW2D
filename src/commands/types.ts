@@ -76,6 +76,10 @@ export type Command =
   | { kind: 'inequality'; left: string; operator: '<' | '<=' | '>' | '>='; right: string }
   /** The unit circle at O; its angle in degrees becomes a slider when typed as a number. */
   | { kind: 'unitCircle'; angle?: NumberArgument }
+  /** `u+v`, `2u`, `A+u`: a linear combination of vectors, read against the document. */
+  | { kind: 'vectorExpression'; name: string | null; expression: string }
+  /** `A=(1,2)` names a point, `u=(1,2)` gives a vector from the origin. */
+  | { kind: 'namedCoordinates'; name: string; a: NumberArgument; b: NumberArgument }
   /** `a=2` defines a slider; `b=a+1` a number that depends on other parameters. */
   | { kind: 'parameter'; name: string; value: NumberArgument }
 

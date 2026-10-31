@@ -18,6 +18,7 @@ import {
   parseFunctionExpression, parseTwoVariableExpression, resolveComposition,
 } from './expressions'
 import type { Command, NumberArgument, PointArgument } from './types'
+import { vectorCombination } from './vector-expressions'
 import { emptySection, mentions, parseCommand } from './parser'
 
 export interface CommandPreparationOptions {
@@ -258,6 +259,29 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
     point.visibility = false
     return point
   }
+  function freeName(name: string): string {
+    if (!PARAMETER_NAME.test(name) || isReservedName(name)) throw new Error(`Ad olarak kullanılamaz: ${name}`)
+    if (allObjects().some(object => object.name === name)) throw new Error(`Bu ad başka bir nesnede kullanılıyor: ${name}`)
+    return name
+  }
+  /** The vector or point an expression stands for, or null when it names no vector. */
+  function vectorResult(expression: string, name: string | null): GeometryDocumentObject | null {
+    const combination = vectorCombination(expression, allObjects())
+    if (!combination) return null
+    const preferred = name === null ? null : freeName(name)
+    const { point, first, terms } = combination
+    if (point) {
+      const moved = constructedPoint({ type: 'vectorSum', baseId: point.id, terms })
+      if (preferred !== null) moved.name = preferred
+      moved.vectorExpression = expression
+      return moved
+    }
+    const id = context.nextId()
+    // The result starts where the first vector starts, so the two are seen together.
+    const B = helperPoint({ type: 'vectorSum', baseId: first.A.id, terms, ownerId: id, pointIndex: 0 })
+    return add({ type: 'vector', name: preferred ?? context.createName('vector'), id, A: first.A, B, vectorExpression: expression,
+      color: options.randomColor(), visibility: true, size: 2, temp: false })
+  }
   function primeName(source: GeometryDocumentObject): string {
     const names = new Set(allObjects().map(object => object.name))
     const base = `${source.name}'`
@@ -341,8 +365,38 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         definition = point.definition ?? null
         break
       }
+      case 'namedCoordinates': {
+        const name = freeName(command.name)
+        const end: PointArgument = { kind: 'coordinates', a: command.a, b: command.b }
+        if (/^\p{Lu}/u.test(name)) {
+          const point = resolvePoint(end)
+          point.name = name
+          active = point
+          definition = point.definition ?? null
+          break
+        }
+        const A = resolvePoint({ kind: 'coordinates', a: 0, b: 0 }, true)
+        const B = resolvePoint(end)
+        if (Number(A.a) === Number(B.a) && Number(A.b) === Number(B.b)) throw new Error('Sıfır vektörü çizilemez.')
+        active = add({ type: 'vector', name, id: context.nextId(), A, B,
+          color: options.randomColor(), visibility: true, size: 2, temp: false })
+        break
+      }
+      case 'vectorExpression': {
+        const result = vectorResult(command.expression, command.name)
+        if (!result) throw new Error('İfadede vektör bulunamadı.')
+        active = result
+        definition = command
+        break
+      }
       case 'parameter': {
         const { name } = command
+        const vectors = typeof command.value === 'number' ? null : vectorResult(command.value.expression, name)
+        if (vectors && typeof command.value !== 'number') {
+          active = vectors
+          definition = { kind: 'vectorExpression', name, expression: command.value.expression }
+          break
+        }
         if (!PARAMETER_NAME.test(name) || isReservedName(name)) throw new Error(`Parametre adı olarak kullanılamaz: ${name}`)
         if (allObjects().some(object => object.name === name)) throw new Error(`Bu ad başka bir nesnede kullanılıyor: ${name}`)
         const start = value(command.value)
@@ -677,10 +731,12 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         definition = command
         break
       }
-      case 'function':
-        active = functionObject(command)
-        definition = command
+      case 'function': {
+        const vectors = vectorResult(command.expression, null)
+        active = vectors ?? functionObject(command)
+        definition = vectors ? { kind: 'vectorExpression', name: null, expression: command.expression } : command
         break
+      }
       case 'vector': {
         const A = resolvePoint(command.A)
         const B = resolvePoint(command.B)

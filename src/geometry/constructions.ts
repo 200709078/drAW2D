@@ -66,6 +66,20 @@ export function constructedLocation(constraint: PointConstraint, get: Lookup): N
       const to = pointOf(ends[1])
       return P && from && to ? finite({ a: P.a + (to.a - from.a), b: P.b + (to.b - from.b) }) : null
     }
+    case 'vectorSum': {
+      const base = pointOf(get(constraint.baseId))
+      if (!base) return null
+      const sum = { a: base.a, b: base.b }
+      for (const { vectorId, coefficient } of constraint.terms) {
+        const vector = get(vectorId)
+        const from = vector?.type === 'vector' ? pointOf(vector.A) : null
+        const to = vector?.type === 'vector' ? pointOf(vector.B) : null
+        if (!from || !to) return null
+        sum.a += coefficient * (to.a - from.a)
+        sum.b += coefficient * (to.b - from.b)
+      }
+      return finite(sum)
+    }
     case 'anchor': {
       const object = get(constraint.objectId)
       if (object && CIRCLE_TYPES.has(object.type)) {

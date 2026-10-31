@@ -40,9 +40,11 @@ function compatible(from: string, to: string): boolean {
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+const nameToken = (name: string) => new RegExp(`(?<![\\p{L}\\p{N}_'])${escapeRegExp(name)}(?![\\p{L}\\p{N}_'])`, 'gu')
+
 /** A copy of the command with every use of the name `from` replaced by `to`. */
 export function renameInCommand(command: Command, from: string, to: string): Command {
-  const token = new RegExp(`(?<![\\p{L}\\p{N}_'])${escapeRegExp(from)}(?![\\p{L}\\p{N}_'])`, 'gu')
+  const token = nameToken(from)
   const walk = (value: unknown, key: string): unknown => {
     if (Array.isArray(value)) return value.map(item => walk(item, key))
     if (typeof value === 'string') {
@@ -62,8 +64,10 @@ export function renameInCommand(command: Command, from: string, to: string): Com
 function rename(objects: readonly GeometryDocumentObject[], target: GeometryDocumentObject, name: string): void {
   const previous = target.name!
   target.name = name
+  const token = nameToken(previous)
   for (const object of objects) {
     if (object.definition) object.definition = renameInCommand(object.definition, previous, name)
+    if (object.vectorExpression) object.vectorExpression = object.vectorExpression.replace(token, name)
   }
   if (target.type === 'derivative') {
     target.func.name = name
@@ -76,13 +80,13 @@ function rename(objects: readonly GeometryDocumentObject[], target: GeometryDocu
 /** Points that exist only as parts of a construction: tangent touch points, the second intersection. */
 type BoundConstraint = Extract<PointConstraint, {
   type: 'circleTangentTouchPoint' | 'intersectLines' | 'analysisPoint' | 'midpoint' | 'lineHelper' | 'regularVertex'
-    | 'reflectPoint' | 'reflectLine' | 'rotate' | 'translate' | 'anchor'
+    | 'reflectPoint' | 'reflectLine' | 'rotate' | 'translate' | 'anchor' | 'vectorSum'
 }>
 
 /** Constraints of points that belong to another object through `ownerId`. */
 const OWNED = new Set<PointConstraint['type']>([
   'intersectLines', 'analysisPoint', 'midpoint', 'lineHelper', 'regularVertex', 'reflectPoint', 'reflectLine', 'rotate',
-  'translate', 'anchor',
+  'translate', 'anchor', 'vectorSum',
 ])
 
 function boundTo(object: GeometryDocumentObject, ownerId: ObjectId | null): BoundConstraint | null {

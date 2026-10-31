@@ -399,7 +399,13 @@ function parse(source: string): Command {
     // r = f(θ) is a polar curve; r = 2 stays a parameter.
     if (left === 'r' && mentions(right, 'θ')) return { kind: 'polar', expression: right, start: 0, end: 2 * Math.PI }
     if (mentions(left, 'x', 'y') || mentions(right, 'x', 'y')) return { kind: 'implicit', left, right }
-    if (identifier.test(left)) return { kind: 'parameter', name: left, value: numberArgument(right) }
+    if (identifier.test(left)) {
+      if (enclosed(right) && splitTopLevel(right.slice(1, -1)).length === 2) {
+        const point = pointArgument(right)
+        if (point.kind === 'coordinates') return { kind: 'namedCoordinates', name: left, a: point.a, b: point.b }
+      }
+      return { kind: 'parameter', name: left, value: numberArgument(right) }
+    }
     throw new Error('Denklem y veya x için yazılmalı.')
   }
   return { kind: 'function', expression: source }
