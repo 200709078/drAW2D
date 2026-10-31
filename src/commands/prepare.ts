@@ -8,9 +8,9 @@ import { getCircleTangentLines } from '../geometry/tangents'
 import { constructedLocation, isLineObject } from '../geometry/constructions'
 import type {
   AnalysisKind, GeometryCircle, GeometryPoint, ImageOf, LineConstructionKind, LineWithPoints, ObjectReference, PointConstraint,
-  TransformKind,
+  TransformKind, Vector,
 } from '../geometry/types'
-import type { FunctionSection, GeometryDocumentObject, Parameter } from '../geometry/function-types'
+import type { FunctionSection, GeometryDocumentObject, Parameter, VectorMeasure } from '../geometry/function-types'
 import { definitionNames } from './definition'
 import { createObjectName } from './names'
 import {
@@ -281,6 +281,15 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
     const B = helperPoint({ type: 'vectorSum', baseId: first.A.id, terms, ownerId: id, pointIndex: 0 })
     return add({ type: 'vector', name: preferred ?? context.createName('vector'), id, A: first.A, B, vectorExpression: expression,
       color: options.randomColor(), visibility: true, size: 2, temp: false })
+  }
+  /** A vector given by name, or an expression that is drawn as a new vector first. */
+  function vectorArgument(source: string): Vector {
+    const named = allObjects().find(object => object.name === source)
+    const object = named ?? vectorResult(source, null)
+    if (object?.type !== 'vector') throw new Error(`Bir vektör girin: ${source}`)
+    const definition: Command = { kind: 'vectorExpression', name: null, expression: source }
+    if (!named && definitionNames(definition, allObjects()).size > 0) object.definition = definition
+    return object
   }
   function primeName(source: GeometryDocumentObject): string {
     const names = new Set(allObjects().map(object => object.name))
@@ -786,6 +795,15 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         if (!LINE_MEASURED.has(object.type)) throw new Error(`Bir doğru girin: ${command.line}`)
         active = add({ type: 'slope', name: context.createName('measure'), id: context.nextId(), sourceId: object.id,
           color: options.randomColor(), visibility: true, size: 2, temp: false })
+        break
+      }
+      case 'vectorMeasure': {
+        const name = command.name === null ? context.createName(command.measure === 'angle' ? 'angle' : 'measure') : freeName(command.name)
+        // Added first: a vector drawn for an expression must not take the measure's name.
+        const measure: VectorMeasure = add({ type: 'vectorMeasure', measure: command.measure, name, id: context.nextId(), sourceIds: [],
+          color: options.randomColor(), visibility: true, size: 2, temp: false })
+        measure.sourceIds = command.vectors.map(source => vectorArgument(source).id)
+        active = measure
         break
       }
       case 'curve':

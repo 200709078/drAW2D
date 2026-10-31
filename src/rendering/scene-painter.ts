@@ -88,6 +88,7 @@ export function paintDocumentScene(frame: PainterFrame): void {
       case 'circularArc':
       case 'area':
       case 'slope':
+      case 'vectorMeasure':
         paintGeometryObject(frame, primitives, object)
         break
       case 'curve':

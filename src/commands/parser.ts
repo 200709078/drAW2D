@@ -119,6 +119,7 @@ function namedCommand(kind: NamedCommand, args: string[]): Command {
       requireCount(args, 2)
       return { kind, A: pointArgument(args[0]!), B: pointArgument(args[1]!) }
     case 'angle':
+      if (args.length === 2) return { kind: 'vectorMeasure', measure: 'angle', name: null, vectors: args }
       requireCount(args, 3)
       return { kind, A: pointArgument(args[0]!), B: pointArgument(args[1]!), C: pointArgument(args[2]!) }
     case 'reflect':
@@ -167,6 +168,12 @@ function namedCommand(kind: NamedCommand, args: string[]): Command {
     case 'slope':
       requireCount(args, 1)
       return { kind, line: reference(args[0]!) }
+    case 'length':
+      requireCount(args, 1)
+      return { kind: 'vectorMeasure', measure: 'length', name: null, vectors: args }
+    case 'dot':
+      requireCount(args, 2)
+      return { kind: 'vectorMeasure', measure: 'dot', name: null, vectors: args }
     case 'curve': {
       requireCount(args, 5)
       const variable = args[2]!
@@ -351,11 +358,21 @@ function equationSides(source: string): [string, string] | null {
   return [left, right]
 }
 
+const COMMAND_CALL = /^([\p{L}_][\p{L}\p{N}_]*)\s*\(/u
+
+/** `k=Uzunluk(u)`: a vector measure takes the name it is given. */
+function namedMeasure(name: string, source: string): Command | null {
+  const call = source.match(COMMAND_CALL)
+  if (!call || !commandName(call[1]!)) return null
+  const command = parse(source)
+  return command.kind === 'vectorMeasure' ? { ...command, name } : null
+}
+
 function parse(source: string): Command {
   if (!source) throw new Error('Bir komut veya matematik ifadesi girin.')
   // Validate the whole input before parsing a prefix or evaluating any numbers.
   splitTopLevel(source, ';')
-  const call = source.match(/^([\p{L}_][\p{L}\p{N}_]*)\s*\(/u)
+  const call = source.match(COMMAND_CALL)
   if (call) {
     const kind = commandName(call[1]!)
     if (kind) {
@@ -404,7 +421,7 @@ function parse(source: string): Command {
         const point = pointArgument(right)
         if (point.kind === 'coordinates') return { kind: 'namedCoordinates', name: left, a: point.a, b: point.b }
       }
-      return { kind: 'parameter', name: left, value: numberArgument(right) }
+      return namedMeasure(left, right) ?? { kind: 'parameter', name: left, value: numberArgument(right) }
     }
     throw new Error('Denklem y veya x için yazılmalı.')
   }

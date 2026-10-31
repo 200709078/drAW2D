@@ -6,9 +6,10 @@ import {
   getLineDescriptor,
   getPositiveArcMeasure,
   getProjectionOnLine,
+  normalizeDegree,
   numericPoint,
 } from '../geometry/primitives'
-import type { BasicGeometryObject, GeometryObject } from '../geometry/types'
+import type { BasicGeometryObject, GeometryObject, ObjectReference } from '../geometry/types'
 import type {
   ArcMeasure,
   CircleTangent,
@@ -24,8 +25,8 @@ import type {
   LineWithPoints,
   RadiusCircle,
 } from '../geometry/types'
-import type { AreaMeasure, EquationLine, SlopeMeasure, VerticalLine } from '../geometry/function-types'
-import { arcData, polygonArea, slopeOf } from '../geometry/constructions'
+import type { AreaMeasure, EquationLine, SlopeMeasure, VectorMeasure, VerticalLine } from '../geometry/function-types'
+import { arcData, polygonArea, slopeOf, vectorMeasureValue } from '../geometry/constructions'
 import { getCircleTangentLines } from '../geometry/tangents'
 import { formatDisplayNumber, formatMeasure } from '../math/format-display'
 import { lineDash } from './line-style'
@@ -356,11 +357,52 @@ function paintSlope(frame: PainterFrame, primitives: DrawingPrimitives, slope: S
     { color: style.color, align: 'left' })
 }
 
+/**
+ * A length beside its vector, across from the vector's name; an angle as an arc, where the
+ * two vectors start together. An inner product has no place on the plane: it stays on the card.
+ */
+function paintVectorMeasure(frame: PainterFrame, primitives: DrawingPrimitives, measure: VectorMeasure): void {
+  if (!measure.visibility || measure.measure === 'dot') return
+  const find = (id: ObjectReference | undefined) => frame.objects.find(object => object.id === id)
+  const value = vectorMeasureValue(measure, find)
+  const u = find(measure.sourceIds[0])
+  if (value === null || u?.type !== 'vector') return
+  const A = numericPoint(u.A)
+  const B = numericPoint(u.B)
+  if (!A || !B) return
+  if (measure.measure === 'length') {
+    const { transform } = frame
+    const ax = transform.xToPixel(A.a)
+    const ay = transform.yToPixel(A.b)
+    const bx = transform.xToPixel(B.a)
+    const by = transform.yToPixel(B.b)
+    const length = Math.hypot(bx - ax, by - ay)
+    if (!Number.isFinite(length) || length === 0) return
+    const nx = (by - ay) / length
+    const ny = (ax - bx) / length
+    primitives.textPixel((ax + bx) / 2 + nx * 14, (ay + by) / 2 + ny * 14, captioned(measure, formatMeasure(value)),
+      { color: color(measure), align: nx < 0 ? 'right' : 'left' })
+    return
+  }
+  const v = find(measure.sourceIds[1])
+  if (v?.type !== 'vector') return
+  const C = numericPoint(v.A)
+  const D = numericPoint(v.B)
+  if (!C || !D || Math.hypot(C.a - A.a, C.b - A.b) > 1e-9) return
+  const { angleBA, angleBC } = calculateAngle({ type: 'angle', A: B, B: A, C: D })
+  const start = normalizeDegree(angleBC - angleBA) <= 180 ? angleBA : angleBC
+  const style = stroke(frame, measure)
+  primitives.arc(A, 0.2, start, value, { color: style.color, width: style.width + 1 })
+  const middle = (start + value / 2) * Math.PI / 180
+  primitives.text({ a: A.a + 0.35 * Math.cos(middle), b: A.b + 0.35 * Math.sin(middle) },
+    captioned(measure, `${formatMeasure(value)}°`), { color: style.color })
+}
+
 /** Paint one persistent geometric object without reading document or DOM state. */
 export function paintGeometryObject(
   frame: PainterFrame,
   primitives: DrawingPrimitives,
-  object: BasicGeometryObject | VerticalLine | EquationLine | AreaMeasure | SlopeMeasure,
+  object: BasicGeometryObject | VerticalLine | EquationLine | AreaMeasure | SlopeMeasure | VectorMeasure,
 ): void {
   switch (object.type) {
     case 'point': paintPoint(frame, primitives, object); break
@@ -381,5 +423,6 @@ export function paintGeometryObject(
     case 'circularArc': paintCircularArc(frame, primitives, object); break
     case 'area': paintArea(frame, primitives, object); break
     case 'slope': paintSlope(frame, primitives, object); break
+    case 'vectorMeasure': paintVectorMeasure(frame, primitives, object); break
   }
 }

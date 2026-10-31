@@ -25,7 +25,7 @@ function sumKind(left: ValueKind, right: ValueKind, subtract: boolean): ValueKin
 
 function productKind(left: ValueKind, right: ValueKind): ValueKind {
   if (left === 'point' || right === 'point') throw new Error(POINT_ERROR)
-  if (left === 'vector' && right === 'vector') throw new Error('İki vektör çarpılamaz; bir vektör sayıyla çarpılır.')
+  if (left === 'vector' && right === 'vector') throw new Error('İki vektör doğrudan çarpılamaz; iç çarpım için İçÇarpım(u,v) yazın.')
   return left === 'vector' ? left : right
 }
 

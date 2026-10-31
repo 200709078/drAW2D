@@ -7,7 +7,7 @@ export type NamedCommand = 'circle' | 'line' | 'segment' | 'distance' | 'angle' 
   'intersect' | 'arc' | 'circleTangent' | 'sequence' | 'limit' | 'tangent' | 'tangentH' |
   'tangentX' | 'derivative' | 'composition' | 'piecewise' | 'root' | 'extremum' | 'inflection' | 'integral' |
   'midpoint' | 'ray' | 'perpendicular' | 'parallel' | 'bisector' | 'angleBisector' | 'polygon' | 'rotate' | 'translate' |
-  'asymptote' | 'vector' | 'regularPolygon' | 'circularArc' | 'area' | 'slope' | 'curve' | 'polar' | 'unitCircle'
+  'asymptote' | 'vector' | 'regularPolygon' | 'circularArc' | 'area' | 'slope' | 'length' | 'dot' | 'curve' | 'polar' | 'unitCircle'
 
 /** Display name first, then accepted aliases. Matching ignores case and diacritics. */
 export const COMMAND_NAMES: Readonly<Record<NamedCommand, readonly string[]>> = {
@@ -47,6 +47,8 @@ export const COMMAND_NAMES: Readonly<Record<NamedCommand, readonly string[]>> = 
   circularArc: ['Yay', 'CircularArc'],
   area: ['Alan', 'Area'],
   slope: ['Eğim', 'Slope'],
+  length: ['Uzunluk', 'Length'],
+  dot: ['İçÇarpım', 'Dot', 'DotProduct'],
   curve: ['Eğri', 'Curve'],
   polar: ['Kutupsal', 'Polar'],
   unitCircle: ['BirimÇember', 'UnitCircle'],
@@ -124,6 +126,9 @@ export const LANGUAGE: readonly LanguageEntry[] = [
   { topic: 'Vektör', syntax: 'Bileşenlerle: u = (x, y)', examples: ['u=(3,2)'] },
   { topic: 'Vektör', syntax: 'İşlemler: toplama, çıkarma, sayıyla çarpma', examples: ['w=u+v', 'u-v', '2u', 'a*u-v'] },
   { topic: 'Vektör', syntax: 'Noktaya ekleme: <Nokta> + <Vektör>', examples: ['B=A+u'] },
+  { topic: 'Vektör', syntax: 'Uzunluk(<Vektör>)', command: 'length', examples: ['Uzunluk(u)', 'k=Uzunluk(u+v)'] },
+  { topic: 'Vektör', syntax: 'İçÇarpım(<Vektör>, <Vektör>)', command: 'dot', examples: ['İçÇarpım(u,v)'] },
+  { topic: 'Vektör', syntax: 'Açı(<Vektör>, <Vektör>)', command: 'angle', examples: ['Açı(u,v)'] },
   { topic: 'Doğru Parçası', syntax: 'DoğruParçası(<Nokta>, <Nokta>)', command: 'segment', examples: ['DoğruParçası((-2,1),(-1,2))'] },
   { topic: 'Doğru Parçası', syntax: 'Uzaklık(<Nokta>, <Nokta>)', command: 'distance', examples: ['Uzaklık((-2,1),(-1,2))'] },
   { topic: 'Çember', syntax: 'Çember(<Merkez>, <Yarıçap>)', command: 'circle', examples: ['Çember((-1,2),1)'] },

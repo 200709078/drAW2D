@@ -713,7 +713,7 @@ test yeni değerlere çekildi, keskin konuma bağlı 2 `rendering` testi anahtar
 Masaüstü ve telefon boyutunda ekran görüntüleriyle bakıldı. Gerçek tahtada denenmedi.
 
 
-## Vektör işlemleri (istek 2026-10-31; 1. aşama uygulandı)
+## Vektör işlemleri (istek 2026-10-31; 1. ve 2. aşama uygulandı)
 
 **Kullanıcı isteği:** Vektörlerle işlem yapılabilsin. **Kararlar (kullanıcı, 2026-10-31, "önerilerin hepsi uygun"):**
 üç aşama sırayla, her aşamadan sonra kullanıcı dener; sonuç vektörü ilk yazılan vektörün başlangıcından çıkar;
@@ -734,6 +734,20 @@ Masaüstü ve telefon boyutunda ekran görüntüleriyle bakıldı. Gerçek tahta
   `function`/`parameter` olarak gelir, içinde vektör adı varsa vektör ifadesidir. `e` gibi ayrılmış adlı vektör sabit sayılır.
 - Yardıma üç satır eklendi. `tests/vector-operations.spec.ts` (13 test); bütün testler geçti; ekranda bakıldı. Gerçek tahtada denenmedi.
 
-**2. aşama (bekliyor):** `Uzunluk(u)`, `İçÇarpım(u,v)`, `Açı(u,v)`; kartta değer, canlı.
+**2. aşama, uygulandı (2026-10-31):** Ölçümler.
+- `Uzunluk(u)` (`Length`), `İçÇarpım(u,v)` (`Dot`, `DotProduct`), `Açı(u,v)` (`Angle`). Ad verilebilir: `k=Uzunluk(u)`. Ad
+  verilmezse uzunluk ve iç çarpım sıradaki harfi, açı `α`, `β`... alır. Üç noktalı `Açı(A,B,C)` eskisi gibi çalışır.
+- Tek nesne türü: `vectorMeasure` (`measure`, `sourceIds`). Değer saklanmaz, Alan ve Eğim gibi gösterildiği yerde hesaplanır
+  (`constructions.ts` `vectorMeasureValue`), bu yüzden uç sürüklenince ve kaydırıcıyla canlı değişir.
+- Açı 0° ile 180° arasındadır, sıra sonucu değiştirmez (`Açı(u,v)` = `Açı(v,u)`). Sıfır vektöründe açı tanımsızdır (kartta
+  boş), uzunluk ve iç çarpım 0'dır.
+- Argüman ifade olabilir: `Uzunluk(u+v)`, `İçÇarpım(u+v,u-v)`. İfade önce vektör olarak çizilir (`Kök(x^2-4)` gibi); ölçümün
+  kendi adı ara vektörden önce ayrılır. `Uzunluk(u')` gibi görüntü vektörleri de ölçülür.
+- Düzlemde: uzunluk vektörün yanında, adının karşı tarafında; açı yay ve değerle, yalnız iki vektör aynı noktadan başlıyorsa;
+  iç çarpım yalnız kartta (görünüm ayarı yoktur). Başlangıçları ayrı vektörlerde açı kartta kalır.
+- Vektör silinince ölçümü de silinir, ad değişince kart izler, kart düzenlenir, `.drw2`'ye yazılır. `u*v` hatası artık
+  `İçÇarpım(u,v)` yazımını önerir.
+- Ölçüm sonucu başka ifadede sayı olarak kullanılamaz (`u/Uzunluk(u)` ile birim vektör, `2k` olmaz); Alan ve Eğim de öyledir.
+- `tests/vector-operations.spec.ts`: 10 test daha (toplam 23); bütün testler geçti; ekranda bakıldı. Gerçek tahtada denenmedi.
 
 **3. aşama (bekliyor):** Araç çubuğunda Vektör Topla / Çıkar / Sayıyla Çarp; uç uca ve paralelkenar gösterimi (kesikli).

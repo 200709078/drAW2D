@@ -34,6 +34,7 @@ Bütün sürümler, kurulum adımları ve SHA-256 değerleri: [Releases](https:/
 - **Kartlar**: değeri olmayan nesnenin kartı tek satırdır; değeri tanımından farklı olanlarda üst satır ad ve değerdir (`f: y = 2x+1`), tanım (`f: y = a*x+1`) kart seçiliyken altta görünür.
 - **Görünüm ayarları**: seçili kartın palet düğmesi renk, kalınlık/boyut, çizgi stili (düz, kesikli, noktalı), etiket ve iz bırakma ayarlarını açar. Noktalar, doğrular, çemberler, çokgenler ve fonksiyon grafikleri iz bırakır.
 - **Bütün nesneyi sürükleme**: serbest noktalardan kurulan doğru, doğru parçası, ışın, vektör, çember, yay, açı ve çokgen sürüklenince bütün olarak taşınır; denklemle verilmiş doğru denklemi değişerek kayar, kendi başına bir fonksiyon grafiği `f(x − a) + b` olarak ötelenir.
+- **Vektör ölçümleri**: `Uzunluk(u)`, `İçÇarpım(u,v)`, `Açı(u,v)` değeri kartta canlı gösterir; uzunluk vektörün yanına, aynı noktadan başlayan vektörlerde açı yay olarak düzleme çizilir.
 - **Vektör işlemleri**: `w=u+v`, `u-v`, `2u`, `a*u-v` canlı bir sonuç vektörü çizer; `u=(3,2)` orijinden vektör, `B=A+u`
   ötelenmiş nokta verir.
 - **Karelere yapıştırma**: serbest noktalar koyulurken ve sürüklenirken en yakın küçük kare köşesine yapışır; adım
@@ -71,6 +72,9 @@ Eğri(cos(t), sin(t), t, 0, 2π)  # parametrik eğri
 r=2sin(3θ)                   # kutupsal grafik
 y<x^2                        # eşitsizlik bölgesi
 Vektör((0,0),(3,2))          # vektör
+Uzunluk(u)                   # vektörün uzunluğu
+İçÇarpım(u,v)                # iç çarpım
+Açı(u,v)                     # iki vektör arasındaki açı (0°–180°)
 u=(3,2)                      # orijinden vektör
 w=u+v                        # vektör toplama; u-v, 2u, a*u-v (a kaydırıcı)
 B=A+u                        # noktaya vektör ekleme

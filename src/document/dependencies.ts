@@ -60,6 +60,7 @@ export function directReferences(object: GeometryDocumentObject): ObjectId[] {
   if (object.type === 'integral' || object.type === 'asymptote' || object.type === 'area' || object.type === 'slope') {
     references.push(object.sourceId)
   }
+  if (object.type === 'vectorMeasure') references.push(...object.sourceIds)
   if (object.type === 'polygon') references.push(...object.points.map(point => point.id))
   if (object.imageOf) references.push(object.imageOf.sourceId, ...object.imageOf.refs)
   for (const key of ['A', 'B', 'C', 'M', 'circle'] as const) {

@@ -1,4 +1,4 @@
-import type { GeometryDocumentObject } from './function-types'
+import type { GeometryDocumentObject, VectorMeasure } from './function-types'
 import {
   getCircleDescriptor, getLineDescriptor, getReflectedPoint, normalizeDegree, numericPoint, type NumericPoint, type PointLike,
 } from './primitives'
@@ -178,4 +178,24 @@ export function slopeOf(object: GeometryDocumentObject | undefined): number | nu
   const line = lineDirection(object)
   if (!line || Math.abs(line.direction.a) < 1e-12) return null
   return line.direction.b / line.direction.a
+}
+
+function vectorComponents(object: GeometryDocumentObject | undefined): NumericPoint | null {
+  if (object?.type !== 'vector') return null
+  const A = numericPoint(object.A)
+  const B = numericPoint(object.B)
+  return A && B ? { a: B.a - A.a, b: B.b - A.b } : null
+}
+
+/** A length, an inner product or an angle in degrees between 0 and 180; null while undefined. */
+export function vectorMeasureValue(item: VectorMeasure, get: Lookup): number | null {
+  const [u, v] = item.sourceIds.map(id => vectorComponents(get(id)))
+  if (!u) return null
+  if (item.measure === 'length') return Math.hypot(u.a, u.b)
+  if (!v) return null
+  const dot = u.a * v.a + u.b * v.b
+  if (item.measure === 'dot') return dot
+  // A zero vector has no direction.
+  if (!Math.hypot(u.a, u.b) || !Math.hypot(v.a, v.b)) return null
+  return Math.abs(Math.atan2(u.a * v.b - u.b * v.a, dot)) * 180 / Math.PI
 }

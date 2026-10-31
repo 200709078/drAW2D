@@ -137,6 +137,14 @@ export interface SlopeMeasure extends GeometryObject<'slope'> {
   sourceId: ObjectReference
 }
 
+export type VectorMeasureKind = 'length' | 'dot' | 'angle'
+
+/** The length of a vector, or the inner product or angle of two; its value is computed. */
+export interface VectorMeasure extends GeometryObject<'vectorMeasure'> {
+  measure: VectorMeasureKind
+  sourceIds: ObjectReference[]
+}
+
 /**
  * A parametric curve (x(t), y(t)) for t in [start, end]. The expressions are stored in
  * x, the typed variable is only for display. A polar curve r(θ) keeps its r in `polar`.
@@ -203,6 +211,7 @@ export type FunctionGeometryObject =
   | Asymptote
   | AreaMeasure
   | SlopeMeasure
+  | VectorMeasure
   | ParametricCurve
   | ImplicitCurve
   | Inequality

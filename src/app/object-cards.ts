@@ -1,10 +1,10 @@
 import { pointConstraint } from '../document/dependencies'
 import type { NumberArgument } from '../commands/types'
 import { asymptotesOf, curveOf, definiteIntegral } from '../geometry/analysis'
-import { arcData, polygonArea, slopeOf } from '../geometry/constructions'
+import { arcData, polygonArea, slopeOf, vectorMeasureValue } from '../geometry/constructions'
 import type {
   Asymptote, GeometryDocumentObject, Inequality, Integral, Parameter, ParametricCurve, Tangent, TangentHX, UnitCircle,
-  UnitCirclePart,
+  UnitCirclePart, VectorMeasure,
 } from '../geometry/function-types'
 import { angleText, exactTrig, TRIG_FUNCTIONS, trigValue, UNIT_CIRCLE_PARTS, type TrigFunction } from '../geometry/unit-circle'
 import {
@@ -219,6 +219,11 @@ function areaValue(item: GeometryDocumentObject | undefined): number | null {
   }
   return null
 }
+
+const VECTOR_MEASURES = { length: 'Uzunluk', dot: 'İçÇarpım', angle: 'Açı' } as const
+
+const vectorMeasureCall = (item: VectorMeasure, nameOf: (id: ObjectId | null) => string) =>
+  `${VECTOR_MEASURES[item.measure]}(${item.sourceIds.map(nameOf).join(',')})`
 
 function asymptoteLines(item: Asymptote, objects: readonly GeometryDocumentObject[]): string[] {
   const source = objects.find(object => object.id === item.sourceId)
@@ -485,6 +490,11 @@ function describeValues(item: GeometryDocumentObject, context: CardContext): Car
       const value = slopeOf(objects.find(object => object.id === item.sourceId))
       return card(`${item.name} = Eğim(${nameOf(item.sourceId)})`, `${item.name} = ${value === null ? EMPTY : formatMeasure(value)}`)
     }
+    case 'vectorMeasure': {
+      const value = vectorMeasureValue(item, id => objects.find(object => object.id === id))
+      return card(`${item.name} = ${vectorMeasureCall(item, nameOf)}`,
+        `${item.name} = ${value === null ? EMPTY : `${formatMeasure(value)}${item.measure === 'angle' ? '°' : ''}`}`)
+    }
     case 'asymptote':
       return card(`${item.name}: Asimptot(${nameOf(item.sourceId)})`, asymptoteLines(item, objects))
     case 'curve':
@@ -594,6 +604,8 @@ export function editText(item: GeometryDocumentObject, context: CardContext): st
       return `${name} = Alan(${nameOf(item.sourceId)})`
     case 'slope':
       return `${name} = Eğim(${nameOf(item.sourceId)})`
+    case 'vectorMeasure':
+      return `${name} = ${vectorMeasureCall(item, nameOf)}`
     case 'asymptote': {
       const range = definition?.kind === 'asymptote'
         ? `${typed(definition.start, item.start)},${typed(definition.end, item.end)}` : `${item.start},${item.end}`
@@ -623,7 +635,7 @@ const STROKED = new Set<ObjectType>([
 const LABELLED = new Set<ObjectType>([
   'point', 'circleR', 'circle2', 'circle3', 'angle', 'arcMeasure', 'lineWithEquation', 'lineWithPoints',
   'lineSegment', 'distanceSegment', 'circleTangent', 'verLine', 'ray', 'polygon', 'sequence', 'tangent', 'tangentHX',
-  'vector', 'circularArc', 'area', 'slope', 'curve', 'implicit', 'inequality', 'unitCircle',
+  'vector', 'circularArc', 'area', 'slope', 'vectorMeasure', 'curve', 'implicit', 'inequality', 'unitCircle',
 ])
 
 /** The boundary of an inequality is solid or dashed by its operator, so only its width is offered. */
@@ -634,7 +646,7 @@ const STROKE_SIZE = { min: 1, max: 8, caption: 'Kalınlık' }
 
 /** What the appearance settings of a card show; null for objects that are not drawn. */
 export function styleSpec(item: GeometryDocumentObject): StyleSpec | null {
-  if (item.type === 'parameter') return null
+  if (item.type === 'parameter' || (item.type === 'vectorMeasure' && item.measure === 'dot')) return null
   const sized = item.type === 'point' || item.type === 'sequence' || STROKED.has(item.type) || SIZED_ONLY.has(item.type)
   return {
     color: item.color,

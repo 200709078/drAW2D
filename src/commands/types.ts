@@ -1,3 +1,5 @@
+import type { VectorMeasureKind } from '../geometry/function-types'
+
 /**
  * A number as typed: a constant evaluated by the parser, or an expression naming
  * parameters, which only the document can evaluate.
@@ -67,6 +69,8 @@ export type Command =
   | { kind: 'circularArc'; center: PointArgument; A: PointArgument; B: PointArgument }
   | { kind: 'area'; object: string }
   | { kind: 'slope'; line: string }
+  /** `vectors` are names or expressions; preparation draws an expression as a new vector first. */
+  | { kind: 'vectorMeasure'; measure: VectorMeasureKind; name: string | null; vectors: string[] }
   /** (x(t), y(t)) for the named variable from start to end. */
   | { kind: 'curve'; x: string; y: string; variable: string; start: NumberArgument; end: NumberArgument }
   /** r(θ) from start to end. */

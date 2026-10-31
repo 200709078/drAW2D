@@ -299,3 +299,5 @@ mıknatıs düğmesi ve tercihin sayfa yenilenince korunması. Keskin konuma ba�
 sonucun canlılığı, sürüklenmemesi ve ilk vektörün başlangıcından çıkması, kaydırıcılı katsayı, zincirleme kullanım, sıfır
 vektörü, noktaya vektör ekleme, anlamsız işlemlerin mesajları, silme ve geri alma, kart düzenleme, yeniden adlandırma,
 otomatik kayıttan dönüş.
+Ölçümlerde `Uzunluk`, `İçÇarpım`, `Açı(u,v)` yazımları, dik, zıt ve aynı yönlü vektörlerde değerler, sıfır vektörü, sürükleme ve
+kaydırıcıyla canlı değişim, ifade argümanı (`Uzunluk(u+v)`), düzlemdeki çizim (görüntü karşılaştırması) ve hata mesajları sınanır.
