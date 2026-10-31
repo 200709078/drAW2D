@@ -711,3 +711,17 @@ yapışır; fare, kalem ve parmakta çalışır; varsayılan açıktır; düğme
 sürükleme, titreme, anahtar, kalıcılık); parmak `touch-integration` ve `toolbar` testlerinde. Tam koordinat bekleyen 8
 test yeni değerlere çekildi, keskin konuma bağlı 2 `rendering` testi anahtar kapalı çalışır. Bütün testler (319) geçti.
 Masaüstü ve telefon boyutunda ekran görüntüleriyle bakıldı. Gerçek tahtada denenmedi.
+
+
+## Vektör işlemleri (istek, 2026-10-31, kodlanmadı)
+
+**Kullanıcı isteği:** Vektörlerle işlem yapılabilsin; önce nasıl yapılacağı kararlaştırılacak.
+
+**Bugünkü durum:** `Vektör(A,B)`, kartta bileşenler ve `Ötele(nesne, vektör)` var. `u+v`, `w=u+v`, `2u`, `u=(3,2)`,
+`Uzunluk(u)`, `Açı(u,v)` yazımlarının hiçbiri nesne oluşturmuyor (denendi).
+
+**Öneri (aşamalı):** (1) yazıyla doğrusal birleşim (`w=u+v`, `u-v`, `2u`, `a*u-v`), canlı sonuç vektörü; (2) sayısal
+sonuçlar: uzunluk, iç çarpım, açı; (3) araç çubuğu ve uç uca / paralelkenar gösterimi. Sonuç vektörü mevcut görüntü
+nesneleri gibi gizli yardımcı noktalarla kurulur, sürüklenmez.
+
+**Karar bekleyenler:** sonucun başlangıç noktası; kapsam; aşama sırası; `u=(3,2)` yazımı; `A+u` yazımı; adlandırma.
