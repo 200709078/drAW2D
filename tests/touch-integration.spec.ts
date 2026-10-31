@@ -55,7 +55,7 @@ test('dar ekranda panel gizli başlar, başlangıç noktası ortadadır ve panel
   await selectTool(page, 'point')
   await page.touchscreen.tap(195 + 100, 422 - 50)
   await showPanel(page)
-  await expect(cardInputs(page)).toHaveValue('A=(1,0.50)')
+  await expect(cardInputs(page)).toHaveValue('A=(1,0.60)')
 
   // Wait for the slide-in transition to finish before measuring.
   await expect.poll(async () => {
@@ -101,7 +101,7 @@ test('iki parmak orta noktanın altındaki noktayı tutarak yakınlaştırır ve
   await selectTool(page, 'point')
   await page.touchscreen.tap(215 + 100, 402 - 50)
   await showPanel(page)
-  await expect(cardInputs(page)).toHaveValue('A=(0.50,0.25)')
+  await expect(cardInputs(page)).toHaveValue('A=(0.50,0.20)')
   await openHistoryControls(page)
   await expect(page.locator('#undo')).toBeEnabled()
   await page.locator('#undo').click()

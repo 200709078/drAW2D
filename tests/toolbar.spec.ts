@@ -88,6 +88,6 @@ test.describe('dar ekran', () => {
     await page.touchscreen.tap(195 + 100, 200)
     await page.locator('#tabAlgebra').click()
     await expect(page.locator('#scrollWrapper')).toBeVisible()
-    await expect(page.locator('#objectsContainer .expr-block input[readonly]')).toHaveValue('A=(1,2.22)')
+    await expect(page.locator('#objectsContainer .expr-block input[readonly]')).toHaveValue('A=(1,2.20)')
   })
 })

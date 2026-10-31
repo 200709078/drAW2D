@@ -685,14 +685,29 @@ denenir:
    bağı, paket davranışı) ve sürüm öncesi son kontrol.
 
 
-## Noktayı küçük karelere yapıştırma (istek, 2026-10-31, kodlanmadı)
+## Noktayı küçük karelere yapıştırma (istek ve uygulama, 2026-10-31)
 
-**Kullanıcı isteği:** Fareyle nokta seçerken nokta, koordinat düzlemindeki küçük karelere yapışsın; tam
-sayıya değil. Şu an serbest nokta fare neredeyse oraya konur, yapışma yok (`pointCandidate`, `src/app/tools.ts`).
+**Kullanıcı isteği:** Nokta seçerken nokta, koordinat düzlemindeki küçük karelere yapışsın; tam sayıya değil.
+Kullanıcı kararları: her zaman yapışır (yalnız yakınken değil); açılıp kapanır; anahtar açıksa sürüklerken de
+yapışır; fare, kalem ve parmakta çalışır; varsayılan açıktır; düğmenin simgesi mıknatıstır.
 
-**Öneri:** Yapışma ekrandaki ara ızgara çizgilerinin kesişimine olur; adım `coordinate-grid.ts`'teki ara adımdır
-(büyük adım / 5, yakınlaştırmayla değişir, x ve y ayrı). Yalnız serbest nokta yapışır: var olan nokta ve nesne
-üzerindeki nokta önceliğini korur. Açma/kapama düğmesi olur; eski dosyalardaki noktalar yerinden oynamaz.
+**Uygulama:**
+- Nokta, ekranda çizili ince çizgilerin en yakın kesişimine gelir. Adım ızgaranın kendi ara adımıdır (büyük
+  aralık / 5; `coordinate-grid.ts` `snapToGrid`, çizimle aynı hesap): yakınlaştırınca incelir, x ve y ayrı
+  hesaplanır, π birimli x ekseninde π'nin katlarıdır. Değerler kayan nokta gürültüsü taşımaz (1,4; 1,4000…1 değil).
+- Yalnız serbest nokta yapışır. Var olan nokta seçilir; nesne üzerine konan nokta nesnede kalır. Köşede zaten bir
+  nokta varsa (yakalama sınırının dışında olsa da) yenisi açılmaz, o kullanılır. Araçların aldığı noktalar ve
+  önizlemeleri aynı yoldan geçer (`pointCandidate`, `ToolInput.grid`).
+- Sürükleme: serbest nokta köşeye oturur; şekil sürüklenirken yakalanan yere en yakın tanım noktası oturur, şekil
+  onunla kayar, boyu bozulmaz. Denklemli doğru ve grafik tam kare adımlarla kayar. Nesneye bağlı nokta ve birim
+  çemberin A'sı değişmez (`ObjectDrag.anchor`).
+- Seçerken titreyen el: kareye oturmamış eski bir nokta tıklanınca oynamasın diye basılan yerden 3 piksel (parmakta
+  8) uzaklaşılana kadar sürükleme başlamaz. Başlangıca dönülünce nokta eski kesin değerine döner.
+- Mıknatıs düğmesi (`#gridSnap`, "Karelere Yapıştır", `public/img/magnet.svg`) Yinele'nin yanındadır; açıkken mavi ve
+  vurguludur, basınca kısa bir bildirim çıkar. Tercih cihaza aittir (`drAW2D.gridSnap`, localStorage), dosyaya
+  yazılmaz. Dar çubukta en son "⋯" menüsüne geçer, orada işaretli görünür. Eski dosyalardaki noktalar kaymaz.
 
-**Karar bekleyenler:** köşe mi kare ortası mı; her zaman mı, yalnız yakınken mi; sürüklemede de yapışsın mı;
-dokunmatikte de geçerli mi; varsayılan açık mı.
+**Doğrulama:** `tests/grid-snap.spec.ts` (14 test: hesap, fare, kalem, köşedeki nokta, nesne üzerindeki nokta, araçlar,
+sürükleme, titreme, anahtar, kalıcılık); parmak `touch-integration` ve `toolbar` testlerinde. Tam koordinat bekleyen 8
+test yeni değerlere çekildi, keskin konuma bağlı 2 `rendering` testi anahtar kapalı çalışır. Bütün testler (319) geçti.
+Masaüstü ve telefon boyutunda ekran görüntüleriyle bakıldı. Gerçek tahtada denenmedi.

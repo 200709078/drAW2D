@@ -271,6 +271,8 @@ function createOverflow(
   const groupWrappers = new Map(groups.map(({ group }) => [group.id, faces.get(group.id)!.button.parentElement!]))
   const moved = { actions: [] as HTMLButtonElement[], groups: [] as ToolGroupId[] }
   const menuItems = new Map<ToolAction, HTMLButtonElement>()
+  /** On/off actions in the menu, which show their state each time it opens. */
+  const toggles = new Map<HTMLButtonElement, HTMLButtonElement>()
 
   const setOpen = (open: boolean) => {
     menu.hidden = !open
@@ -279,6 +281,7 @@ function createOverflow(
   button.addEventListener('click', () => {
     const opening = menu.hidden === true
     closeToolMenus()
+    for (const [action, item] of toggles) item.setAttribute('aria-checked', action.getAttribute('aria-pressed')!)
     setOpen(opening)
   })
 
@@ -309,8 +312,14 @@ function createOverflow(
   const buildMenu = () => {
     menu.replaceChildren()
     menuItems.clear()
+    toggles.clear()
     for (const action of moved.actions) {
-      menu.append(menuEntry(action.querySelector('img'), action.title, () => action.click()))
+      const item = menuEntry(action.querySelector('img'), action.title, () => action.click())
+      if (action.hasAttribute('aria-pressed')) {
+        item.setAttribute('role', 'menuitemcheckbox')
+        toggles.set(action, item)
+      }
+      menu.append(item)
     }
     for (const { group, tools } of groups) {
       if (!moved.groups.includes(group.id)) continue

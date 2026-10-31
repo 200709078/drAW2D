@@ -30,6 +30,8 @@ export interface ToolServices {
 
 export interface ToolInput {
   position: NumericPoint
+  /** With grid snapping on: where a free point goes, and the point already standing there. */
+  grid?: { position: NumericPoint; point: GeometryPoint | null }
   hit: Hit | null
 }
 
@@ -193,6 +195,7 @@ export function pointCandidate(input: ToolInput): PointCandidate {
     const y = curve?.kind === 'graph' ? curve.evaluate(a) : null
     if (y !== null) return { position: { a, b: y }, constraint: { type: 'onFunction', functionId: object.id } }
   }
+  if (input.grid) return input.grid.point ? { existing: input.grid.point } : { position: input.grid.position }
   return { position }
 }
 

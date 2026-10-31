@@ -87,6 +87,14 @@ interface Tick {
   major: boolean;
 }
 
+/** The labelled interval of an axis, in grid-unit coefficients; the small squares divide it. */
+function majorStep(minimum: number, scale: number, extent: number): number {
+  const span = extent / scale;
+  // The precision floor keeps integer tick indices representable even after extreme panning.
+  const precisionFloor = Math.abs(minimum) * Number.EPSILON * 8;
+  return niceStep(Math.max(MIN_MAJOR_SPACING / scale, span / MAX_MAJOR_TICKS, precisionFloor));
+}
+
 function planTicks(
   minimum: number,
   scale: number,
@@ -99,9 +107,7 @@ function planTicks(
     return { step: 0, ticks: [] };
   }
 
-  // The precision floor keeps integer tick indices representable even after extreme panning.
-  const precisionFloor = Math.abs(minimum) * Number.EPSILON * 8;
-  const step = niceStep(Math.max(MIN_MAJOR_SPACING / scale, span / MAX_MAJOR_TICKS, precisionFloor));
+  const step = majorStep(minimum, scale, extent);
   const minorStep = step / SUBDIVISIONS;
   if (!Number.isFinite(minorStep) || minorStep <= 0) return { step: 0, ticks: [] };
 
@@ -121,6 +127,25 @@ function planTicks(
     }
   }
   return { step, ticks };
+}
+
+function snapAxis(value: number, minimum: number, scale: number, extent: number, unit: number): number {
+  const minorStep = majorStep(minimum, scale, extent) / SUBDIVISIONS;
+  const index = Math.round(value / unit / minorStep);
+  if (!(minorStep > 0) || !Number.isSafeInteger(index)) return value;
+  const step = minorStep * unit;
+  // Enough digits for π steps, few enough to drop the float noise of 7 × 0.2.
+  const snapped = Number((index * step).toFixed(clamp(12 - Math.floor(Math.log10(step)), 0, 15)));
+  return snapped === 0 ? 0 : snapped;
+}
+
+/** The corner of the small squares nearest to `point`, as drawn for this view. */
+export function snapToGrid(view: GridViewport, point: { a: number; b: number }): { a: number; b: number } {
+  if (!validViewport(view)) return { a: point.a, b: point.b };
+  return {
+    a: snapAxis(point.a, view.minX, view.scaleY, view.width, view.unitY),
+    b: snapAxis(point.b, view.minY, view.scaleX, view.height, view.unitX),
+  };
 }
 
 /** Pure, bounded work: create visible grid lines and mathematical tick labels. */

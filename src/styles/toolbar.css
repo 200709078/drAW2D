@@ -100,6 +100,16 @@ body {
   filter: grayscale(1) brightness(0.45);
 }
 
+.toolbar-button[aria-pressed="true"],
+.more-menu .tool-menu-item[aria-checked="true"] {
+  background: var(--toolbar-active);
+  border-color: var(--toolbar-active-border);
+}
+
+.toolbar-button[aria-pressed="true"] img {
+  filter: none;
+}
+
 .toolbar-button:disabled {
   cursor: default;
   opacity: 0.35;

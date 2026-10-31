@@ -21,6 +21,8 @@ type DraggedLine =
 /** A drag that translates a point, or a whole object through its free defining points. */
 export interface ObjectDrag {
   cursor: NumericPoint
+  /** Grid snapping puts this on a corner and moves the rest along; null when the drag does not snap. */
+  anchor: NumericPoint | null
   points: DraggedPoint[]
   line: DraggedLine | null
   /** A graph's offset is rounded to this step, so its equation stays readable. */
@@ -28,6 +30,9 @@ export interface ObjectDrag {
   /** A unit circle's A turns its angle parameter. */
   angle?: { parameter: Parameter; raw: number }
 }
+
+/** Lines and graphs have no point to snap: their offset moves in whole squares. */
+const UNSHIFTED: NumericPoint = { a: 0, b: 0 }
 
 /** `value` on the grid of `step`, without float noise in its decimal digits. */
 function rounded(value: number, step: number): number {
@@ -92,42 +97,51 @@ export function beginObjectDrag(object: GeometryDocumentObject, objects: readonl
     const parameter = object.show?.includes('A') ? unitCircleParameter(object, objects) : null
     const A = unitPoint(object.angle)
     if (!parameter || Math.hypot(cursor.a - A.a, cursor.b - A.b) > grab) return null
-    return { cursor, points: [], line: null, precision, angle: { parameter, raw: parameter.value } }
+    return { cursor, anchor: null, points: [], line: null, precision, angle: { parameter, raw: parameter.value } }
   }
   const dragged = (points: readonly GeometryPoint[]): ObjectDrag | null => {
     const unique = [...new Set(points)]
     if (!unique.length || !unique.every(isFreePoint)) return null
-    return {
-      cursor,
-      points: unique.map(point => ({ point, origin: numericPoint(point)!, raw: { a: point.a, b: point.b } })),
-      line: null,
-      precision,
-    }
+    const moved = unique.map(point => ({ point, origin: numericPoint(point)!, raw: { a: point.a, b: point.b } }))
+    const distance = ({ origin }: DraggedPoint) => Math.hypot(origin.a - cursor.a, origin.b - cursor.b)
+    const nearest = moved.reduce((best, item) => (distance(item) < distance(best) ? item : best))
+    return { cursor, anchor: nearest.origin, points: moved, line: null, precision }
   }
   // A point bound to a line, circle or graph slides along it; constraint resolution keeps it there.
   if (object.type === 'point') {
     const origin = isDerivedPoint(object) ? null : numericPoint(object)
-    return origin ? { cursor, points: [{ point: object, origin, raw: { a: object.a, b: object.b } }], line: null, precision } : null
+    if (!origin) return null
+    // A bound point stays on its object, so only a free one takes the grid.
+    return { cursor, anchor: isFreePoint(object) ? origin : null, points: [{ point: object, origin, raw: { a: object.a, b: object.b } }], line: null, precision }
   }
   // Lines given by an equation that depends on nothing else.
   if (object.type === 'lineWithEquation' && !object.definition) {
     const { n, func, startX, endX } = object
-    return { cursor, points: [], line: { object, raw: { n, func, startX, endX } }, precision }
+    return { cursor, anchor: UNSHIFTED, points: [], line: { object, raw: { n, func, startX, endX } }, precision }
   }
-  if (object.type === 'verLine' && !object.definition) return { cursor, points: [], line: { object, raw: { x: object.x } }, precision }
+  if (object.type === 'verLine' && !object.definition) return { cursor, anchor: UNSHIFTED, points: [], line: { object, raw: { x: object.x } }, precision }
   // A graph of its own (not built on parameters or other functions) moves as f(x − dx) + dy.
   if (object.type === 'function' && !object.definition) {
-    return { cursor, points: [], line: { object, raw: { func: object.func, translation: object.translation } }, precision }
+    return { cursor, anchor: UNSHIFTED, points: [], line: { object, raw: { func: object.func, translation: object.translation } }, precision }
   }
   const points = definingPoints(object, objects)
   return points ? dragged(points) : null
 }
 
 /** Move the dragged object by the cursor's offset from where it was grabbed. */
-export function moveObjectDrag(drag: ObjectDrag, position: NumericPoint): void {
-  const dx = position.a - drag.cursor.a
-  const dy = position.b - drag.cursor.b
-  const home = dx === 0 && dy === 0
+export function moveObjectDrag(drag: ObjectDrag, position: NumericPoint, snap?: (point: NumericPoint) => NumericPoint): void {
+  let dx = position.a - drag.cursor.a
+  let dy = position.b - drag.cursor.b
+  let home = dx === 0 && dy === 0
+  const snapping = snap !== undefined && drag.anchor !== null && !home
+  if (snapping) {
+    const { a, b } = snap({ a: drag.anchor!.a + dx, b: drag.anchor!.b + dy })
+    dx = a - drag.anchor!.a
+    dy = b - drag.anchor!.b
+    home = dx === 0 && dy === 0
+  }
+  // Snapped coordinates stay readable: 0.6 + 0.8 is 1.4 here, not 1.4000000000000001.
+  const settled = (value: number) => (snapping ? Number(value.toPrecision(14)) : value)
   if (drag.angle) {
     const { parameter, raw } = drag.angle
     parameter.value = home ? raw : angleTowards(position, parameter.value, parameter.min, parameter.max)
@@ -135,8 +149,8 @@ export function moveObjectDrag(drag: ObjectDrag, position: NumericPoint): void {
   }
   // Back at the start, the stored values are restored exactly so history sees no change.
   for (const { point, origin, raw } of drag.points) {
-    point.a = home ? raw.a : origin.a + dx
-    point.b = home ? raw.b : origin.b + dy
+    point.a = home ? raw.a : settled(origin.a + dx)
+    point.b = home ? raw.b : settled(origin.b + dy)
   }
   const line = drag.line
   if (!line) return
@@ -164,7 +178,7 @@ export function moveObjectDrag(drag: ObjectDrag, position: NumericPoint): void {
   }
   if (line.object.type === 'verLine') {
     const { raw } = line as Extract<DraggedLine, { object: VerticalLine }>
-    line.object.x = home ? raw.x : raw.x + dx
+    line.object.x = home ? raw.x : settled(raw.x + dx)
     return
   }
   const { object, raw } = line as Extract<DraggedLine, { object: EquationLine }>
@@ -173,8 +187,8 @@ export function moveObjectDrag(drag: ObjectDrag, position: NumericPoint): void {
     return
   }
   // y = m(x - dx) + n + dy
-  object.n = raw.n + dy - object.m * dx
+  object.n = settled(raw.n + dy - object.m * dx)
   object.func = linearExpression(object.m, object.n)
-  object.startX = raw.startX === null ? null : raw.startX + dx
-  object.endX = raw.endX === null ? null : raw.endX + dx
+  object.startX = raw.startX === null ? null : settled(raw.startX + dx)
+  object.endX = raw.endX === null ? null : settled(raw.endX + dx)
 }

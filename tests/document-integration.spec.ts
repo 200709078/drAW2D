@@ -104,7 +104,7 @@ test('çok sayıda fare hareketi içeren nokta sürükleme tek geri alma adımı
   await dragThrough(page, [
     { x: 600, y: 400 }, { x: 610, y: 385 }, { x: 635, y: 360 }, { x: 675, y: 325 },
   ])
-  await expect(page.locator('#objectsContainer .expr-block input[readonly]')).toHaveValue('A=(1.75,1.75)')
+  await expect(page.locator('#objectsContainer .expr-block input[readonly]')).toHaveValue('A=(1.80,1.80)')
   const moved = await objectRows(page)
   await page.locator('#undo').click()
   await expect.poll(() => objectRows(page)).toEqual(original)
@@ -222,7 +222,7 @@ test('Escape etkin nokta sürüklemesini iptal eder ve sonraki fare bırakma yin
   await page.mouse.move(600, 400)
   await page.mouse.down()
   await page.mouse.move(650, 350)
-  await expect(page.locator('#objectsContainer .expr-block input[readonly]')).toHaveValue('A=(1.50,1.50)')
+  await expect(page.locator('#objectsContainer .expr-block input[readonly]')).toHaveValue('A=(1.60,1.60)')
   await page.keyboard.press('Escape')
   await expect.poll(() => objectRows(page)).toEqual(original)
   await expect(page.locator('#redo')).toBeEnabled()
@@ -245,7 +245,7 @@ test('panel üzerinde fareyi bırakmak nokta sürüklemesini tek işlemde tamaml
   await page.mouse.move(600, 400)
   await page.mouse.down()
   await page.mouse.move(650, 350)
-  await expect(page.locator('#objectsContainer .expr-block input[readonly]')).toHaveValue('A=(1.50,1.50)')
+  await expect(page.locator('#objectsContainer .expr-block input[readonly]')).toHaveValue('A=(1.60,1.60)')
   await page.mouse.move(inputBounds.x + inputBounds.width / 2, inputBounds.y + inputBounds.height / 2)
   await page.mouse.up()
   const moved = await objectRows(page)
@@ -275,7 +275,7 @@ test('taslak noktanın gizle düğmesi yarım doğruyu geçmiş adımı bırakma
   const draft = page.locator('#objectsContainer .expr-block').filter({
     has: page.locator('input[id="2-input"]'),
   })
-  await expect(draft.locator('input[readonly]')).toHaveValue('B=(1.50,1.50)')
+  await expect(draft.locator('input[readonly]')).toHaveValue('B=(1.60,1.60)')
   await draft.locator('.gizle').click()
 
   await expect.poll(() => objectRows(page)).toEqual(original)

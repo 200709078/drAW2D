@@ -58,7 +58,7 @@ test('panel, radial tools, help examples and drawing remain usable', async ({ pa
   await page.locator('#toolgroup-point').click();
   await expect(page.locator('#mainToolbar')).toHaveAttribute('data-action', 'point');
   await page.locator('#canvas').click({ position: { x: 800, y: 250 } });
-  await expect.poll(() => objectRows(page)).toEqual([{ input: 'A=(3,2.50)', output: '' }]);
+  await expect.poll(() => objectRows(page)).toEqual([{ input: 'A=(3,2.60)', output: '' }]);
   expect(await canvasHash(page), 'The point must be rendered on the canvas').not.toBe(emptyCanvas);
 
   await page.locator('#helpMenuButton').click();

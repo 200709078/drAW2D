@@ -12,7 +12,7 @@ import type { NumericPoint } from '../geometry/primitives'
 import type { ObjectId } from '../geometry/types'
 import { createCanvasSurface } from '../rendering/canvas-surface'
 import { nextSliderPosition, sliderAt, sliderValueAt } from '../rendering/canvas-slider'
-import { createGridRenderer, drawGridDirect } from '../rendering/coordinate-grid'
+import { createGridRenderer, drawGridDirect, snapToGrid } from '../rendering/coordinate-grid'
 import { createFrameRenderer, createSceneOrder } from '../rendering/frame-renderer'
 import { createFunctionEvaluator } from '../rendering/function-evaluator'
 import type { DrawingContext, PainterFrame } from '../rendering/painter-types'
@@ -46,6 +46,11 @@ const TRACKPAD_ZOOM_RATE = 0.01
 /** An animated parameter sweeps from its minimum to its maximum in this time, then back. */
 const ANIMATION_SWEEP_MS = 4000
 const AUTOSAVE_KEY = 'drAW2D.autosave'
+/** On unless turned off; a preference of this device, not of the document. */
+const GRID_SNAP_KEY = 'drAW2D.gridSnap'
+/** A press trembles this far (CSS px) without being a drag, so selecting does not snap a point away. */
+const DRAG_SLOP_PX = 3
+const TOUCH_DRAG_SLOP_PX = 8
 const AUTOSAVE_DELAY = 1000
 
 function required<Element extends HTMLElement>(id: string): Element {
@@ -58,6 +63,14 @@ function required<Element extends HTMLElement>(id: string): Element {
 function randomColor(): string {
   const channel = () => Math.round(Math.random() * 255 * 0.75).toString(16).padStart(2, '0')
   return `#${channel()}${channel()}${channel()}`
+}
+
+function storedGridSnap(): boolean {
+  try {
+    return localStorage.getItem(GRID_SNAP_KEY) !== 'off'
+  } catch {
+    return true
+  }
 }
 
 /** Composition root: owns the document, the view and every DOM binding of the application. */
@@ -99,6 +112,9 @@ export function startApp(): void {
 
   let cursor: ToolInput | null = null
   let objectDrag: ObjectDrag | null = null
+  let gridSnap = storedGridSnap()
+  /** Where a snapping drag was pressed, until the pointer leaves the press. */
+  let dragPress: PixelPoint | null = null
   /** Positions and shapes traced objects passed through, in plane coordinates; not part of the document. */
   const traces = new TraceRecorder()
   /** A canvas slider being dragged: its value, or its position by the caption. */
@@ -430,11 +446,17 @@ export function startApp(): void {
   function pointerInput(pixel: PixelPoint, touch: boolean): ToolInput {
     const current = transform()
     const position = { a: current.pixelToX(pixel.x), b: current.pixelToY(pixel.y) }
-    const tolerance = touch ? TOUCH_HIT_TOLERANCE_PX : HIT_TOLERANCE_PX
-    return {
-      position,
-      hit: hitTest(geometry.objects, position, { transform: current, evaluator, tolerance, width: surface.width, height: surface.height }),
-    }
+    const options = { transform: current, evaluator, tolerance: touch ? TOUCH_HIT_TOLERANCE_PX : HIT_TOLERANCE_PX, width: surface.width, height: surface.height }
+    const hit = hitTest(geometry.objects, position, options)
+    if (!gridSnap || tools.action === 'select') return { position, hit }
+    // The corner may already hold a point beyond the hit tolerance: that point is used, not doubled.
+    const corner = snapPosition(position)
+    const standing = hitTest(geometry.objects, corner, { ...options, tolerance: 1 })
+    return { position, hit, grid: { position: corner, point: standing?.kind === 'point' ? standing.object : null } }
+  }
+
+  function snapPosition(position: NumericPoint): NumericPoint {
+    return snapToGrid(view.viewport(surface.width, surface.height), position)
   }
 
   function axisAt(pixel: PixelPoint, touch: boolean): ViewAxis | null {
@@ -448,9 +470,17 @@ export function startApp(): void {
 
   const axisCursor = (axis: ViewAxis) => axis === 'xAxis' ? 'ew-resize' : 'ns-resize'
 
+  /** False while a snapping drag's pointer still trembles where it was pressed. */
+  function leftPress(pixel: PixelPoint, touch: boolean): boolean {
+    if (!dragPress) return true
+    if (Math.hypot(pixel.x - dragPress.x, pixel.y - dragPress.y) < (touch ? TOUCH_DRAG_SLOP_PX : DRAG_SLOP_PX)) return false
+    dragPress = null
+    return true
+  }
+
   function moveDragged(position: NumericPoint): void {
     if (!objectDrag) return
-    moveObjectDrag(objectDrag, position)
+    moveObjectDrag(objectDrag, position, gridSnap ? snapPosition : undefined)
     // A moved equation line or graph is used by name in other definitions; A turns an angle parameter.
     const name = objectDrag.line?.object.name ?? objectDrag.angle?.parameter.name
     if (name) recompute([name])
@@ -499,6 +529,7 @@ export function startApp(): void {
     // Objects computed from others or from parameters are selected, not dragged.
     objectDrag = hit ? beginObjectDrag(hit.object, geometry.objects, input.position, dragPrecision(), grabRadius(touch)) : null
     if (objectDrag) {
+      dragPress = gridSnap ? pixel : null
       geometry.beginEdit()
       canvas.style.cursor = 'grabbing'
     } else if (!hit) {
@@ -579,7 +610,7 @@ export function startApp(): void {
       if (cancelled) {
         geometry.cancelEdit()
       } else {
-        moveDragged(pointerInput(pixel, touch).position)
+        if (leftPress(pixel, touch)) moveDragged(pointerInput(pixel, touch).position)
         resolveConstraints(geometry.objects)
         geometry.commitEdit()
       }
@@ -656,6 +687,7 @@ export function startApp(): void {
       return
     }
     if (objectDrag) {
+      if (!leftPress(pixel, touch)) return
       moveDragged(input.position)
       refresh()
       return
@@ -910,6 +942,20 @@ export function startApp(): void {
     if (parsed.view) view.restore(parsed.view)
     showToast('Otomatik Kayıt', 'Son çalışmanız geri yüklendi. Boş bir belge için Dosya → Yeni.')
   }
+  const gridSnapButton = required<HTMLButtonElement>('gridSnap')
+  gridSnapButton.setAttribute('aria-pressed', String(gridSnap))
+  gridSnapButton.addEventListener('click', () => {
+    gridSnap = !gridSnap
+    gridSnapButton.setAttribute('aria-pressed', String(gridSnap))
+    try {
+      localStorage.setItem(GRID_SNAP_KEY, gridSnap ? 'on' : 'off')
+    } catch {
+      // The choice still holds until the page closes.
+    }
+    showToast('Karelere Yapıştır', gridSnap
+      ? 'Açık: noktalar en yakın küçük kare köşesine yapışır.'
+      : 'Kapalı: noktalar fare neredeyse oraya konur.')
+  })
   required('btnStandartWiew').addEventListener('click', () => {
     resetInteraction()
     view.resetStandard()
@@ -954,7 +1000,7 @@ export function startApp(): void {
       sidePanel.showTab('tools')
     },
     // Dar çubukta "⋯" menüsüne bu sırayla geçer; Dosya, Geri Al, Yinele ve panel düğmesi kalır.
-    overflowActions: ['helpMenuButton', 'btnStandartWiew', 'clear'].map(id => required<HTMLButtonElement>(id)),
+    overflowActions: ['helpMenuButton', 'btnStandartWiew', 'clear', 'gridSnap'].map(id => required<HTMLButtonElement>(id)),
   })
 
   // Layout changes (window, panel, DPR) resize the canvas; card slider ranges follow the view.

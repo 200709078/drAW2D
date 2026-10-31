@@ -67,6 +67,7 @@ test('HiDPI drawing and hit testing use CSS coordinates before and after resizin
     await highDpiPage.goto('/');
     await expect(highDpiPage.locator('#giris')).toBeVisible();
     expect(await canvasSize(highDpiPage)).toEqual({ width: 2400, height: 1600, cssWidth: 1200, cssHeight: 800 });
+    await highDpiPage.locator('#gridSnap').click();
 
     const pointRegion = { x: 747, y: 247, width: 6, height: 6 };
     const emptyPointRegion = await canvasHash(highDpiPage, pointRegion);
@@ -215,7 +216,7 @@ test('tangent slider bursts update the equation synchronously and paints do not 
   await expect(page.locator('#redo')).toBeDisabled();
 });
 
-test('point input keeps precise coordinates without implicit integer snapping or rounding', async ({ page }) => {
+test('with grid snapping off, point input keeps precise coordinates without rounding', async ({ page }) => {
   await page.addInitScript(() => {
     const originalArc = CanvasRenderingContext2D.prototype.arc;
     CanvasRenderingContext2D.prototype.arc = function (x, y, radius, start, end, counterclockwise) {
@@ -225,6 +226,7 @@ test('point input keeps precise coordinates without implicit integer snapping or
   });
   await page.goto('/');
   await expect(page.locator('#giris')).toBeVisible();
+  await page.locator('#gridSnap').click();
   const canvas = page.locator('#canvas');
   const pointRegion = { x: 701, y: 293, width: 6, height: 6 };
   const emptyPointRegion = await canvasHash(page, pointRegion);

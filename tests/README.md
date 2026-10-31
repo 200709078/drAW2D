@@ -289,3 +289,8 @@ açılabilir:
 ```sh
 DRAW2D_ELECTRON_EXECUTABLE="$PWD/release/linux-unpacked/draw2d" node scripts/test-electron.mjs
 ```
+
+`grid-snap.spec.ts` noktanın küçük karelere yapışmasını sınar: adımın çizilen ızgarayla ve yakınlaştırmayla uyumu,
+gürültüsüz değerler, köşede duran noktanın yeniden kullanılması, nesne üzerindeki noktanın korunması, şekil
+sürüklemede yakalanan noktanın köşeye oturması, seçerken titremenin noktayı oynatmaması, fare ve kalem girişi,
+mıknatıs düğmesi ve tercihin sayfa yenilenince korunması. Keskin konuma bağlı `rendering` testleri anahtarı kapatır.
