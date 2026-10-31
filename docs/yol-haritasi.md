@@ -683,3 +683,16 @@ denenir:
    ağ gerekir (okul ağı ayırıyorsa telefon paylaşımı). Electron'a özgü işleri sınamaz.
 3. **Kurulu paketle (.deb / AppImage):** ETAP'a özgü maddeler (ETA Klavye, ekran alıntısı, klasör
    bağı, paket davranışı) ve sürüm öncesi son kontrol.
+
+
+## Noktayı küçük karelere yapıştırma (istek, 2026-10-31, kodlanmadı)
+
+**Kullanıcı isteği:** Fareyle nokta seçerken nokta, koordinat düzlemindeki küçük karelere yapışsın; tam
+sayıya değil. Şu an serbest nokta fare neredeyse oraya konur, yapışma yok (`pointCandidate`, `src/app/tools.ts`).
+
+**Öneri:** Yapışma ekrandaki ara ızgara çizgilerinin kesişimine olur; adım `coordinate-grid.ts`'teki ara adımdır
+(büyük adım / 5, yakınlaştırmayla değişir, x ve y ayrı). Yalnız serbest nokta yapışır: var olan nokta ve nesne
+üzerindeki nokta önceliğini korur. Açma/kapama düğmesi olur; eski dosyalardaki noktalar yerinden oynamaz.
+
+**Karar bekleyenler:** köşe mi kare ortası mı; her zaman mı, yalnız yakınken mi; sürüklemede de yapışsın mı;
+dokunmatikte de geçerli mi; varsayılan açık mı.
