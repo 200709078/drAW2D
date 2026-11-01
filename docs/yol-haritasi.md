@@ -751,6 +751,7 @@ Masaüstü ve telefon boyutunda ekran görüntüleriyle bakıldı. Gerçek tahta
 - `tests/vector-operations.spec.ts`: 10 test daha (toplam 23); bütün testler geçti; ekranda bakıldı. Gerçek tahtada denenmedi.
 
 **3. aşama, uygulandı (2026-10-31):** Tahtada gösterim.
+- (2026-11-01'de değişti: araçlar ayrı Vektör grubuna taşındı, Sayıyla Çarp `k` kaydırıcısına bağlandı; aşağıdaki bölüme bakın.)
 - Araç çubuğunda Doğru grubuna, `Vektör`ün altına üç araç: Vektör Topla, Vektör Çıkar (iki vektör seçilir, ikincisi birincisinden
   çıkarılır), Vektörü Sayıyla Çarp (vektör seçilir, katsayı sorulur: `2`, `-1/2`, `a`, `a+1`). Araçlar yazılmış ifadeyle aynı yoldan
   gider (`vectorExpression`), sonuç canlıdır, tek adımda geri alınır. Vektörün ucundaki nokta tıklanırsa da o vektör seçilir.
@@ -762,3 +763,18 @@ Masaüstü ve telefon boyutunda ekran görüntüleriyle bakıldı. Gerçek tahta
 - Araçların ortaya çıkaracağı iki eksik de giderildi: `u'` gibi üslü adlar işlemde kullanılır (`u'+v`); vektör adları ayrılmış `e`
   harfini atlar (sekizinci vektör `e` olup işlemde sabit sayılıyordu).
 - `tests/vector-operations.spec.ts`: toplam 31 test; ekranda bakıldı. Gerçek tahtada denenmedi.
+
+## Vektör grubu ve k kaydırıcısı (istek ve uygulama, 2026-11-01)
+
+- Vektör, Vektör Topla, Vektör Çıkar ve Vektörü Sayıyla Çarp, Doğru grubundan ayrı **Vektör** grubuna taşındı.
+- Sayıyla Çarp artık katsayı sormaz: vektör seçilince `k=2` kaydırıcısı (-5 ile 5 arası, 0,1 adım) ve `k*u` çarpımı tek adımda oluşur.
+  İkinci çarpım `k1`, sonraki `k2` kaydırıcısını alır. Vektör ya da kaydırıcı değişince çarpım güncellenir; `k` silinince çarpım da silinir, tek
+  geri alma ikisini getirir. Çarpım katsayısı kartta elle değiştirilebilir (`w: 3*u`). İkonda x yerine k var.
+- Yeni grup 1100 piksel genişlikte çubuğu taşırıyordu; 701-1180 piksel arasında düğmeler 36 piksele indi, hepsi sığıyor.
+- Mıknatıs düğmesi açıkken de öteki düğmeler gibi koyu; açık olduğu arka planından anlaşılır.
+
+## Vektörü bileşenlerine ayırma (istek 2026-11-01; öneri aşamasında, kodlanmadı)
+
+Öneri: Vektör grubunda tek araç. Vektör seçilir, boş yere tıklanırsa eksenlere (x, y) ayırır; doğru ya da vektör seçilirse ona paralel ve dik
+bileşenleri verir. Bileşenler `u_x`, `u_y` adlı canlı vektörler, uçtan eksene kesikli yapım çizgileri. Metin komutu: `Bileşenler(u)`, `Bileşenler(u,d)`.
+Kullanıcının kararı bekleniyor.

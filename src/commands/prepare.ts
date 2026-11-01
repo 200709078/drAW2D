@@ -109,6 +109,13 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
       min: Math.min(range.min, start), max: Math.max(range.max, start), step: range.step,
     })
   }
+  /** The k of a scaled vector; every scaled vector gets its own: k, k1, k2… */
+  function scaleSlider(): Parameter {
+    const names = new Set(allObjects().map(object => object.name))
+    let name = 'k'
+    for (let index = 1; names.has(name); index++) name = `k${index}`
+    return addParameter(2, name, { min: -5, max: 5, step: 0.1 })
+  }
   /** A typed constant becomes a slider the construction depends on; an expression stays as typed. */
   function sliderArgument(argument: NumberArgument | undefined, start: number, preferredName: string | null,
     range: ParameterRange): NumberArgument {
@@ -392,10 +399,11 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         break
       }
       case 'vectorExpression': {
-        const result = vectorResult(command.expression, command.name)
+        const expression = command.scaled ? `${scaleSlider().name}*${command.expression}` : command.expression
+        const result = vectorResult(expression, command.name)
         if (!result) throw new Error('İfadede vektör bulunamadı.')
         active = result
-        definition = command
+        definition = { kind: 'vectorExpression', name: command.name, expression }
         break
       }
       case 'parameter': {

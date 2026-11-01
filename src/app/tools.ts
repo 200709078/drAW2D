@@ -620,23 +620,12 @@ export class ToolController {
     return this.finish({ kind: 'vectorExpression', name: null, expression: `${this.target.name}${operator}${vector.name}` }, title, null)
   }
 
-  /** A vector, then a coefficient; the coefficient may name parameters. */
+  /** The product follows a new slider k; deleting k deletes the product. */
   private pressVectorScale(input: ToolInput): ToolOutcome {
     const title = 'Vektörü Sayıyla Çarp'
     const vector = this.vectorAt(input)
     if (!vector) return { ...NOTHING, message: { title, text: 'Bir vektör seçiniz.' } }
-    this.services.document.activeId = vector.id
-    return {
-      changed: true, completed: false,
-      ask: {
-        title, label: 'Katsayı', initial: '2',
-        answer: text => {
-          const value = text.trim() || '2'
-          const factor = /[+-]/.test(value.slice(1)) ? `(${value})` : value
-          return this.finish({ kind: 'vectorExpression', name: null, expression: `${factor}*${vector.name}` }, title, null)
-        },
-      },
-    }
+    return this.finish({ kind: 'vectorExpression', name: null, expression: vector.name!, scaled: true }, title, null)
   }
 
   /** A point first (picked like any point), then a line, which is not turned into a point. */

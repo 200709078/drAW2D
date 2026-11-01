@@ -106,10 +106,6 @@ body {
   border-color: var(--toolbar-active-border);
 }
 
-.toolbar-button[aria-pressed="true"] img {
-  filter: none;
-}
-
 .toolbar-button:disabled {
   cursor: default;
   opacity: 0.35;
@@ -219,6 +215,18 @@ body {
 .panel-tabs,
 .tools-panel {
   display: none;
+}
+
+/* Dar masaüstünde bütün gruplar menüye düşmeden sığsın. */
+@media (min-width: 701px) and (max-width: 1180px) and (pointer: fine) {
+  .toolbar-button,
+  .tool-group-button {
+    width: 36px;
+  }
+
+  .tool-groups {
+    gap: 2px;
+  }
 }
 
 @media (max-width: 700px) {

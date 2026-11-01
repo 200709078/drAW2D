@@ -20,7 +20,7 @@ test('araç kaydı her aracı bir kez, var olan bir gruba yerleştirir', () => {
   expect(new Set(actions).size).toBe(actions.length)
   expect(visibleGroups().flatMap(entry => entry.tools.map(tool => tool.action))).toEqual(actions)
   expect(visibleGroups().map(entry => entry.group.label)).toEqual(
-    ['Taşı', 'Nokta', 'Doğru', 'Özel Doğrular', 'Çokgen', 'Çember', 'Ölçüm', 'Dönüşüm', 'Fonksiyon'])
+    ['Taşı', 'Nokta', 'Doğru', 'Vektör', 'Özel Doğrular', 'Çokgen', 'Çember', 'Ölçüm', 'Dönüşüm', 'Fonksiyon'])
 })
 
 test('grup düğmesi son aracını seçer, menüden seçilen araç grubun yüzü olur', async ({ page }) => {

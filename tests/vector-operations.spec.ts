@@ -435,29 +435,50 @@ test.describe('arayüz', () => {
     await expectCard(page, 'w', 'w=(-2,2)')
   })
 
-  test('Sayıyla Çarp katsayı sorar; kesir, parametre ve ifade kabul eder', async ({ page }) => {
-    await enter(page, 'a=2')
-    const scale = async (factor: string) => {
-      await selectTool(page, 'vectorscale')
-      await pick(page, U)
-      await expect(page.locator('#promptLabel')).toHaveText('Katsayı')
-      await page.locator('#promptInput').fill(factor)
-      await page.locator('#promptInput').press('Enter')
-    }
-    await scale('-1/2')
-    await expectCard(page, 'w', 'w=(-1.50,-1)')
-    await scale('a')
-    await expectCard(page, 'b', 'b=(6,4)')
-    await scale('a+1')
-    await expectCard(page, 'c', 'c=(9,6)')
-    await expect.poll(async () => (await card(page, 'c')).join(' ')).toContain('(a+1)*u')
-    await enter(page, 'a=3')
-    await expectCard(page, 'c', 'c=(12,8)')
-    await expectCard(page, 'b', 'b=(9,6)')
-    // Olmayan ad işlemi bitirmez, nesne eklenmez.
+  test('Sayıyla Çarp soru sormaz; k kaydırıcısına bağlı çarpımı çizer', async ({ page }) => {
+    await selectTool(page, 'vectorscale')
+    await pick(page, U)
+    await expect(page.locator('#promptInput')).toBeHidden()
+    await expect(page.locator('#objectsContainer .is-active input').first()).toHaveValue('w: k*u')
+    await expectCard(page, 'k', 'k = 2')
+    await expectCard(page, 'w', 'w=(6,4)')
+
+    // Kaydırıcı ve vektör değiştikçe çarpım da değişir.
+    await enter(page, 'k=-1')
+    await expectCard(page, 'w', 'w=(-3,-2)')
+    await enter(page, 'k=2')
+    await dragTool(page)
+    const box = (await page.locator('#canvas').boundingBox())!
+    await page.mouse.move(box.x + U_TIP.x, box.y + U_TIP.y)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 900, box.y + 400, { steps: 5 })
+    await page.mouse.up()
+    await expectCard(page, 'u', 'u=(4,1)')
+    await expectCard(page, 'w', 'w=(8,2)')
+
+    // Her çarpımın kendi kaydırıcısı olur.
+    await selectTool(page, 'vectorscale')
+    await pick(page, V)
+    await expect(page.locator('#objectsContainer .is-active input').first()).toHaveValue(/k1\*v/)
+    await expectCard(page, 'k1', 'k1 = 2')
+  })
+
+  test('k silinince çarpım vektörü de silinir, geri alma ikisini getirir', async ({ page }) => {
+    await selectTool(page, 'vectorscale')
+    await pick(page, U)
+    await expectCard(page, 'w', 'w=(6,4)')
     const count = await page.locator('#objectsContainer .expr-block').count()
-    await scale('t')
+
+    const block = async (name: string) => (await page.locator('#objectsContainer .expr-block input').evaluateAll(
+      (inputs, prefix) => (inputs as HTMLInputElement[]).findIndex(input => input.value.startsWith(prefix)), name))
+    await page.locator('#objectsContainer .expr-block').nth(await block('k')).locator('[id$="-delete"], .sil, .delete').first().click()
+    await expect(page.locator('#objectsContainer .expr-block')).toHaveCount(count - 2)
+    await expect.poll(() => block('w')).toBe(-1)
+    await expect.poll(() => block('u')).toBeGreaterThanOrEqual(0)
+
+    await page.locator('#undo').click()
     await expect(page.locator('#objectsContainer .expr-block')).toHaveCount(count)
+    await expectCard(page, 'w', 'w=(6,4)')
   })
 
   test('üslü adlı görüntü vektörleri işlemde kullanılır', async ({ page }) => {
