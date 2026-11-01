@@ -8,7 +8,7 @@ import { getCircleTangentLines } from '../geometry/tangents'
 import { constructedLocation, isLineObject } from '../geometry/constructions'
 import type {
   AnalysisKind, GeometryCircle, GeometryPoint, ImageOf, LineConstructionKind, LineWithPoints, ObjectReference, PointConstraint,
-  TransformKind, Vector,
+  TransformKind, Vector, VectorPart,
 } from '../geometry/types'
 import type { FunctionSection, GeometryDocumentObject, Parameter, VectorMeasure } from '../geometry/function-types'
 import { definitionNames } from './definition'
@@ -288,6 +288,16 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
     const B = helperPoint({ type: 'vectorSum', baseId: first.A.id, terms, ownerId: id, pointIndex: 0 })
     return add({ type: 'vector', name: preferred ?? context.createName('vector'), id, A: first.A, B, vectorExpression: expression,
       color: options.randomColor(), visibility: true, size: 2, temp: false })
+  }
+  /** One part of a vector, from the same start: u_x, u_y; along and across a line u_p, u_d. */
+  function componentVector(source: Vector, part: VectorPart, suffix: string, lineId?: ObjectReference): Vector {
+    const names = new Set(allObjects().map(object => object.name))
+    const base = `${source.name!.replace(/'/g, '')}_${suffix}`
+    let name = base
+    for (let index = 1; names.has(name); index++) name = base + index
+    const id = context.nextId()
+    const B = helperPoint({ type: 'vectorComponent', vectorId: source.id, part, ownerId: id, pointIndex: 0, ...(lineId === undefined ? {} : { lineId }) })
+    return add({ type: 'vector', name, id, A: source.A, B, color: options.randomColor(), visibility: true, size: 2, temp: false })
   }
   /** A vector given by name, or an expression that is drawn as a new vector first. */
   function vectorArgument(source: string): Vector {
@@ -812,6 +822,16 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
           color: options.randomColor(), visibility: true, size: 2, temp: false })
         measure.sourceIds = command.vectors.map(source => vectorArgument(source).id)
         active = measure
+        break
+      }
+      case 'vectorComponents': {
+        const source = vectorArgument(command.vector)
+        const line = command.line === null ? null : allObjects().find(object => object.name === command.line)
+        if (command.line !== null && !isLineObject(line)) throw new Error(`Bir doğru ya da vektör girin: ${command.line}`)
+        const [first] = (line
+          ? [['parallel', 'p'], ['perpendicular', 'd']] as const
+          : [['x', 'x'], ['y', 'y']] as const).map(([part, suffix]) => componentVector(source, part, suffix, line?.id))
+        active = first!
         break
       }
       case 'curve':

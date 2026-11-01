@@ -36,7 +36,7 @@ Bütün sürümler, kurulum adımları ve SHA-256 değerleri: [Releases](https:/
 - **Bütün nesneyi sürükleme**: serbest noktalardan kurulan doğru, doğru parçası, ışın, vektör, çember, yay, açı ve çokgen sürüklenince bütün olarak taşınır; denklemle verilmiş doğru denklemi değişerek kayar, kendi başına bir fonksiyon grafiği `f(x − a) + b` olarak ötelenir.
 - **Vektör ölçümleri**: `Uzunluk(u)`, `İçÇarpım(u,v)`, `Açı(u,v)` değeri kartta canlı gösterir; uzunluk vektörün yanına, aynı noktadan başlayan vektörlerde açı yay olarak düzleme çizilir.
 - **Vektör işlemleri**: `w=u+v`, `u-v`, `2u`, `a*u-v` canlı bir sonuç vektörü çizer; `u=(3,2)` orijinden vektör, `B=A+u`
-  ötelenmiş nokta verir. Araç çubuğunun Vektör grubundaki Topla, Çıkar ve Sayıyla Çarp (k kaydırıcısına bağlı) araçları da aynı sonucu verir; toplamın yapımı kesikli
+  ötelenmiş nokta verir. Araç çubuğunun Vektör grubundaki Topla, Çıkar, Sayıyla Çarp (k kaydırıcısına bağlı) ve Bileşenlere Ayır (`Bileşenler(u)`, `Bileşenler(u,d)`) araçları da aynı sonucu verir; toplamın yapımı kesikli
   çizgiyle (paralelkenar ya da uç uca) gösterilir, kartın görünüm ayarından kapatılır.
 - **Karelere yapıştırma**: serbest noktalar koyulurken ve sürüklenirken en yakın küçük kare köşesine yapışır; adım
   ızgarayla birlikte yakınlaştırmaya uyar. Araç çubuğundaki mıknatıs düğmesi açıp kapatır (varsayılan açık).

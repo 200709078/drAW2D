@@ -258,6 +258,7 @@ export class ToolController {
       case 'unitcircle': return this.finish({ kind: 'unitCircle' }, 'Birim Çember', null)
       case 'intersect': return this.pressIntersect(input)
       case 'vectorscale': return this.pressVectorScale(input)
+      case 'vectordecompose': return this.pressVectorDecompose(input)
       case 'circletangent': return this.pressCircleTangent(input)
       case 'arcmeasure': return this.pressArcMeasure(input)
       case 'root':
@@ -626,6 +627,21 @@ export class ToolController {
     const vector = this.vectorAt(input)
     if (!vector) return { ...NOTHING, message: { title, text: 'Bir vektör seçiniz.' } }
     return this.finish({ kind: 'vectorExpression', name: null, expression: vector.name!, scaled: true }, title, null)
+  }
+
+  /** A vector, then empty space for the axes or a line (or another vector) to split along. */
+  private pressVectorDecompose(input: ToolInput): ToolOutcome {
+    const title = 'Bileşenlere Ayır'
+    if (!this.target) {
+      const vector = this.vectorAt(input)
+      if (!vector) return { ...NOTHING, message: { title, text: 'Bir vektör seçiniz.' } }
+      this.target = vector
+      this.services.document.activeId = vector.id
+      return { changed: true, completed: false, message: { title, text: 'Eksenler için boş yere, doğru boyunca ayırmak için bir doğruya tıklayınız.' } }
+    }
+    const object = input.hit?.object
+    const line = isLineObject(object) && object!.id !== this.target.id ? object!.name! : null
+    return this.finish({ kind: 'vectorComponents', vector: this.target.name!, line }, title, null)
   }
 
   /** A point first (picked like any point), then a line, which is not turned into a point. */

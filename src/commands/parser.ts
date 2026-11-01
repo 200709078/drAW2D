@@ -174,6 +174,9 @@ function namedCommand(kind: NamedCommand, args: string[]): Command {
     case 'dot':
       requireCount(args, 2)
       return { kind: 'vectorMeasure', measure: 'dot', name: null, vectors: args }
+    case 'components':
+      if (args.length !== 1 && args.length !== 2) throw new Error('Bileşenler için bir vektör, isterseniz bir doğru girin.')
+      return { kind: 'vectorComponents', vector: args[0]!, line: args[1] ?? null }
     case 'curve': {
       requireCount(args, 5)
       const variable = args[2]!

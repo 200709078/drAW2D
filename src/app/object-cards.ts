@@ -1,7 +1,7 @@
 import { pointConstraint } from '../document/dependencies'
 import type { NumberArgument } from '../commands/types'
 import { asymptotesOf, curveOf, definiteIntegral } from '../geometry/analysis'
-import { arcData, polygonArea, slopeOf, vectorMeasureValue, vectorSumOf } from '../geometry/constructions'
+import { arcData, polygonArea, slopeOf, vectorComponentOf, vectorMeasureValue, vectorSumOf } from '../geometry/constructions'
 import type {
   Asymptote, GeometryDocumentObject, Inequality, Integral, Parameter, ParametricCurve, Tangent, TangentHX, UnitCircle,
   UnitCirclePart, VectorMeasure,
@@ -12,6 +12,7 @@ import {
 } from '../geometry/primitives'
 import type {
   AnalysisKind, Coordinate, GeometryCircle, GeometryPoint, LineConstruction, LineStyle, ObjectId, PointConstraint,
+  Vector,
 } from '../geometry/types'
 import { formatBound, formatDisplayNumber, formatMeasure } from '../math/format-display'
 import { isTraceable } from './traces'
@@ -225,6 +226,9 @@ function areaValue(item: GeometryDocumentObject | undefined): number | null {
 
 const VECTOR_MEASURES = { length: 'Uzunluk', dot: 'İçÇarpım', angle: 'Açı' } as const
 
+const componentCall = (constraint: { vectorId: ObjectId | null; lineId?: ObjectId | null }, nameOf: (id: ObjectId | null) => string) =>
+  `Bileşenler(${[constraint.vectorId, ...(constraint.lineId === undefined ? [] : [constraint.lineId])].map(nameOf).join(',')})`
+
 const vectorMeasureCall = (item: VectorMeasure, nameOf: (id: ObjectId | null) => string) =>
   `${VECTOR_MEASURES[item.measure]}(${item.sourceIds.map(nameOf).join(',')})`
 
@@ -349,6 +353,9 @@ function describeValues(item: GeometryDocumentObject, context: CardContext): Car
     const { imageOf: _image, ...plain } = item
     return { ...describeValues(plain as GeometryDocumentObject, context), input: `${item.name}: ${imageCall(item, nameOf)}` }
   }
+
+  const component = item.type === 'vector' ? vectorComponentOf(item) : null
+  if (component) return { ...describeValues({ ...item, B: { ...(item as Vector).B, onOther: [] } } as GeometryDocumentObject, context), input: `${item.name}: ${componentCall(component, nameOf)}` }
 
   if (item.vectorExpression) {
     const input = `${item.name}: ${item.vectorExpression}`
@@ -526,6 +533,8 @@ export function editText(item: GeometryDocumentObject, context: CardContext): st
   const definition = item.definition
   const name = item.name
   if (item.imageOf) return `${name}: ${imageCall(item, nameOf)}`
+  const component = item.type === 'vector' ? vectorComponentOf(item) : null
+  if (component) return `${name}: ${componentCall(component, nameOf)}`
   if (item.vectorExpression) return `${name}: ${item.vectorExpression}`
   switch (item.type) {
     case 'parameter':
@@ -656,7 +665,7 @@ export function styleSpec(item: GeometryDocumentObject): StyleSpec | null {
     size: sized ? { value: item.size, ...(item.type === 'point' ? POINT_SIZE : STROKE_SIZE) } : null,
     lineStyle: STROKED.has(item.type) ? item.lineStyle ?? 'solid' : null,
     label: LABELLED.has(item.type) ? !item.labelHidden : null,
-    guides: item.type === 'vector' && (vectorSumOf(item)?.terms.length ?? 0) > 1 ? !item.guidesHidden : null,
+    guides: item.type === 'vector' && ((vectorSumOf(item)?.terms.length ?? 0) > 1 || vectorComponentOf(item)) ? !item.guidesHidden : null,
     trace: isTraceable(item) ? item.trace === true : null,
   }
 }

@@ -537,6 +537,95 @@ test.describe('arayüz', () => {
     await expectCard(page, 'm', 'm = 7.21')
   })
 
+  test('Bileşenler(u) eksenlere ayırır: u_x, u_y aynı başlangıçtan canlı çıkar', async ({ page }) => {
+    await enter(page, 'Bileşenler(u)')
+    await expectCard(page, 'u_x', 'u_x=(3,0)')
+    await expectCard(page, 'u_y', 'u_y=(0,2)')
+    await expect.poll(async () => (await card(page, 'u_x')).join(' ')).toContain('Bileşenler(u)')
+
+    await dragTool(page)
+    await page.mouse.move(800, 300)
+    await page.mouse.down()
+    await page.mouse.move(900, 200)
+    await page.mouse.up()
+    await expectCard(page, 'u', 'u=(4,3)')
+    await expectCard(page, 'u_x', 'u_x=(4,0)')
+    await expectCard(page, 'u_y', 'u_y=(0,3)')
+
+    // İkinci ayırma ad çakıştırmaz.
+    await enter(page, 'Bileşenler(u)')
+    await expectCard(page, 'u_x1', 'u_x1=(4,0)')
+  })
+
+  test('Bileşenler(u,d) paralel ve dik parçaları verir; toplamları u eder', async ({ page }) => {
+    await enter(page, 'Doğru((0,0),(1,0))')
+    const line = page.locator('#objectsContainer .is-active input').first()
+    await expect(line).toHaveValue(/:/)
+    const name = (await line.inputValue()).split(':')[0]!.trim()
+    await enter(page, `Bileşenler(u,${name})`)
+    await expectCard(page, 'u_p', 'u_p=(3,0)')
+    await expectCard(page, 'u_d', 'u_d=(0,2)')
+
+    await enter(page, 'r=(1,1)')
+    await enter(page, 'Bileşenler(v,r)')
+    await expectCard(page, 'v_p', 'v_p=(2.50,2.50)')
+    await expectCard(page, 'v_d', 'v_d=(-1.50,1.50)')
+    await enter(page, 't=v_p+v_d')
+    await expectCard(page, 't', 't=(1,4)')
+  })
+
+  test('Bileşenlere Ayır aracı: boş yer eksenler, doğru paralel ve dik; tek adımda geri alınır', async ({ page }) => {
+    await selectTool(page, 'vectordecompose')
+    await pick(page, { x: 200, y: 700 })
+    await expect(page.locator('#snackContent')).toContainText('Bir vektör seçiniz')
+    await pick(page, U)
+    await expect(page.locator('#snackContent')).toContainText('boş yere')
+    await pick(page, { x: 200, y: 700 })
+    await expectCard(page, 'u_x', 'u_x=(3,0)')
+    await expectCard(page, 'u_y', 'u_y=(0,2)')
+    await page.locator('#undo').click()
+    await expect.poll(async () => (await card(page, 'u_x')).length).toBe(0)
+    await expect.poll(async () => (await card(page, 'u_y')).length).toBe(0)
+
+    await selectTool(page, 'vectordecompose')
+    await pick(page, U)
+    await pick(page, V)
+    await expectCard(page, 'u_p', 'u_p=(0.65,2.59)')
+    await expectCard(page, 'u_d', 'u_d=(2.35,-0.59)')
+  })
+
+  test('u silinince bileşenler de silinir; geri alma getirir; kayıttan canlı döner', async ({ page }) => {
+    await enter(page, 'Bileşenler(u)')
+    await expectCard(page, 'u_x', 'u_x=(3,0)')
+    const blocks = page.locator('#objectsContainer .expr-block')
+    const before = await blocks.count()
+    const index = await blocks.evaluateAll(all => all.findIndex(block =>
+      [...block.querySelectorAll('input')].some(input => input.value.startsWith('u='))))
+    await blocks.nth(index).locator('[id$="-delete"], .sil, .delete').first().click()
+    await expect.poll(async () => (await card(page, 'u_x')).length).toBe(0)
+    await expect.poll(async () => (await card(page, 'u_y')).length).toBe(0)
+    await page.locator('#undo').click()
+    await expect(blocks).toHaveCount(before)
+    await expectCard(page, 'u_y', 'u_y=(0,2)')
+
+    await page.waitForTimeout(1200)
+    await page.reload()
+    await expectCard(page, 'u_x', 'u_x=(3,0)')
+    await dragTool(page)
+    await page.mouse.move(800, 300)
+    await page.mouse.down()
+    await page.mouse.move(900, 200)
+    await page.mouse.up()
+    await expectCard(page, 'u_x', 'u_x=(4,0)')
+  })
+
+  test('yanlış Bileşenler girdisi nesne eklemez', async ({ page }) => {
+    const count = await page.locator('#objectsContainer .expr-block').count()
+    await enter(page, 'Bileşenler(z)')
+    await enter(page, 'Bileşenler(u,z)')
+    await expect(page.locator('#objectsContainer .expr-block')).toHaveCount(count)
+  })
+
   test('otomatik kayıttan (.drw2 biçimi) aynı canlı yapıyla geri gelir', async ({ page }) => {
     await enter(page, 'a=2')
     await enter(page, 'w=a*u+v')

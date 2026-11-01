@@ -773,8 +773,11 @@ Masaüstü ve telefon boyutunda ekran görüntüleriyle bakıldı. Gerçek tahta
 - Yeni grup 1100 piksel genişlikte çubuğu taşırıyordu; 701-1180 piksel arasında düğmeler 36 piksele indi, hepsi sığıyor.
 - Mıknatıs düğmesi açıkken de öteki düğmeler gibi koyu; açık olduğu arka planından anlaşılır.
 
-## Vektörü bileşenlerine ayırma (istek 2026-11-01; öneri aşamasında, kodlanmadı)
+## Vektörü bileşenlerine ayırma (istek ve uygulama, 2026-11-01)
 
-Öneri: Vektör grubunda tek araç. Vektör seçilir, boş yere tıklanırsa eksenlere (x, y) ayırır; doğru ya da vektör seçilirse ona paralel ve dik
-bileşenleri verir. Bileşenler `u_x`, `u_y` adlı canlı vektörler, uçtan eksene kesikli yapım çizgileri. Metin komutu: `Bileşenler(u)`, `Bileşenler(u,d)`.
-Kullanıcının kararı bekleniyor.
+- Vektör grubunda **Bileşenlere Ayır**: vektör seçilir; boş yere tıklanırsa eksenlere (`u_x`, `u_y`), doğruya ya da başka vektöre tıklanırsa ona paralel
+  ve dik parçalara (`u_p`, `u_d`) ayırır. Komutla: `Bileşenler(u)`, `Bileşenler(u,d)`. Her bileşen vektörün başlangıcından başlar (kullanıcı kararı).
+- Bileşenler canlıdır (`vectorComponent` kısıtı): vektör ya da doğru değişince güncellenir, silinince bileşen de silinir, tek adımda geri alınır, `.drw2`'ye yazılır.
+- Vektörün ucundan bileşen uçlarına kesikli yapım çizgileri iner; kartın "Yapımı göster" ayarıyla kapatılır.
+- `∥` ve `⊥` işaretleri ad olarak kullanılamadığı için paralel `u_p`, dik `u_d` adını alır (`p`: paralel, `d`: dik).
+- Sonraya bırakıldı: dik olmayan iki doğrultuya ayırma (paralelkenar kuralı).

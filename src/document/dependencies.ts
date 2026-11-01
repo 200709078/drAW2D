@@ -26,7 +26,8 @@ export function isDerivedPoint(point: GeometryPoint): boolean {
     || constraint.type === 'analysisPoint' || constraint.type === 'midpoint' || constraint.type === 'reflectLine'
     || constraint.type === 'rotate' || constraint.type === 'translate' || constraint.type === 'lineHelper'
     || constraint.type === 'intersectLines' || constraint.type === 'circleTangentTouchPoint'
-    || constraint.type === 'anchor' || constraint.type === 'regularVertex' || constraint.type === 'vectorSum')
+    || constraint.type === 'anchor' || constraint.type === 'regularVertex' || constraint.type === 'vectorSum'
+    || constraint.type === 'vectorComponent')
 }
 
 function constraintReferences(constraint: PointConstraint): (ObjectId | null | undefined)[] {
@@ -45,6 +46,7 @@ function constraintReferences(constraint: PointConstraint): (ObjectId | null | u
     case 'rotate': return [constraint.sourceId, constraint.centerId, constraint.ownerId]
     case 'translate': return [constraint.sourceId, constraint.fromId, constraint.toId, constraint.vectorId, constraint.ownerId]
     case 'vectorSum': return [constraint.baseId, ...constraint.terms.map(term => term.vectorId), constraint.ownerId]
+    case 'vectorComponent': return [constraint.vectorId, constraint.lineId, constraint.ownerId]
     case 'lineHelper': return [...constraint.refs, constraint.ownerId]
     case 'anchor': return [constraint.objectId, constraint.ownerId]
     case 'regularVertex': return [constraint.firstId, constraint.secondId, constraint.ownerId]
@@ -178,6 +180,7 @@ export function resolveConstraints(objects: readonly GeometryDocumentObject[]): 
         case 'lineHelper':
         case 'anchor':
         case 'vectorSum':
+        case 'vectorComponent':
         case 'regularVertex': {
           const location = constructedLocation(constraint, get)
           if (location) result = { status: true, ...location, distance: 0 }

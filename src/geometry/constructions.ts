@@ -80,6 +80,14 @@ export function constructedLocation(constraint: PointConstraint, get: Lookup): N
       }
       return finite(sum)
     }
+    case 'vectorComponent': {
+      const vector = get(constraint.vectorId)
+      const start = vector?.type === 'vector' ? pointOf(vector.A) : null
+      const whole = vectorComponents(vector)
+      if (!start || !whole) return null
+      const part = vectorPart(whole, constraint, get)
+      return part ? finite({ a: start.a + part.a, b: start.b + part.b }) : null
+    }
     case 'anchor': {
       const object = get(constraint.objectId)
       if (object && CIRCLE_TYPES.has(object.type)) {
@@ -188,6 +196,25 @@ export function vectorSumOf(vector: Vector): Extract<PointConstraint, { type: 'v
   return null
 }
 
+/** The component a vector was computed as; none for any other vector. */
+export function vectorComponentOf(vector: Vector): Extract<PointConstraint, { type: 'vectorComponent' }> | null {
+  for (const constraint of vector.B.onOther) {
+    if (constraint.type === 'vectorComponent' && constraint.ownerId === vector.id) return constraint
+  }
+  return null
+}
+
+function vectorPart(whole: NumericPoint, constraint: Extract<PointConstraint, { type: 'vectorComponent' }>, get: Lookup): NumericPoint | null {
+  if (constraint.part === 'x') return { a: whole.a, b: 0 }
+  if (constraint.part === 'y') return { a: 0, b: whole.b }
+  const direction = constraint.lineId === undefined ? null : lineDirection(get(constraint.lineId))?.direction
+  const size = direction ? direction.a * direction.a + direction.b * direction.b : 0
+  if (!direction || !size) return null
+  const along = (whole.a * direction.a + whole.b * direction.b) / size
+  const parallel = { a: along * direction.a, b: along * direction.b }
+  return constraint.part === 'parallel' ? parallel : { a: whole.a - parallel.a, b: whole.b - parallel.b }
+}
+
 function vectorComponents(object: GeometryDocumentObject | undefined): NumericPoint | null {
   if (object?.type !== 'vector') return null
   const A = numericPoint(object.A)
@@ -217,6 +244,13 @@ const samePlace = (P: NumericPoint | null, Q: NumericPoint | null) =>
  * that is already drawn as one of the vectors is left out. A single term has nothing to show.
  */
 export function vectorGuides(vector: Vector, get: Lookup): { A: NumericPoint; B: NumericPoint }[] {
+  const component = vectorComponentOf(vector)
+  if (component) {
+    const source = get(component.vectorId)
+    const tip = source?.type === 'vector' ? numericPoint(source.B) : null
+    const end = numericPoint(vector.B)
+    return tip && end && !samePlace(tip, end) ? [{ A: tip, B: end }] : []
+  }
   const sum = vectorSumOf(vector)
   const start = numericPoint(vector.A)
   if (!sum || !start) return []

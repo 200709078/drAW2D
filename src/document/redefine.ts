@@ -80,13 +80,13 @@ function rename(objects: readonly GeometryDocumentObject[], target: GeometryDocu
 /** Points that exist only as parts of a construction: tangent touch points, the second intersection. */
 type BoundConstraint = Extract<PointConstraint, {
   type: 'circleTangentTouchPoint' | 'intersectLines' | 'analysisPoint' | 'midpoint' | 'lineHelper' | 'regularVertex'
-    | 'reflectPoint' | 'reflectLine' | 'rotate' | 'translate' | 'anchor' | 'vectorSum'
+    | 'reflectPoint' | 'reflectLine' | 'rotate' | 'translate' | 'anchor' | 'vectorSum' | 'vectorComponent'
 }>
 
 /** Constraints of points that belong to another object through `ownerId`. */
 const OWNED = new Set<PointConstraint['type']>([
   'intersectLines', 'analysisPoint', 'midpoint', 'lineHelper', 'regularVertex', 'reflectPoint', 'reflectLine', 'rotate',
-  'translate', 'anchor', 'vectorSum',
+  'translate', 'anchor', 'vectorSum', 'vectorComponent',
 ])
 
 function boundTo(object: GeometryDocumentObject, ownerId: ObjectId | null): BoundConstraint | null {

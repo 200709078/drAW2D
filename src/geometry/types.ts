@@ -61,6 +61,8 @@ export interface VectorTerm {
   coefficient: number
 }
 
+export type VectorPart = 'x' | 'y' | 'parallel' | 'perpendicular'
+
 export type PointConstraint =
   | { type: 'onCircle'; circleId: ObjectReference }
   | { type: 'onLine'; lineId: ObjectReference }
@@ -96,6 +98,11 @@ export type PointConstraint =
   }
   /** The point `baseId` moved by the sum of the terms: the tip of `u+v`, or `A+u`. */
   | { type: 'vectorSum'; baseId: ObjectReference; terms: VectorTerm[]; ownerId?: ObjectReference; pointIndex?: number }
+  /** A part of a vector, from its start: along the axes, or along and across a line (`lineId`). */
+  | {
+    type: 'vectorComponent'; vectorId: ObjectReference; part: VectorPart; lineId?: ObjectReference
+    ownerId?: ObjectReference; pointIndex?: number
+  }
   /** Translation by the vector from `fromId` to `toId`, or by the vector object `vectorId`. */
   | {
     type: 'translate'; sourceId: ObjectReference; fromId: ObjectReference; toId: ObjectReference
