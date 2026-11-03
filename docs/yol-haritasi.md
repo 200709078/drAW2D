@@ -603,6 +603,10 @@ anahtarı olur (Play buna izin verir); risk, kaybolursa ya da ele geçerse iki u
 birden etkilenmesidir. Anahtar dosyası drAW2D deposuna `ANDROID_KEYSTORE_BASE64` secret'ı
 olarak yüklendi.
 
+**Anahtarın yeni adı (2026-11-03, kullanıcı kararı):** dosya `~/Belgeler/YEDEKLER/madematik-release.jks`,
+takma adı `madematik` oldu; `ANDROID_KEYSTORE_BASE64` ve `ANDROID_KEY_ALIAS` secret'ları dört depoda
+yenilendi. Sertifika (`CN=mADEMatik`, SHA-256 `84f78df0…b856f1fa96`) aynı kaldı, imza değişmedi.
+
 **Bekleyen:**
 - Dört imza secret'ı drAW2D deposunda (2026-10-25). Kullanıcı aynı gün anahtarın takma
   adını (alias) değiştirdi; sertifika SHA-256 aynı kaldı, anahtar dosyası secret'ı iki
