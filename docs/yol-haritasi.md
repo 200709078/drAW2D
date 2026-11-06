@@ -4,6 +4,12 @@ Taşıma tamamlandıktan sonra düşünülen geliştirmeler. Uygulananlar maddel
 "Uygulandı" olarak işaretlidir. Hangisinin ne zaman yapılacağına kullanıcı karar
 verir.
 
+## Paket bilgisindeki e-posta (2026-11-06, kullanıcı bildirdi)
+
+Pardus ETAP tahtada Paket Kurucu'nun Detaylar sekmesinde drAW ailesinde olmayan `madematik@madematik.com` görünüyordu,
+awPDF'te `ademvarol@madematik.com`. Kaynak 2026-11-03'te düzeltilmişti ama o tarihten sonra sürüm çıkmamıştı;
+yeni sürüm bu adresi taşır. **Yapıldı (2026-11-06).**
+
 ## Planlanan sıra (2026-10-23)
 
 Kullanıcıyla kararlaştırılan uygulama sırası; her adımdan sonra durulur.
