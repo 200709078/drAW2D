@@ -5,7 +5,7 @@ import { getCircleDescriptor, getLineDescriptor, getAngleMeasure, getReflectedPo
 import { getObjectIntersection, isIntersectableLine, isIntersectableCircle } from '../geometry/intersections'
 import { analysisPoints, curveOf, isGraphObject } from '../geometry/analysis'
 import { getCircleTangentLines } from '../geometry/tangents'
-import { constructedLocation, isLineObject } from '../geometry/constructions'
+import { constructedLocation, isLineObject, lineDirection } from '../geometry/constructions'
 import type {
   AnalysisKind, GeometryCircle, GeometryPoint, ImageOf, LineConstructionKind, LineWithPoints, ObjectReference, PointConstraint,
   TransformKind, Vector, VectorPart,
@@ -289,14 +289,18 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
     return add({ type: 'vector', name: preferred ?? context.createName('vector'), id, A: first.A, B, vectorExpression: expression,
       color: options.randomColor(), visibility: true, size: 2, temp: false })
   }
-  /** One part of a vector, from the same start: u_x, u_y; along and across a line u_p, u_d. */
-  function componentVector(source: Vector, part: VectorPart, suffix: string, lineId?: ObjectReference): Vector {
+  /**
+   * One part of a vector, from the same start: u_x, u_y; along and across a line u_p, u_d;
+   * along two directions d and e, u_d and u_e.
+   */
+  function componentVector(source: Vector, part: VectorPart, suffix: string, lineId?: ObjectReference, secondLineId?: ObjectReference): Vector {
     const names = new Set(allObjects().map(object => object.name))
     const base = `${source.name!.replace(/'/g, '')}_${suffix}`
     let name = base
     for (let index = 1; names.has(name); index++) name = base + index
     const id = context.nextId()
-    const B = helperPoint({ type: 'vectorComponent', vectorId: source.id, part, ownerId: id, pointIndex: 0, ...(lineId === undefined ? {} : { lineId }) })
+    const B = helperPoint({ type: 'vectorComponent', vectorId: source.id, part, ownerId: id, pointIndex: 0,
+      ...(lineId === undefined ? {} : { lineId }), ...(secondLineId === undefined ? {} : { secondLineId }) })
     return add({ type: 'vector', name, id, A: source.A, B, color: options.randomColor(), visibility: true, size: 2, temp: false })
   }
   /** A vector given by name, or an expression that is drawn as a new vector first. */
@@ -828,6 +832,22 @@ export function prepareCommand(command: Command, document: readonly GeometryDocu
         const source = vectorArgument(command.vector)
         const line = command.line === null ? null : allObjects().find(object => object.name === command.line)
         if (command.line !== null && !isLineObject(line)) throw new Error(`Bir doğru ya da vektör girin: ${command.line}`)
+        if (command.secondLine !== undefined) {
+          // Parallelogram rule: u = u_d + u_e along the two directions.
+          const second = allObjects().find(object => object.name === command.secondLine)
+          if (!isLineObject(second)) throw new Error(`Bir doğru ya da vektör girin: ${command.secondLine}`)
+          if (second === line || second === source || line === source) throw new Error('Vektör ve iki farklı doğrultu girin.')
+          const d = lineDirection(line!)?.direction
+          const e = lineDirection(second!)?.direction
+          if (d && e && Math.abs(d.a * e.b - d.b * e.a) <= 1e-12 * Math.hypot(d.a, d.b) * Math.hypot(e.a, e.b)) {
+            throw new Error('İki doğrultu paralel olmamalı.')
+          }
+          const suffix = (object: GeometryDocumentObject) => object.name!.replace(/'/g, '')
+          const parts = [componentVector(source, 'first', suffix(line!), line!.id, second!.id),
+            componentVector(source, 'second', suffix(second!), line!.id, second!.id)]
+          active = parts[0]!
+          break
+        }
         const [first] = (line
           ? [['parallel', 'p'], ['perpendicular', 'd']] as const
           : [['x', 'x'], ['y', 'y']] as const).map(([part, suffix]) => componentVector(source, part, suffix, line?.id))

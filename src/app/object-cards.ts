@@ -226,8 +226,10 @@ function areaValue(item: GeometryDocumentObject | undefined): number | null {
 
 const VECTOR_MEASURES = { length: 'Uzunluk', dot: 'İçÇarpım', angle: 'Açı' } as const
 
-const componentCall = (constraint: { vectorId: ObjectId | null; lineId?: ObjectId | null }, nameOf: (id: ObjectId | null) => string) =>
-  `Bileşenler(${[constraint.vectorId, ...(constraint.lineId === undefined ? [] : [constraint.lineId])].map(nameOf).join(',')})`
+const componentCall = (constraint: { vectorId: ObjectId | null; lineId?: ObjectId | null; secondLineId?: ObjectId | null },
+  nameOf: (id: ObjectId | null) => string) =>
+  `Bileşenler(${[constraint.vectorId, ...(constraint.lineId === undefined ? [] : [constraint.lineId]),
+    ...(constraint.secondLineId === undefined ? [] : [constraint.secondLineId])].map(nameOf).join(',')})`
 
 const vectorMeasureCall = (item: VectorMeasure, nameOf: (id: ObjectId | null) => string) =>
   `${VECTOR_MEASURES[item.measure]}(${item.sourceIds.map(nameOf).join(',')})`

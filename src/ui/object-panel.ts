@@ -1,6 +1,15 @@
 import type { CardModel, StylePatch, StyleSpec, UnitCircleControls } from '../app/object-cards'
 import type { UnitCirclePart } from '../geometry/function-types'
 import type { LineStyle, ObjectId } from '../geometry/types'
+import { cardMath } from './card-math'
+import { definitionText } from './card-definition'
+
+/**
+ * What every card's main row shows: the value (definition below it while selected), the
+ * definition, or the command that would make the object again. Values are hidden in the
+ * last two, so a class can work out a value itself.
+ */
+export type CardViewMode = 'value' | 'definition' | 'command'
 
 export interface PanelEntry {
   id: ObjectId
@@ -42,6 +51,9 @@ interface CardView {
   root: HTMLDivElement
   input: HTMLInputElement
   output: HTMLOutputElement
+  /** The main row typeset as math, shown in its place while not editing. */
+  math: HTMLSpanElement
+  mathKey: string
   hide: HTMLButtonElement
   labels: HTMLLabelElement[]
   ranges: HTMLInputElement[]
@@ -107,10 +119,22 @@ function setIfChanged<Target, Key extends keyof Target>(target: Target, key: Key
  */
 export class ObjectPanel {
   private readonly views = new Map<ObjectId, CardView>()
+  private mode: CardViewMode = 'value'
+  private typeset = true
+  private last: { entries: readonly PanelEntry[]; activeId: ObjectId | null } = { entries: [], activeId: null }
 
   constructor(private readonly container: HTMLElement, private readonly handlers: ObjectPanelHandlers) {}
 
+  /** Device preferences for every card: what the main row shows and whether formulas are typeset. */
+  setDisplay(mode: CardViewMode, typeset: boolean): void {
+    if (mode === this.mode && typeset === this.typeset) return
+    this.mode = mode
+    this.typeset = typeset
+    this.render(this.last.entries, this.last.activeId)
+  }
+
   render(entries: readonly PanelEntry[], activeId: ObjectId | null): void {
+    this.last = { entries, activeId }
     const wanted = new Set(entries.map(entry => entry.id))
     for (const [id, view] of this.views) {
       if (!wanted.has(id)) {
@@ -133,6 +157,8 @@ export class ObjectPanel {
     input.readOnly = true
     const output = element('output')
     output.id = `${id}-output`
+    const math = element('span', 'card-math')
+    math.id = `${id}-math`
     const hide = element('button', 'btn gizle')
     const remove = element('button', 'btn sil')
     remove.title = 'Sil'
@@ -209,6 +235,8 @@ export class ObjectPanel {
     // A value card shows only its value until selected.
     output.addEventListener('click', () => this.handlers.select(id))
     output.addEventListener('dblclick', () => this.startEdit(view))
+    math.addEventListener('click', () => { if (!view.editing) this.handlers.select(id) })
+    math.addEventListener('dblclick', () => this.startEdit(view))
     // Keep the input focused when the button is pressed, so blur does not end the edit first.
     edit.addEventListener('mousedown', event => event.preventDefault())
     edit.addEventListener('click', () => {
@@ -237,10 +265,10 @@ export class ObjectPanel {
     })
     hide.addEventListener('click', () => this.handlers.toggleVisibility(id))
     remove.addEventListener('click', () => this.handlers.remove(id))
-    block.append(input, output, styleButton, edit, hide, remove)
+    block.append(math, input, output, styleButton, edit, hide, remove)
     root.append(block, sliders, settings, style.root, element('hr'))
     const view: CardView = {
-      root, input, output, hide, labels, ranges, outputKey: '', settings, bounds, play, onCanvas, edit, styleButton, style,
+      root, input, output, math, mathKey: '', hide, labels, ranges, outputKey: '', settings, bounds, play, onCanvas, edit, styleButton, style,
       styleOpen: false, display: '', editText: null, editing: false, unitCircle: null,
     }
     this.views.set(id, view)
@@ -382,19 +410,44 @@ export class ObjectPanel {
 
   private update(view: CardView, entry: PanelEntry, active: boolean): void {
     const { card } = entry
-    view.display = card.input
+    const mode = this.mode
+    // Command view: the text that would make the object again (the edit text), when it has one.
+    // Definition view: that command in words where there is a phrase for it.
+    const command = entry.editText ?? card.input
+    const described = mode === 'definition' ? definitionText(command) : command
+    const main = mode === 'command' ? command : mode === 'definition' && described !== command ? described : card.input
+    view.display = main
     view.editText = entry.editText
     view.edit.hidden = entry.editText === null
     // The text being typed is left alone until the edit ends.
-    if (!view.editing) setIfChanged(view.input, 'value', card.input)
+    if (!view.editing) setIfChanged(view.input, 'value', main)
     const outputKey = card.output.join('\n')
     if (view.outputKey !== outputKey) {
       view.output.replaceChildren(...card.output.flatMap((line, index) => index ? [element('br'), line] : [line]))
       view.outputKey = outputKey
     }
-    // Nothing to show below the definition: the card is a single row.
-    setIfChanged(view.output, 'hidden', card.output.length === 0)
-    view.root.classList.toggle('value-first', card.valueFirst)
+    // Nothing to show below the definition: the card is a single row. Only the value view shows values.
+    setIfChanged(view.output, 'hidden', card.output.length === 0 || mode !== 'value')
+    const valueFirst = mode === 'value' && card.valueFirst
+    view.root.classList.toggle('value-first', valueFirst)
+    // The main row as math, when it is a formula; a definition in words wraps instead of being cut.
+    const lines = valueFirst ? card.output : [main]
+    const words = mode === 'definition' && described !== command
+    const mathKey = words ? `words\n${main}` : this.typeset ? lines.join('\n') : ''
+    if (view.mathKey !== mathKey) {
+      if (words) {
+        view.math.replaceChildren(main)
+      } else {
+        const typeset = mathKey ? lines.map(line => cardMath(line)) : []
+        const ok = typeset.length > 0 && typeset.every(item => item !== null)
+        view.math.replaceChildren(...(ok ? typeset.flatMap((item, index) => index ? [element('br'), item!] : [item!]) : []))
+      }
+      view.mathKey = mathKey
+    }
+    view.math.classList.toggle('is-words', words)
+    const shown = view.math.childNodes.length > 0
+    view.root.classList.toggle('math-output', shown && valueFirst)
+    view.root.classList.toggle('math-input', shown && !valueFirst)
     view.root.classList.toggle('is-active', active)
     if (!active) view.styleOpen = false
     this.updateStyle(view, entry.style, view.styleOpen && active)

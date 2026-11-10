@@ -46,7 +46,7 @@ function constraintReferences(constraint: PointConstraint): (ObjectId | null | u
     case 'rotate': return [constraint.sourceId, constraint.centerId, constraint.ownerId]
     case 'translate': return [constraint.sourceId, constraint.fromId, constraint.toId, constraint.vectorId, constraint.ownerId]
     case 'vectorSum': return [constraint.baseId, ...constraint.terms.map(term => term.vectorId), constraint.ownerId]
-    case 'vectorComponent': return [constraint.vectorId, constraint.lineId, constraint.ownerId]
+    case 'vectorComponent': return [constraint.vectorId, constraint.lineId, constraint.secondLineId, constraint.ownerId]
     case 'lineHelper': return [...constraint.refs, constraint.ownerId]
     case 'anchor': return [constraint.objectId, constraint.ownerId]
     case 'regularVertex': return [constraint.firstId, constraint.secondId, constraint.ownerId]

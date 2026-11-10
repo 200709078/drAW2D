@@ -101,7 +101,8 @@ test('vektör, alan ve eğim araçları; asimptot aracı fonksiyondan çizer', a
 test('tuvaldeki kaydırıcı sürüklenir ve tek geri alma adımıdır; başlığından taşınır', async ({ page }) => {
   await enterCommand(page, 'a=1')
   await enterCommand(page, 'x=a')
-  await page.locator('[id="0-input"]').click()
+  // A formula card is typeset; its math row stands in for the text row.
+  await page.locator('[id="0-math"]').click()
   await page.locator('[id="0-onCanvas"]').check()
   // The track starts at (24, 90) and is 160 px long for −5…5.
   await drag(page, { x: 120, y: 90 }, { x: 184, y: 90 })
@@ -115,7 +116,7 @@ test('tuvaldeki kaydırıcı sürüklenir ve tek geri alma adımıdır; başlı�
   await page.locator('#redo').click()
   await drag(page, { x: 230, y: 190 }, { x: 384, y: 190 })
   await expect(page.locator('[id="0-input"]')).toHaveValue('a = 5')
-  await page.locator('[id="0-input"]').click()
+  await page.locator('[id="0-math"]').click()
   await page.locator('[id="0-onCanvas"]').uncheck()
   await drag(page, { x: 384, y: 190 }, { x: 240, y: 190 })
   await expect(page.locator('[id="0-input"]')).toHaveValue('a = 5')
@@ -133,7 +134,7 @@ test('fonksiyon grafiği sürüklenerek ötelenir; geri alma ilk denkleme döner
 test('çizgi izi kaydırıcıyla değişen doğrunun kopyalarını bırakır', async ({ page }) => {
   await enterCommand(page, 'a=1')
   await enterCommand(page, 'a*x')
-  await page.locator('[id="1-output"]').click()
+  await page.locator('[id="1-math"]').click()
   await page.locator('[id="1-style"]').click()
   await page.locator('[id="1-trace"]').check()
   // The darkest channel around (1.3, 1.3), on y = x but away from axes and grid lines.
@@ -229,4 +230,24 @@ test('kaydedilen .drw2 dosyası açılınca aynı belge ve görünüm gelir; gö
   await (await broken).setFiles({ name: 'bozuk.drw2', mimeType: 'application/json', buffer: Buffer.from('{"app":"drAW3D"}') })
   await expect(page.locator('#snackContent')).toHaveText('Bu dosya bir drAW2D belgesi değil.')
   await expect.poll(() => values(page)).toEqual(before)
+})
+
+test('komut kutusu adlı noktayı kabul eder: A=(1,2), boşluklu ve ondalıklı yazım', async ({ page }) => {
+  await enterCommand(page, 'A=(1,2)')
+  await enterCommand(page, 'B = (1.5, -2)')
+  await expect.poll(() => values(page)).toEqual(['B=(1.50,-2)', 'A=(1,2)'])
+})
+
+test('Dosya menüsü kısayolları klavyeli cihazda görünür, dokunmatik telefonda görünmez', async ({ page, browser }) => {
+  await page.locator('#fileMenuButton').click()
+  await expect(page.locator('#fileOpen kbd')).toHaveText('Ctrl+O')
+  await expect(page.locator('#fileOpen kbd')).toBeVisible()
+
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+  const phone = await context.newPage()
+  await phone.goto('/')
+  await phone.locator('#fileMenuButton').tap()
+  await expect(phone.locator('#fileOpen')).toBeVisible()
+  for (const id of ['fileOpen', 'fileSave', 'fileSaveAs']) await expect(phone.locator(`#${id} kbd`)).toBeHidden()
+  await context.close()
 })

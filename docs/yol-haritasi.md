@@ -189,6 +189,7 @@ olsun (ör. `Noktalı · · · ·`).
   kalır; değeri tanımsız (`∅`, `∞`) kartta tanım önde kalır.
 - Seçili kartın tamamı vurgulanır.
 - Sonraya kalan: görüntüleme kipi ayarı (3) ve KaTeX gösterimi (4).
+- **3 ve 4 uygulandı (2026-11-10, kullanıcı isteği; bkz. "Ortak araç çubuğu stili" bölümündeki 2026-11-10 notu).**
 
 ### İ7. Birim çember aracı (2026-10-26)
 
@@ -311,6 +312,7 @@ Tabletler ve Android'li akıllı tahtalar yatay ekranlıdır, dikeye kilitlemek 
 yön ancak tam ekranda kilitlenebilir (`screen.orientation.lock`); kilitsiz yatayda bir "telefonu
 dik tutun" uyarısı alternatif. Açık sorular: yalnız telefonda mı, yalnız Android paketinde mi,
 web'de de mi? Kullanıcı kararı bekliyor.
+**Kullanıcı kararı (2026-11-10):** telefonda yatay kullanım kapatılmasın; yön kilidi yok.
 
 ## Önerilen geliştirmeler
 
@@ -495,6 +497,7 @@ yükleniyor. Electron kontrolü artık CSS arka plan görsellerini de denetliyor
 - Tuvalin sol altındaki mADEMatik bağlantısı (madematik.com) kaldırıldı
   (2026-10-23); ileride uygun bir yere (örneğin yardım penceresi veya bir "Hakkında"
   bölümü) geri eklenecek. Eski işaretleme ve stil Git geçmişindedir.
+  **Uygulandı (2026-11-10):** Hakkında penceresine (aşağıdaki "Hakkında penceresi" bölümü).
 - ~~Derlemede math.js kaynaklı "500 kB'tan büyük parça" uyarısı; kod bölme ilk
   açılışı hızlandırabilir.~~ **Uygulandı (2026-10-25):** math.js `create(all)` yerine
   yalnız giriş dilinin fonksiyonları, ayrıştırıcı, derleyici ve türevle kurulur; ayrı
@@ -564,6 +567,9 @@ bekliyor.
 - **Yan bulgu:** komut kutusunda `A=(1,2)` "Matematik ifadesi okunamadı" diyor; noktalar
   `(1,2)` ile adsız girilip kendiliğinden ad alıyor. drAW3D `A=(1,2,3)` kabul ediyor.
   **Öneri:** `A=(1,2)` biçimini de kabul etmek.
+  **Durum (2026-11-10, kullanıcı istedi):** zaten destekleniyormuş — 2026-10-31'deki vektör işleriyle `A=(1,2)`
+  adlı nokta olarak okunuyor (`namedCoordinates`). Komut kutusundan `A=(1,2)` ve `B = (1.5, -2)` için arayüz
+  testi eklendi (`features-integration.spec.ts`).
 
 ## Paket yeniden derlemesi (2026-10-27)
 
@@ -645,6 +651,8 @@ kapalıyken belge yüklendi.
    tuvaldeki yazıdan büyük göründü; drAW'da `MainActivity.onCreate` içinde
    `getBridge().getWebView().getSettings().setTextZoom(100)` ile düzeltildi. drAW2D ve
    drAW3D için de aynı satır önerilir (drAW3D de aynı biçimde etkilenir).
+   **Uygulandı (2026-11-10, kullanıcı isteği):** `MainActivity` aynı satırı çağırır. Telefonda denenmedi (telefon
+   o sırada bağlı değildi); Android derlemesi geçti.
 2. **Yatay ekranda üst çubuk üst üste biniyor** (839×343 CSS px, alt panel yanda sütun):
    araç grupları ile işlem düğmeleri (Dosya, Geri al, Yinele, Sil, Standart görünüm)
    aynı yere çiziliyor; Dosya çokgen grubunun, Geri al çember grubunun üstünde.
@@ -653,6 +661,8 @@ kapalıyken belge yüklendi.
 3. **Dosya menüsü telefonda klavye kısayollarını gösteriyor** (Ctrl+O, Ctrl+S,
    Ctrl+Shift+S); dokunmatik telefonda anlamsız. Android'de (ya da klavyesiz dokunmatik
    cihazda) gizlenmeli.
+   **Uygulandı (2026-11-10, kullanıcı isteği):** fareli olmayan dokunmatik cihazda (`hover: none` ve
+   `pointer: coarse`: telefon, tablet, Android uygulaması) Dosya menüsü kısayolları gizlenir; bilgisayarda görünür.
 4. Android'in belge seçicisi kaydedilen dosyaları "0 B" gösteriyor; dosyalar diskte dolu
    (drAW3D'ninkiler de). Android'in medya dizini boyutu geç güncelliyor; uygulama hatası
    değil, işlem gerekmiyor.
@@ -790,4 +800,96 @@ Masaüstü ve telefon boyutunda ekran görüntüleriyle bakıldı. Gerçek tahta
 - Bileşenler canlıdır (`vectorComponent` kısıtı): vektör ya da doğru değişince güncellenir, silinince bileşen de silinir, tek adımda geri alınır, `.drw2`'ye yazılır.
 - Vektörün ucundan bileşen uçlarına kesikli yapım çizgileri iner; kartın "Yapımı göster" ayarıyla kapatılır.
 - `∥` ve `⊥` işaretleri ad olarak kullanılamadığı için paralel `u_p`, dik `u_d` adını alır (`p`: paralel, `d`: dik).
-- Sonraya bırakıldı: dik olmayan iki doğrultuya ayırma (paralelkenar kuralı).
+- Sonraya bırakıldı: dik olmayan iki doğrultuya ayırma (paralelkenar kuralı). **Uygulandı (2026-11-10):** bkz. aşağıdaki
+  "Kullanıcı istekleri (2026-11-10)" notu.
+
+## Ortak araç çubuğu stili (2026-11-10, kullanıcı isteği; awCELL, awPDF, drAW, drAW2D, drAW3D; kodlanmadı)
+
+Kullanıcı: "Bu menü sistemini awPDF ve drAW kardeşlerde de uygulayabileceğimiz bir şey olmalı. Aynı stile çekebilmek
+için." awCELL'de araç çubuğu 39 düğmeden 13 düğmeye indirilirken kararlaştırıldı.
+
+**Ortak kurallar** (beş projenin yol haritasında aynı; birinde değişirse ötekiler de güncellenir; ayrıntılı not ve
+gerekçeler `awCELL/docs/yol-haritasi.md`'de):
+
+1. **Taşma menüsü ☰ / ✕:** Sığmayan düğmeler sondan başlayarak ☰ menüsüne geçer; açıkken düğme ✕ olur ("Menüyü aç" /
+   "Menüyü kapat"). "⋯" ve kaydırma okları kullanılmaz; pencere boyutu değişince yeniden hesaplanır. Örnek: awPDF
+   `src/ui/toolbar.ts` (`mountOverflowMenu`).
+2. **Kapanma:** ✕, dışarıya dokunma, Esc, Android geri düğmesi, menüden bir iş seçme (art arda seçim yapılan gruplar
+   hariç).
+3. **Gruplar:** Çubukta grup başına tek düğme ve ▾; tıklayınca açılır, üstüne gelince değil; aynı anda tek pencere.
+4. **Son kullanılan:** Grup düğmesi son seçilen aracı/işi gösterir (drAW2D'deki gibi).
+5. **Durum gösterimi:** Grubun içindeki etkin seçim grup düğmesinden de anlaşılır.
+6. **☰ menüsünün içi:** Grup başlıkları simge ve etiketle görünür, yerinde (akordeon gibi) açılır, aynı anda tek grup
+   açık. Herkesin tanıdığı simgeler grup içinde yalnız simge olarak yan yana; yanlış anlaşılabilecekler simge ve
+   etiketle. Tek düğmeler simge ve etiketle, doğrudan iş yapar. Gerekçe: dokunmatikte ipucu (`title`) çıkmaz.
+7. Dokunma alanları çubukta ve menüde aynı büyüklükte kalır.
+
+Ortak kod paketi yok; her proje kendi kopyasını yazar, davranış aynı tutulur. Önce awCELL'de uygulanacak; bu proje
+sonra, kullanıcı onayıyla.
+
+**drAW2D'ye uyarlama (öneri, açık sorular):**
+- Gruplar ve son kullanılan aracı gösteren grup düğmesi zaten var; ortak stilin kaynağı bu.
+- Değişecek: geniş düzendeki "⋯" taşma menüsü (`src/ui/main-toolbar.ts`, `createOverflow`) ☰ / ✕ olur; menünün içi
+  6. kurala göre düzenlenir (grup başlıkları etiketli, yerinde açılır).
+- Açık soru: dar düzendeki alt paneldeki Araçlar sekmesi kalsın mı, yoksa ☰ menüsüyle mi birleşsin?
+
+**Kullanıcı kararları (2026-11-10):** "⋯" taşma menüsü ☰ / ✕ olsun; telefonda alt paneldeki Araçlar sekmesi kalsın;
+çubuk üstte kalsın (drAW'daki gibi alta alınmasın).
+**Uygulandı (2026-11-10):** taşma düğmesi kapalıyken ☰ "Diğer Araçlar", açıkken ✕ "Menüyü Kapat" (`menu.svg`,
+`close.svg`; `more.svg` kaldırıldı). Yeri, içeriği ve davranışı (hangi düğmenin menüye geçtiği, Esc, dışarı dokunuş,
+geri tuşu) değişmedi. `tests/toolbar-overflow.spec.ts` simge ve etiketleri de denetler. Menünün içinin 6. kurala
+(grup başlıkları yerinde açılır) göre düzenlenmesi istenmedi, yapılmadı.
+
+## Kullanıcı istekleri (2026-11-10): ☰ menüsünün içi, kart görünümü, matematik yazımı, paralelkenar kuralı
+
+Kullanıcı önce örnekli bir tanıtım sayfasında dört öneriyi gördü, sonra: "☰ menüsünün içini ortak kurala göre düzenle. Mobilde
+aynı cebir penceresinin yanındaki araçlar penceresinde kalsın ama. Diğer 2, 3, 4'ü de tamamla."
+
+**Uygulandı (2026-11-10):**
+1. **☰ menüsünün içi:** geniş düzende menüye geçen her araç grubu kapalı bir başlık (grubun son kullanılan aracının simgesi ve grubun
+   adı, ▸); dokununca araçları yerinde açılır, aynı anda tek grup açık. Menü açılınca etkin aracın grubu açık gelir, başlığı
+   işaretlidir. Araçlar adlarıyla kalır (birbirine benzeyen çok araç var). Dar düzende (dik telefon) hiçbir şey değişmedi: araçlar
+   alt paneldeki Araçlar sekmesinde; ☰'ye orada araç grubu geçmez.
+2. **Kart görünümü:** kartların üstünde "Değer / Tanım / Komut" seçimi (cihazda saklanır, dosyaya girmez). Değer bugünkü kartlar;
+   Tanım ve Komut değerleri gizler. Tanım komutu sözle anlatır ("C: A ve B noktalarının orta noktası", "merkezi A noktası,
+   yarıçapı 2 olan çember"); adlar ek almaz, ekler isimlere gelir ("A ve B noktalarının"). Anlatımı olmayan komutlar ve formüller
+   olduğu gibi kalır. Komut nesneyi yeniden oluşturan komutu gösterir ("C = OrtaNokta(A,B)").
+3. **Matematik yazımı:** kartlardaki formüller kitaptaki gibi (kesir çizgisi, üs, kök, |x|, log₂); √x düğmesiyle kapanır (cihazda
+   saklanır). Öneride söylenen kütüphane (KaTeX, ~300 kB) yerine tarayıcının kendi matematik yazımı (MathML) kullanıldı: uygulama
+   büyümez, internetsiz çalışır. Matematik fontu olan sistemlerde (Pardus: DejaVu Math TeX Gyre, Windows: Cambria Math) düzgün
+   görünür; Android'de telefonda denenmedi. Noktalar, komutlar ve sözlü tanımlar düz yazı kalır. Çift tıklayınca düz yazıyla
+   düzenlenir.
+4. **Paralelkenar kuralı:** `Bileşenler(u, d, e)` ve Vektör grubunda "İki Doğrultuya Ayır" aracı (vektör, sonra iki doğru ya da
+   vektör). u = u_d + u_e, parçalar d ve e doğrultusunda; kesikli yapım çizgileri paralelkenarı tamamlar; canlıdır; paralel
+   doğrultular reddedilir.
+
+Denendi: bütün otomatik testler; yeni testler `card-display.spec.ts`, `toolbar-overflow.spec.ts` (akordeon),
+`vector-operations.spec.ts` (paralelkenar). Kartı seçen beş eski arayüz testi artık dizilmiş satıra tıklıyor. Telefonda ve
+tahtada denenmedi.
+
+## Alt paneli açan ok (2026-11-10, kullanıcı isteği)
+
+Kullanıcı: "Alttaki pencereyi açan ok şu an yukarıda duruyor. Bu nedenle bu okun ne işe yaradığı pek anlaşılmıyor." Öneri
+(tutamaçla açıp kapatma) seçildi: "oku üst çubuktan kaldırıp alt paneli kendi tutamacıyla açılıp kapanacak şekilde ayarla".
+drAW3D'nin Y11 notundaki konu aynı; drAW3D'ye taşınması ayrıca karar.
+
+**Uygulandı (2026-11-10, yalnız dar düzen / telefon):** Üst çubuktaki ok telefonda yok; açılan yere Temizle, Standart Görünüm ve
+Yardım sığıyor. Kapalı panel altta 58 px'lik bir şerit bırakır: tutamaç ve Cebir / Araçlar sekmeleri. Açmak: tutamaca dokunmak,
+tutamacı yukarı kaydırmak ya da bir sekmeye dokunmak (panel o sekmede açılır). Kapatmak: tutamaca dokunmak, tutamacı en küçük
+boyutun çok altına sürüklemek ya da Android geri tuşu. Arada sürüklemek boyutlandırır; kapanıp açılınca önceki boyut korunur.
+Klavyeyle de (Enter / Boşluk) açılıp kapanır. Bilgisayarda ve tahtada sağdaki panelin oku olduğu gibi kaldı (önerilen kenar
+sekmesi yapılmadı). Test: `touch-integration.spec.ts` "alt panel tutamacıyla açılıp kapanır". Telefonda denenmedi.
+
+## Hakkında penceresi (2026-11-10, kullanıcı kararı; uygulandı)
+
+Kullanıcı: Yardım hem çubukta hem Dosya menüsünde kalsın; Hakkında Dosya menüsünün en altında, Yardım gibi ayrı pencerede
+açılsın; "diğer kardeşlere de bunu not et (özellikle hakkında kısmı hepsinde olmalı)". Aile notu drAW, drAW3D, awPDF ve awCELL
+yol haritalarında.
+
+**Uygulandı (2026-11-10):** Dosya menüsünün sonunda çizgiyle ayrılmış "Yardım (F1)" ve "Hakkında". Hakkında, Yardım penceresiyle
+aynı görünüşte küçük bir pencere: simge, drAW2D ve sürüm (`package.json`'dan), "2B geometri ve fonksiyon çizimi", mADEMatik
+Solutions ve madematik.com bağlantısı, İndir (madematik.com'daki drAW2D sayfasının indirme bölümü, `projelerim/draw2d#indirmeler`; kullanıcı kararı 2026-11-10), Lisans MIT, "İletişim:
+ademvarol@madematik.com" (seçilebilir yazı). Kapanma: ×, dışarıya dokunma, Esc, Android geri tuşu. Bağlantılar sistemin
+tarayıcısında açılır (masaüstü uygulamasının pencere açma kuralıyla; Android'de uygulamanın içinde değil — telefonda
+denenmedi). Yardım artık Esc ile ve F1'le de açılıp kapanıyor. Test: `tests/about.spec.ts`.
+

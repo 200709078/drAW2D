@@ -13,7 +13,7 @@ function pointOf(object: GeometryDocumentObject | undefined): NumericPoint | nul
   return object?.type === 'point' ? numericPoint(object) : null
 }
 
-function lineDirection(object: GeometryDocumentObject | undefined): { origin: NumericPoint; direction: NumericPoint } | null {
+export function lineDirection(object: GeometryDocumentObject | undefined): { origin: NumericPoint; direction: NumericPoint } | null {
   if (!object || !LINE_TYPES.has(object.type)) return null
   const line = getLineDescriptor(object as Parameters<typeof getLineDescriptor>[0])
   return line.status ? { origin: line.origin, direction: line.direction } : null
@@ -207,6 +207,20 @@ export function vectorComponentOf(vector: Vector): Extract<PointConstraint, { ty
 function vectorPart(whole: NumericPoint, constraint: Extract<PointConstraint, { type: 'vectorComponent' }>, get: Lookup): NumericPoint | null {
   if (constraint.part === 'x') return { a: whole.a, b: 0 }
   if (constraint.part === 'y') return { a: 0, b: whole.b }
+  if (constraint.part === 'first' || constraint.part === 'second') {
+    // u = s·d + t·e; parallel directions have no such split.
+    const d = constraint.lineId === undefined ? null : lineDirection(get(constraint.lineId))?.direction
+    const e = constraint.secondLineId === undefined ? null : lineDirection(get(constraint.secondLineId))?.direction
+    if (!d || !e) return null
+    const det = d.a * e.b - d.b * e.a
+    if (Math.abs(det) <= 1e-12 * Math.hypot(d.a, d.b) * Math.hypot(e.a, e.b)) return null
+    if (constraint.part === 'first') {
+      const s = (whole.a * e.b - whole.b * e.a) / det
+      return { a: s * d.a, b: s * d.b }
+    }
+    const t = (d.a * whole.b - d.b * whole.a) / det
+    return { a: t * e.a, b: t * e.b }
+  }
   const direction = constraint.lineId === undefined ? null : lineDirection(get(constraint.lineId))?.direction
   const size = direction ? direction.a * direction.a + direction.b * direction.b : 0
   if (!direction || !size) return null

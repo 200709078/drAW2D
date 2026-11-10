@@ -32,8 +32,9 @@ async function selectTool(page: Page, action: ToolAction): Promise<void> {
   await page.evaluate(action => window.drAW2DToolbar!.selectToolByAction(action, { showToast: false }), action)
 }
 
+/** On a phone the sheet opens by its own handle; there is no arrow button. */
 async function showPanel(page: Page): Promise<void> {
-  await page.locator('#btnCalc').click()
+  await page.locator('#panelHandle').tap()
   await expect(page.locator('#rightWrapper')).not.toHaveClass(/\bhide\b/)
 }
 
@@ -112,8 +113,8 @@ test('iki parmak orta noktanın altındaki noktayı tutarak yakınlaştırır ve
 test('ikinci parmak süren nokta sürüklemesini geçmiş adımı bırakmadan geri alır', async ({ page }) => {
   await showPanel(page)
   await enterCommand(page, '(1,1)')
-  await page.locator('#btnCalc').click()
-  await expect(page.locator('#rightWrapper')).toBeHidden()
+  await page.locator('#panelHandle').tap()
+  await expect(page.locator('#rightWrapper')).toHaveClass(/\bhide\b/)
   const client = await page.context().newCDPSession(page)
   await touch(client, 'touchStart', [{ x: 295, y: 322 }])
   await touch(client, 'touchMove', [{ x: 315, y: 302 }])
@@ -127,3 +128,53 @@ test('ikinci parmak süren nokta sürüklemesini geçmiş adımı bırakmadan ge
   await expect(cardInputs(page)).toHaveCount(0)
   await expect(page.locator('#undo')).toBeDisabled()
 })
+
+test('alt panel tutamacıyla açılıp kapanır: dokunma, kaydırma, sekme; üst çubukta ok yok', async ({ page }) => {
+  const wrapper = page.locator('#rightWrapper')
+  const handle = page.locator('#panelHandle')
+  await expect(page.locator('#btnCalc')).toBeHidden()
+  // Kapalı panelin tutamacı ve sekmeleri altta görünür.
+  await expect(wrapper).toHaveClass(/\bhide\b/)
+  await expect(page.locator('#tabTools')).toBeInViewport()
+  const closedBox = (await handle.boundingBox())!
+  expect(closedBox.y).toBeGreaterThan(844 - 70)
+  await expect(handle).toHaveAttribute('aria-label', 'Paneli aç')
+
+  await handle.tap()
+  await expect(wrapper).not.toHaveClass(/\bhide\b/)
+  await expect(handle).toHaveAttribute('aria-expanded', 'true')
+  await handle.tap()
+  await expect(wrapper).toHaveClass(/\bhide\b/)
+
+  // Kapalıyken Araçlar sekmesi paneli o sekmede açar.
+  await page.locator('#tabTools').tap()
+  await expect(wrapper).not.toHaveClass(/\bhide\b/)
+  await expect(page.locator('#toolsPanel')).toBeVisible()
+
+  const client = await page.context().newCDPSession(page)
+  const swipe = async (from: number, to: number) => {
+    // The sheet slides for 0.35 s after opening or closing; aim at where the handle settled.
+    await page.waitForTimeout(450)
+    const box = (await handle.boundingBox())!
+    const x = box.x + 60
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: box.y + from }] })
+    for (let step = 1; step <= 8; step++) {
+      await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: box.y + from + (to - from) * step / 8 }] })
+      await page.waitForTimeout(16)
+    }
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  }
+  // Açık panel biraz yukarı sürüklenince büyür, açık kalır.
+  const before = (await wrapper.boundingBox())!.height
+  await swipe(8, -120)
+  await expect.poll(async () => (await wrapper.boundingBox())!.height).toBeGreaterThan(before + 60)
+  await expect(wrapper).not.toHaveClass(/\bhide\b/)
+  // En küçük boyutun çok altına sürüklenince kapanır.
+  await swipe(8, 700)
+  await expect(wrapper).toHaveClass(/\bhide\b/)
+  // Kapalı tutamaç yukarı kaydırılınca açılır, kapanmadan önceki boyutuyla.
+  await swipe(8, -200)
+  await expect(wrapper).not.toHaveClass(/\bhide\b/)
+  await expect.poll(async () => (await wrapper.boundingBox())!.height).toBeGreaterThan(before + 60)
+})
+

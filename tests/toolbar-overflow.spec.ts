@@ -34,15 +34,18 @@ for (const [width, height, touch] of [[1600, 900, false], [1100, 700, false], [8
     const state = await barState(page)
     expect(state.overlaps, state.ids.join(' ')).toBe(0)
     expect(state.outside).toEqual([])
-    for (const id of ['fileMenuButton', 'undo', 'redo', 'btnCalc']) expect(state.ids, id).toContain(id)
-    // "⋯" yalnız bir şey sığmadığında görünür.
+    for (const id of ['fileMenuButton', 'undo', 'redo']) expect(state.ids, id).toContain(id)
+    // Telefonda alt panel kendi tutamacıyla açılır; ok yalnız geniş düzende.
+    if (width > 700) expect(state.ids).toContain('btnCalc')
+    else expect(state.ids).not.toContain('btnCalc')
+    // ☰ yalnız bir şey sığmadığında görünür.
     expect(state.more).toBe(state.menu.length > 0)
     if (width >= 1100) expect(state.more).toBe(false)
     await page.close()
   })
 }
 
-test('"⋯" menüsünden araç seçilir, işlem çalışır; Esc ve dışarı dokunuş kapatır', async ({ browser }) => {
+test('☰ menüsünden araç seçilir, işlem çalışır; Esc ve dışarı dokunuş kapatır', async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 839, height: 343 }, hasTouch: true, isMobile: true })
   await page.goto('/')
   const state = await barState(page)
@@ -53,15 +56,37 @@ test('"⋯" menüsünden araç seçilir, işlem çalışır; Esc ve dışarı do
 
   const button = page.locator('#moreMenuButton')
   const menu = page.locator('#moreMenu')
+  // Kapalıyken ☰ "Diğer Araçlar", açıkken ✕ "Menüyü Kapat".
+  await expect(button).toHaveAttribute('aria-label', 'Diğer Araçlar')
+  await expect(button.locator('img')).toHaveAttribute('src', './img/menu.svg')
   await button.tap()
   await expect(menu).toBeVisible()
   await expect(button).toHaveAttribute('aria-expanded', 'true')
+  await expect(button).toHaveAttribute('aria-label', 'Menüyü Kapat')
+  await expect(button.locator('img')).toHaveAttribute('src', './img/close.svg')
+  // Gruplar kapalı başlık: araçları görünmez; dokunulan grup yerinde açılır, aynı anda tek grup açık.
+  const transform = page.locator('#moregroup-transform')
+  await expect(transform).toHaveAttribute('aria-expanded', 'false')
+  await expect(menu.getByRole('menuitemradio', { name: 'Döndür' })).toBeHidden()
+  const other = menu.locator('.more-menu-group').first()
+  await other.tap()
+  await expect(other).toHaveAttribute('aria-expanded', 'true')
+  await expect(menu).toBeVisible()
+  await transform.tap()
+  await expect(transform).toHaveAttribute('aria-expanded', 'true')
+  await expect(other).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.locator(`#${await other.getAttribute('aria-controls')}`)).toBeHidden()
   await menu.getByRole('menuitemradio', { name: 'Döndür' }).tap()
   await expect(menu).toBeHidden()
   expect(await page.evaluate(() => window.drAW2DToolbar!.getActiveTool().action)).toBe('rotate')
-  // Etkin araç menüdeyse "⋯" vurgulanır ve menüde işaretlidir.
+  // Etkin araç menüdeyse ☰ vurgulanır ve menüde işaretlidir; kapanınca düğme yine ☰.
   await expect(button).toHaveClass(/is-active/)
+  await expect(button).toHaveAttribute('aria-label', 'Diğer Araçlar')
   await button.tap()
+  // Menü yeniden açılınca etkin aracın grubu açık gelir; başlık grubun son aracını gösterir ve işaretlidir.
+  await expect(transform).toHaveAttribute('aria-expanded', 'true')
+  await expect(transform).toHaveClass(/is-active/)
+  await expect(transform.locator('img')).toHaveAttribute('src', './img/rotate.svg')
   await expect(menu.getByRole('menuitemradio', { name: 'Döndür' })).toHaveAttribute('aria-checked', 'true')
   await page.keyboard.press('Escape')
   await expect(menu).toBeHidden()

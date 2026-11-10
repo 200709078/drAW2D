@@ -71,8 +71,11 @@ export type Command =
   | { kind: 'slope'; line: string }
   /** `vectors` are names or expressions; preparation draws an expression as a new vector first. */
   | { kind: 'vectorMeasure'; measure: VectorMeasureKind; name: string | null; vectors: string[] }
-  /** The two components of a vector: along the axes, or along and across `line`. */
-  | { kind: 'vectorComponents'; vector: string; line: string | null }
+  /**
+   * The two components of a vector: along the axes, along and across `line`, or along
+   * `line` and `secondLine` (parallelogram rule).
+   */
+  | { kind: 'vectorComponents'; vector: string; line: string | null; secondLine?: string }
   /** (x(t), y(t)) for the named variable from start to end. */
   | { kind: 'curve'; x: string; y: string; variable: string; start: NumberArgument; end: NumberArgument }
   /** r(θ) from start to end. */

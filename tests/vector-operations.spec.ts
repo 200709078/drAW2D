@@ -574,6 +574,55 @@ test.describe('arayüz', () => {
     await expectCard(page, 't', 't=(1,4)')
   })
 
+  test('Bileşenler(u,r,s) paralelkenar kuralıyla iki doğrultuya ayırır; paralel doğrultular reddedilir', async ({ page }) => {
+    expect(parseCommand('Bileşenler(u,d,e)')).toEqual({ ok: true, command: { kind: 'vectorComponents', vector: 'u', line: 'd', secondLine: 'e' } })
+    expect(parseCommand('Bileşenler(u,d,e,f)').ok).toBe(false)
+    await enter(page, 'r=(1,0)')
+    await enter(page, 's=(1,1)')
+    await enter(page, 'Bileşenler(u,r,s)')
+    // u = (3,2) = 1·(1,0) + 2·(1,1)
+    await expectCard(page, 'u_r', 'u_r=(1,0)')
+    await expectCard(page, 'u_s', 'u_s=(2,2)')
+    await expect.poll(async () => (await card(page, 'u_s')).join(' ')).toContain('Bileşenler(u,r,s)')
+    await enter(page, 't=u_r+u_s')
+    await expectCard(page, 't', 't=(3,2)')
+    // Canlı: u'nun ucu sürüklenince parçalar da değişir; u = (4,3) = 1·(1,0) + 3·(1,1).
+    await dragTool(page)
+    await page.mouse.move(800, 300)
+    await page.mouse.down()
+    await page.mouse.move(900, 200)
+    await page.mouse.up()
+    await expectCard(page, 'u', 'u=(4,3)')
+    await expectCard(page, 'u_r', 'u_r=(1,0)')
+    await expectCard(page, 'u_s', 'u_s=(3,3)')
+
+    const before = (await rows(page)).length
+    await enter(page, 'w=(2,0)')
+    await enter(page, 'Bileşenler(u,r,w)')
+    await expect(page.locator('#snackContent')).toContainText('paralel olmamalı')
+    // Yalnız w ve ucu F eklendi; reddedilen komut nesne eklemez.
+    expect((await rows(page)).length).toBe(before + 2)
+  })
+
+  test('İki Doğrultuya Ayır aracı: vektör, sonra iki doğrultu; tek adımda geri alınır', async ({ page }) => {
+    await enter(page, 'r=(2,-1)')
+    await enter(page, 's=(-1,2)')
+    await selectTool(page, 'vectorparallelogram')
+    await pick(page, { x: 200, y: 700 })
+    await expect(page.locator('#snackContent')).toContainText('Bir vektör seçiniz')
+    await pick(page, U)
+    await expect(page.locator('#snackContent')).toContainText('birinci doğrultu')
+    await pick(page, { x: 600, y: 550 })
+    await expect(page.locator('#snackContent')).toContainText('ikinci doğrultu')
+    await pick(page, { x: 450, y: 400 })
+    // u = (3,2) = 8/3·(2,-1) + 7/3·(-1,2)
+    await expectCard(page, 'u_r', 'u_r=(5.33,-2.67)')
+    await expectCard(page, 'u_s', 'u_s=(-2.33,4.67)')
+    await page.locator('#undo').click()
+    await expect.poll(async () => (await card(page, 'u_r')).length).toBe(0)
+    await expect.poll(async () => (await card(page, 'u_s')).length).toBe(0)
+  })
+
   test('Bileşenlere Ayır aracı: boş yer eksenler, doğru paralel ve dik; tek adımda geri alınır', async ({ page }) => {
     await selectTool(page, 'vectordecompose')
     await pick(page, { x: 200, y: 700 })

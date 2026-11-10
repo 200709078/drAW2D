@@ -246,7 +246,7 @@ test.describe('uygulamada', () => {
     // The picture without a selection, as after undoing the appearance changes.
     await page.keyboard.press('Escape')
     const initial = await canvasPixels(page)
-    await page.locator('[id="2-output"]').click()
+    await page.locator('[id="2-math"]').click()
     const card = cards(page).first()
     const settings = page.locator('[id="2-settings"]')
     await expect(page.locator('[id="2-style"]')).toBeVisible()

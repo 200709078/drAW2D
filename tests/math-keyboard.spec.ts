@@ -74,7 +74,7 @@ test.describe('dokunmatik ekran', () => {
 
   test('giriş alanına ilk dokunuş klavyeyi açar ve sistem klavyesini bastırır', async ({ page }) => {
     await page.goto('/')
-    await page.locator('#btnCalc').tap()
+    await page.locator('#panelHandle').tap()
     await input(page).tap()
     await expect(keyboard(page)).toBeVisible()
     await expect(input(page)).toHaveAttribute('inputmode', 'none')
@@ -84,7 +84,7 @@ test.describe('dokunmatik ekran', () => {
 
   test('klavye her sekmede aynı yüksekliktedir; giriş alanı üstünde açık kalır', async ({ page }) => {
     await page.goto('/')
-    await page.locator('#btnCalc').tap()
+    await page.locator('#panelHandle').tap()
     await input(page).tap()
     await expect(keyboard(page)).toBeVisible()
     const heights: number[] = []
@@ -160,7 +160,7 @@ test.describe('akıllı tahta', () => {
     await page.locator('#keyboardtab-letters').click()
     await press(page, 'ç', 'e')
     await expect(search).toHaveValue('çe')
-    await page.locator('.help-close').click()
+    await page.locator('#help-popup .help-close').click()
     await page.locator('#keyboardtab-numbers').click()
     await press(page, '7')
     await expect(page.locator('#rightWrapper #mathKeyboard')).toBeVisible()

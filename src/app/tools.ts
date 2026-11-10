@@ -218,6 +218,8 @@ export class ToolController {
   private current: ToolAction = 'select'
   private points: GeometryPoint[] = []
   private target: GeometryDocumentObject | null = null
+  /** İki Doğrultuya Ayır: the first direction picked after the vector. */
+  private firstDirection: GeometryDocumentObject | null = null
 
   constructor(private readonly services: ToolServices) {}
 
@@ -233,6 +235,7 @@ export class ToolController {
   reset(): void {
     this.points = []
     this.target = null
+    this.firstDirection = null
   }
 
   press(input: ToolInput): ToolOutcome {
@@ -259,6 +262,7 @@ export class ToolController {
       case 'intersect': return this.pressIntersect(input)
       case 'vectorscale': return this.pressVectorScale(input)
       case 'vectordecompose': return this.pressVectorDecompose(input)
+      case 'vectorparallelogram': return this.pressVectorParallelogram(input)
       case 'circletangent': return this.pressCircleTangent(input)
       case 'arcmeasure': return this.pressArcMeasure(input)
       case 'root':
@@ -642,6 +646,29 @@ export class ToolController {
     const object = input.hit?.object
     const line = isLineObject(object) && object!.id !== this.target.id ? object!.name! : null
     return this.finish({ kind: 'vectorComponents', vector: this.target.name!, line }, title, null)
+  }
+
+  /** A vector, then two lines (or vectors) to split it along: the parallelogram rule. */
+  private pressVectorParallelogram(input: ToolInput): ToolOutcome {
+    const title = 'İki Doğrultuya Ayır'
+    if (!this.target) {
+      const vector = this.vectorAt(input)
+      if (!vector) return { ...NOTHING, message: { title, text: 'Bir vektör seçiniz.' } }
+      this.target = vector
+      this.services.document.activeId = vector.id
+      return { changed: true, completed: false, message: { title, text: 'Şimdi birinci doğrultuyu (doğru ya da vektör) seçiniz.' } }
+    }
+    const object = input.hit?.object
+    const usable = isLineObject(object) && object!.id !== this.target.id && object!.id !== this.firstDirection?.id
+    if (!usable) {
+      const text = this.firstDirection ? 'İkinci doğrultu için başka bir doğru ya da vektör seçiniz.' : 'Bir doğru ya da vektör seçiniz.'
+      return { ...NOTHING, message: { title, text } }
+    }
+    if (!this.firstDirection) {
+      this.firstDirection = object!
+      return { changed: false, completed: false, message: { title, text: 'Şimdi ikinci doğrultuyu seçiniz.' } }
+    }
+    return this.finish({ kind: 'vectorComponents', vector: this.target.name!, line: this.firstDirection.name!, secondLine: object!.name! }, title, null)
   }
 
   /** A point first (picked like any point), then a line, which is not turned into a point. */

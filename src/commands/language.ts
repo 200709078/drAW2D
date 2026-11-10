@@ -132,6 +132,7 @@ export const LANGUAGE: readonly LanguageEntry[] = [
   { topic: 'Vektör', syntax: 'Açı(<Vektör>, <Vektör>)', command: 'angle', examples: ['Açı(u,v)'] },
   { topic: 'Vektör', syntax: 'Bileşenler(<Vektör>)', command: 'components', examples: ['Bileşenler(u)'] },
   { topic: 'Vektör', syntax: 'Bileşenler(<Vektör>, <Doğru>)', command: 'components', examples: ['Bileşenler(u,d)'] },
+  { topic: 'Vektör', syntax: 'Bileşenler(<Vektör>, <Doğru>, <Doğru>)', command: 'components', examples: ['Bileşenler(u,d,e)'] },
   { topic: 'Doğru Parçası', syntax: 'DoğruParçası(<Nokta>, <Nokta>)', command: 'segment', examples: ['DoğruParçası((-2,1),(-1,2))'] },
   { topic: 'Doğru Parçası', syntax: 'Uzaklık(<Nokta>, <Nokta>)', command: 'distance', examples: ['Uzaklık((-2,1),(-1,2))'] },
   { topic: 'Çember', syntax: 'Çember(<Merkez>, <Yarıçap>)', command: 'circle', examples: ['Çember((-1,2),1)'] },

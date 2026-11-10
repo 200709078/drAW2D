@@ -303,3 +303,14 @@ otomatik kayıttan dönüş.
 kaydırıcıyla canlı değişim, ifade argümanı (`Uzunluk(u+v)`), düzlemdeki çizim (görüntü karşılaştırması) ve hata mesajları sınanır.
 Araçlarda Topla, Çıkar, Sayıyla Çarp tıklamaları, uç noktasıyla seçim, tek adımda geri alma; yapım çizgilerinde paralelkenar, uç uca,
 katsayılı ve tek terimli durumlar, görünüm ayarı ve kayıttan dönüş; üslü adlar sınanır.
+Bileşenlerde `Bileşenler(u,r,s)` ile paralelkenar kuralı (parçalar, toplamları, sürüklenince canlı değişim, paralel doğrultuların
+reddi) ve İki Doğrultuya Ayır aracı (vektör, iki doğrultu, tek adımda geri alma) sınanır.
+
+`card-display.spec.ts` kart görünümünü sınar: Tanım görünümünün sözlü anlatımları (adlar ek almaz, anlatımı olmayan komut
+değişmez), matematik yazımı (kesir, kök, üs; noktalar düz kalır; √x düğmesiyle kapanır), dizilmiş satırın çift tıklamayla düz
+yazıyla düzenlenmesi, Değer / Tanım / Komut görünümleri ve seçimin sayfa yenilenince korunması. Matematik yazımı açıkken formül
+kartının düz yazı satırı gizlidir; kartı seçen arayüz testleri `<id>-math` satırına tıklar.
+
+`about.spec.ts` Dosya menüsünün son iki satırını (Yardım, Hakkında), Hakkında penceresinin içeriğini (sürüm `package.json`'dan,
+bağlantılar, lisans, adres) ve ×, Esc, dışarıya dokunmayla kapanmasını; Yardım'ın Dosya menüsünden ve F1'le açılıp Esc'le
+kapanmasını sınar.

@@ -3,6 +3,8 @@ export interface FileMenuHandlers {
   onOpen(): void
   onSave(saveAs: boolean): void
   onExport(kind: 'png' | 'svg'): void
+  onHelp(): void
+  onAbout(): void
 }
 
 /** The toolbar's file menu: opens on click, closes on a press outside, a choice or Escape. */
@@ -63,4 +65,8 @@ export function createFileMenu(button: HTMLButtonElement, handlers: FileMenuHand
   heading('Dışa Aktar')
   item('fileExportPng', 'Görüntüyü PNG olarak kaydet', '', () => handlers.onExport('png'))
   item('fileExportSvg', 'Görüntüyü SVG olarak kaydet', '', () => handlers.onExport('svg'))
+  // Yardım is also in the toolbar; Hakkında lives only here, at the bottom (family rule).
+  menu.append(Object.assign(document.createElement('hr'), { className: 'menu-separator' }))
+  item('fileHelp', 'Yardım', 'F1', handlers.onHelp)
+  item('fileAbout', 'Hakkında', '', handlers.onAbout)
 }

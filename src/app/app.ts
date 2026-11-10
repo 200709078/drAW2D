@@ -23,9 +23,10 @@ import { bindCommandInput } from '../ui/command-input'
 import { bindCommandTemplates } from '../ui/command-templates'
 import { createMathKeyboard } from '../ui/math-keyboard'
 import { createHelpPopup } from '../ui/help-popup'
-import { ObjectPanel } from '../ui/object-panel'
+import { ObjectPanel, type CardViewMode } from '../ui/object-panel'
 import { createToolbar } from '../ui/main-toolbar'
 import { createSidePanel, NARROW_LAYOUT_QUERY } from '../ui/side-panel'
+import { createAboutPopup } from '../ui/about-popup'
 import { createFileMenu } from '../ui/file-menu'
 import { closePrompt, promptValue } from '../ui/prompt-dialog'
 import { createToast } from '../ui/toast'
@@ -63,6 +64,34 @@ function required<Element extends HTMLElement>(id: string): Element {
 function randomColor(): string {
   const channel = () => Math.round(Math.random() * 255 * 0.75).toString(16).padStart(2, '0')
   return `#${channel()}${channel()}${channel()}`
+}
+
+const CARD_VIEW_KEY = 'drAW2D.cardView'
+const CARD_MATH_KEY = 'drAW2D.cardMath'
+
+function storedCardView(): CardViewMode {
+  try {
+    const value = localStorage.getItem(CARD_VIEW_KEY)
+    return value === 'definition' || value === 'command' ? value : 'value'
+  } catch {
+    return 'value'
+  }
+}
+
+function storedCardMath(): boolean {
+  try {
+    return localStorage.getItem(CARD_MATH_KEY) !== 'off'
+  } catch {
+    return true
+  }
+}
+
+function storePreference(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // The choice still holds until the page closes.
+  }
 }
 
 function storedGridSnap(): boolean {
@@ -907,8 +936,16 @@ export function startApp(): void {
     onOpen: () => void openFile(),
     onSave: saveAs => void saveFile(saveAs),
     onExport: kind => void exportImage(kind),
+    onHelp: () => help.open(),
+    onAbout: () => about.open(),
   })
+  const about = createAboutPopup()
   document.addEventListener('keydown', event => {
+    if (event.key === 'F1' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault()
+      help.open()
+      return
+    }
     if (!(event.ctrlKey || event.metaKey) || event.altKey) return
     const key = event.key.toLowerCase()
     if (key === 'o') {
@@ -942,6 +979,29 @@ export function startApp(): void {
     if (parsed.view) view.restore(parsed.view)
     showToast('Otomatik Kayıt', 'Son çalışmanız geri yüklendi. Boş bir belge için Dosya → Yeni.')
   }
+  // Card display: device preferences, like grid snapping; files are not affected.
+  let cardView = storedCardView()
+  let cardMathOn = storedCardMath()
+  const cardViewButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-card-view]')]
+  const cardMathButton = required<HTMLButtonElement>('cardMath')
+  const applyCardDisplay = () => {
+    for (const button of cardViewButtons) button.setAttribute('aria-pressed', String(button.dataset.cardView === cardView))
+    cardMathButton.setAttribute('aria-pressed', String(cardMathOn))
+    panel.setDisplay(cardView, cardMathOn)
+  }
+  for (const button of cardViewButtons) {
+    button.addEventListener('click', () => {
+      cardView = button.dataset.cardView as CardViewMode
+      storePreference(CARD_VIEW_KEY, cardView)
+      applyCardDisplay()
+    })
+  }
+  cardMathButton.addEventListener('click', () => {
+    cardMathOn = !cardMathOn
+    storePreference(CARD_MATH_KEY, cardMathOn ? 'on' : 'off')
+    applyCardDisplay()
+  })
+  applyCardDisplay()
   const gridSnapButton = required<HTMLButtonElement>('gridSnap')
   gridSnapButton.setAttribute('aria-pressed', String(gridSnap))
   gridSnapButton.addEventListener('click', () => {
@@ -999,7 +1059,7 @@ export function startApp(): void {
       if (sidePanel.isHidden) sidePanel.setHidden(false)
       sidePanel.showTab('tools')
     },
-    // Dar çubukta "⋯" menüsüne bu sırayla geçer; Dosya, Geri Al, Yinele ve panel düğmesi kalır.
+    // Dar çubukta ☰ menüsüne bu sırayla geçer; Dosya, Geri Al, Yinele ve panel düğmesi kalır.
     overflowActions: ['helpMenuButton', 'btnStandartWiew', 'clear', 'gridSnap'].map(id => required<HTMLButtonElement>(id)),
   })
 
@@ -1027,6 +1087,10 @@ export function startApp(): void {
     if (document.querySelector('#mainToolbar [aria-expanded="true"]')) {
       // Every toolbar menu closes on Escape.
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+      return true
+    }
+    if (about.isOpen) {
+      about.close()
       return true
     }
     if (document.getElementById('help-popup')?.style.display === 'flex') {

@@ -61,7 +61,8 @@ export interface VectorTerm {
   coefficient: number
 }
 
-export type VectorPart = 'x' | 'y' | 'parallel' | 'perpendicular'
+/** Along the axes; along and across a line; along two directions (`first`, `second`: the parallelogram rule). */
+export type VectorPart = 'x' | 'y' | 'parallel' | 'perpendicular' | 'first' | 'second'
 
 export type PointConstraint =
   | { type: 'onCircle'; circleId: ObjectReference }
@@ -98,10 +99,13 @@ export type PointConstraint =
   }
   /** The point `baseId` moved by the sum of the terms: the tip of `u+v`, or `A+u`. */
   | { type: 'vectorSum'; baseId: ObjectReference; terms: VectorTerm[]; ownerId?: ObjectReference; pointIndex?: number }
-  /** A part of a vector, from its start: along the axes, or along and across a line (`lineId`). */
+  /**
+   * A part of a vector, from its start: along the axes, along and across a line (`lineId`), or
+   * along two directions, `lineId` and `secondLineId` (parallelogram rule).
+   */
   | {
     type: 'vectorComponent'; vectorId: ObjectReference; part: VectorPart; lineId?: ObjectReference
-    ownerId?: ObjectReference; pointIndex?: number
+    secondLineId?: ObjectReference; ownerId?: ObjectReference; pointIndex?: number
   }
   /** Translation by the vector from `fromId` to `toId`, or by the vector object `vectorId`. */
   | {

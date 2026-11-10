@@ -28,7 +28,7 @@ function expressionTexts(command: Command): string[] {
     case 'point': return [numberText(command.point.a), numberText(command.point.b)]
     case 'namedCoordinates': return [numberText(command.a), numberText(command.b)]
     case 'vectorExpression': return [command.expression]
-    case 'vectorComponents': return [command.vector, command.line ?? '']
+    case 'vectorComponents': return [command.vector, command.line ?? '', command.secondLine ?? '']
     case 'circleRadius': return [numberText(command.radius)]
     case 'verticalLine': return [numberText(command.x)]
     case 'sequence': return [command.expression, numberText(command.start), numberText(command.end)]

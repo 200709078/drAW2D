@@ -105,7 +105,8 @@ test('a=3 var olan parametreyi değiştirir; aralık kartta düzenlenir', async 
   await expect(cardValue(page, 0)).toHaveValue('a = 7')
   await expect(page.locator('[id="2-output"]')).toHaveText('b: Çember(A,7)')
   // Selecting the parameter reveals its bounds; a smaller maximum clamps the value.
-  await cardValue(page, 0).click()
+  // The typeset math row stands in for the text row of a formula card.
+  await page.locator('[id="0-math"]').click()
   await expect(page.locator('[id="0-max"]')).toHaveValue('7')
   await page.locator('[id="0-max"]').fill('4')
   await page.locator('[id="0-max"]').press('Enter')
@@ -120,7 +121,8 @@ test('a=3 var olan parametreyi değiştirir; aralık kartta düzenlenir', async 
 test('animasyon parametreyi değiştirir; durdurmak tek geçmiş adımı kaydeder', async ({ page }) => {
   await enterCommand(page, 'a=0')
   await enterCommand(page, 'x=a')
-  await cardValue(page, 0).click()
+  // The typeset math row stands in for the text row of a formula card.
+  await page.locator('[id="0-math"]').click()
   const play = page.locator('[id="0-play"]')
   await expect(play).toHaveAttribute('title', 'Oynat')
   await play.click()
