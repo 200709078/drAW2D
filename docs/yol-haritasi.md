@@ -893,3 +893,6 @@ ademvarol@madematik.com" (seçilebilir yazı). Kapanma: ×, dışarıya dokunma,
 tarayıcısında açılır (masaüstü uygulamasının pencere açma kuralıyla; Android'de uygulamanın içinde değil — telefonda
 denenmedi). Yardım artık Esc ile ve F1'le de açılıp kapanıyor. Test: `tests/about.spec.ts`.
 
+## Yayın 0.1.7 (2026-11-10, kullanıcı izniyle)
+
+GitHub sürümü v0.1.7 (apk, deb, AppImage, exe; iş akışı elle başlatıldı, etiketi iş akışı açtı) ve madematik.com/drAW2D canlıda. İçinde: ☰ menüsü ve içindeki gruplar, kart görünümü (Değer / Tanım / Komut), matematik yazımı, paralelkenar kuralı, alt panel tutamacı, Yardım ve Hakkında, Android yazı ölçeği, telefonda gizlenen kısayollar, açık renk Dosya simgesi. Site indirme kayıtları için SQL: `~/Masaüstü/madematik_indirmeler_2026-11-11.sql`.
