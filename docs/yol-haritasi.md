@@ -896,3 +896,27 @@ denenmedi). Yardım artık Esc ile ve F1'le de açılıp kapanıyor. Test: `test
 ## Yayın 0.1.7 (2026-11-10, kullanıcı izniyle)
 
 GitHub sürümü v0.1.7 (apk, deb, AppImage, exe; iş akışı elle başlatıldı, etiketi iş akışı açtı) ve madematik.com/drAW2D canlıda. İçinde: ☰ menüsü ve içindeki gruplar, kart görünümü (Değer / Tanım / Komut), matematik yazımı, paralelkenar kuralı, alt panel tutamacı, Yardım ve Hakkında, Android yazı ölçeği, telefonda gizlenen kısayollar, açık renk Dosya simgesi. Site indirme kayıtları için SQL: `~/Masaüstü/madematik_indirmeler_2026-11-11.sql`.
+
+## Google Play yayını (2026-11-16, kullanıcı kararı: drAW, drAW2D, drAW3D ve awCELL şimdiden)
+
+Kullanıcı, awPDF'in üretime geçmesini beklemeden dört uygulamayı da Play'e çıkarmaya karar verdi. Sürüm numarası sıfırlanmaz:
+Play yalnız `versionCode`'un (a·10000 + b·100 + c) her yüklemede büyümesini ister; GitHub APK'sını kuranlar aynı imzayla
+Play'den güncelleme alabilsin diye mevcut sürümden (0.1.7, kod 107) başlanır.
+
+**Hazırlandı (2026-11-16):** `public/gizlilik.html` (madematik.com/drAW2D/gizlilik.html), `docs/play/magaza.md` (ad, kısa
+ve tam açıklama, kategori, beyan önerileri, 0.1.7 sürüm notu; `node scripts/play/sinirlar.mjs` sınırları denetler),
+`docs/play/` simge, öne çıkan görsel, telefon / 7" / 10" tablet ekran görüntüleri (`npm run play:gorseller`).
+**Görsellerde bulunan hata (2026-11-16, düzeltilmedi):** kartlarda matematik yazımı (√x) açıkken MathML satırının ilk
+harfi kırpılıyor: "f: y = x² − 2x − 3" kartında f yarım görünüyor (tablet ve masaüstü genişliğinde de). Görseller bu
+yüzden matematik yazımı kapalı çekildi. Ayrıca iki adım uzaklaşınca eksen sayıları e'nin katları (−e, e) olarak
+yazılıyor; bilinçli mi, bakılmalı.
+İmzalı AAB: v0.1.7 sürüm iş akışının `play-Android` artifact'ı. Dosyalar masaüstünde `~/Masaüstü/Play/drAW2D/`.
+
+**Play Console adımları** (awPDF'teki sırayla):
+1. Uygulama oluştur: ad "drAW2D: Geometri ve Grafik", dil Türkçe, Uygulama, Ücretsiz.
+2. Uygulama bütünlüğü → Uygulama imzalama → "Anahtarı değiştir" → "Bu geliştirici hesabındaki başka bir uygulamayla aynı
+   anahtarı kullan" → awPDF (PEPK gerekmez). Doğrulama: SHA-256 `84:F7:8D:F0:…`.
+3. Mağaza kaydı ve uygulama içeriği beyanları (`docs/play/magaza.md`).
+4. Dahili test: AAB'yi yükle, telefonda Play'den kurup dene.
+5. Kapalı test: en az 12 testçi, kesintisiz 14 gün (awPDF'in "awPDF" testçi listesi kullanılır; her uygulamanın 14 günü ayrı).
+6. Üretim erişimi başvurusu ve yayın.

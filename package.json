@@ -34,7 +34,8 @@
     "dist:win": "npm run build && electron-builder --win nsis",
     "android:sync": "npm run build && cap sync android",
     "android:apk": "npm run android:sync && cd android && ./gradlew assembleRelease",
-    "android:aab": "npm run android:sync && cd android && ./gradlew bundleRelease"
+    "android:aab": "npm run android:sync && cd android && ./gradlew bundleRelease",
+    "play:gorseller": "npm run build && node scripts/play/gorseller.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.3",
