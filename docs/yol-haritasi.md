@@ -927,3 +927,10 @@ değiştirir, ama x'in listesinde y'ninkinde olmayan e ve π var (1, 2, e, π, 5
 4. Dahili test: AAB'yi yükle, telefonda Play'den kurup dene.
 5. Kapalı test: en az 12 testçi, kesintisiz 14 gün (awPDF'in "awPDF" testçi listesi kullanılır; her uygulamanın 14 günü ayrı).
 6. Üretim erişimi başvurusu ve yayın.
+
+## Yayın 0.1.8 (2026-11-17, kullanıcı izniyle)
+
+İçinde: kartlarda matematik satırı artık düğmelerin altında kalmaz (dokunmatikte ilk harf renk düğmesinin altındaydı,
+seçili kartta satır sonu ayar düğmesinin altına giriyordu); tekerlek x ekseninde e ve π basamaklarını atlar (iki adım
+uzaklaşınca −e, e yazıyordu). madematik.com/drAW2D canlıda; GitHub sürümü elle başlatılan iş akışıyla (etiketi iş akışı
+açar). Play'de 0.1.7 incelemede; 0.1.8 AAB'si kapalı teste inceleme bitince yüklenebilir.
