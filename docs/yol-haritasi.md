@@ -933,4 +933,4 @@ değiştirir, ama x'in listesinde y'ninkinde olmayan e ve π var (1, 2, e, π, 5
 İçinde: kartlarda matematik satırı artık düğmelerin altında kalmaz (dokunmatikte ilk harf renk düğmesinin altındaydı,
 seçili kartta satır sonu ayar düğmesinin altına giriyordu); tekerlek x ekseninde e ve π basamaklarını atlar (iki adım
 uzaklaşınca −e, e yazıyordu). madematik.com/drAW2D canlıda; GitHub sürümü elle başlatılan iş akışıyla (etiketi iş akışı
-açar). Play'de 0.1.7 incelemede; 0.1.8 AAB'si kapalı teste inceleme bitince yüklenebilir.
+açar). Play: 0.1.7 incelemeden geçti (2026-11-17); 0.1.8 (kod 108) aynı gün dahili teste yayınlandı, kapalı teste (Alpha) yüklenip incelemeye gönderildi; mağaza metnine 0.1.8 notu eklendi.
