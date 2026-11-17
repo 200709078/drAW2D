@@ -3,6 +3,8 @@ export interface FileMenuHandlers {
   onOpen(): void
   onSave(saveAs: boolean): void
   onExport(kind: 'png' | 'svg'): void
+  /** Absent where the clipboard takes no pictures. */
+  onCopyImage?(): void
   onHelp(): void
   onAbout(): void
 }
@@ -65,6 +67,8 @@ export function createFileMenu(button: HTMLButtonElement, handlers: FileMenuHand
   heading('Dışa Aktar')
   item('fileExportPng', 'Görüntüyü PNG olarak kaydet', '', () => handlers.onExport('png'))
   item('fileExportSvg', 'Görüntüyü SVG olarak kaydet', '', () => handlers.onExport('svg'))
+  // To paste into awDOC (an exam paper) or any other app.
+  if (handlers.onCopyImage) item('fileCopyImage', 'Görüntüyü kopyala', '', handlers.onCopyImage)
   // Yardım is also in the toolbar; Hakkında lives only here, at the bottom (family rule).
   menu.append(Object.assign(document.createElement('hr'), { className: 'menu-separator' }))
   item('fileHelp', 'Yardım', 'F1', handlers.onHelp)

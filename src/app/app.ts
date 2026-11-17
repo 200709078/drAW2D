@@ -34,7 +34,7 @@ import type { ToolAction } from '../ui/tool-registry'
 import { HIT_TOLERANCE_PX, hitTest } from './hit-test'
 import { applyStyle, describeCard, editText, setUnitCirclePart, setUnitCircleUnit, styleSpec } from './object-cards'
 import { beginObjectDrag, moveObjectDrag, type ObjectDrag } from './object-drag'
-import { exportFile, openDocumentFile, readHandedFile, saveDocumentFile, type FileTarget, type OpenedFile } from './files'
+import { canCopyImages, copyImage, exportFile, openDocumentFile, readHandedFile, saveDocumentFile, type FileTarget, type OpenedFile } from './files'
 import { bindAndroid } from './native'
 import { ToolController, type ToolInput, type ToolOutcome } from './tools'
 import { TraceRecorder } from './traces'
@@ -898,7 +898,7 @@ export function startApp(): void {
   }
 
   /** The drawing without tool previews, as PNG (the canvas raster) or SVG (vector). */
-  async function exportImage(kind: 'png' | 'svg'): Promise<void> {
+  async function exportImage(kind: 'png' | 'svg', copy = false): Promise<void> {
     const stem = (fileName ?? DEFAULT_FILE_NAME).replace(/\.drw2$/i, '')
     try {
       let blob: Blob | null
@@ -913,6 +913,10 @@ export function startApp(): void {
         frameRenderer.request()
       }
       if (!blob) throw new Error('Görüntü oluşturulamadı.')
+      if (copy) {
+        showToast('Dışa Aktar', await copyImage(blob) ? 'Görüntü kopyalandı; awDOC\'a ya da başka bir yere yapıştırabilirsiniz.' : 'Görüntü kopyalanamadı; PNG olarak kaydedin.')
+        return
+      }
       const saved = await exportFile(blob, `${stem}.${kind}`, kind)
       if (saved) showToast('Dışa Aktar', `${saved} kaydedildi.`)
     } catch {
@@ -936,6 +940,7 @@ export function startApp(): void {
     onOpen: () => void openFile(),
     onSave: saveAs => void saveFile(saveAs),
     onExport: kind => void exportImage(kind),
+    ...(canCopyImages() ? { onCopyImage: () => void exportImage('png', true) } : {}),
     onHelp: () => help.open(),
     onAbout: () => about.open(),
   })

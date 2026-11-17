@@ -232,6 +232,21 @@ test('kaydedilen .drw2 dosyası açılınca aynı belge ve görünüm gelir; gö
   await expect.poll(() => values(page)).toEqual(before)
 })
 
+test('Görüntüyü kopyala: PNG panoya gider (awDOC\'a yapıştırmak için)', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.goto('/')
+  await enterCommand(page, 'A=(1,2)')
+  await page.locator('#fileMenuButton').click()
+  await page.locator('#fileCopyImage').click()
+  await expect(page.locator('#snackContent')).toContainText('Görüntü kopyalandı')
+  const copied = await page.evaluate(async () => {
+    const [item] = await navigator.clipboard.read()
+    const blob = await item.getType('image/png')
+    return [...new Uint8Array(await blob.arrayBuffer()).subarray(1, 4)].map(code => String.fromCharCode(code)).join('')
+  })
+  expect(copied).toBe('PNG')
+})
+
 test('komut kutusu adlı noktayı kabul eder: A=(1,2), boşluklu ve ondalıklı yazım', async ({ page }) => {
   await enterCommand(page, 'A=(1,2)')
   await enterCommand(page, 'B = (1.5, -2)')
