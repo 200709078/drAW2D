@@ -426,7 +426,8 @@ canvas {
 }
 
 .is-active .expr-block input,
-.is-active .expr-block output {
+.is-active .expr-block output,
+.is-active .expr-block .card-math {
 	padding-right: 68px;
 }
 
@@ -1287,12 +1288,19 @@ code.example:hover {
 		padding-right: 72px;
 	}
 
+	/* The typeset row takes the text row's place, so it keeps clear of the same buttons. */
+	#rightWrapper .expr-block .card-math {
+		padding-left: 40px;
+		padding-right: 72px;
+	}
+
 	#rightWrapper .expr-block input {
 		height: 32px;
 	}
 
 	#rightWrapper .is-active .expr-block input,
-	#rightWrapper .is-active .expr-block output {
+	#rightWrapper .is-active .expr-block output,
+	#rightWrapper .is-active .expr-block .card-math {
 		padding-right: 104px;
 	}
 

@@ -33,6 +33,40 @@ test('tekerlek yakınlaştırması imlecin altındaki matematik noktasını sabi
   }
 })
 
+test('tekerlek x ekseninde e ve π basamaklarını atlar; iki eksen aynı 1, 2, 5 basamaklarında kalır', () => {
+  // 2026-11-17: iki adım uzaklaşınca x ekseni −e, e yazıyordu, y ekseni 5, 10.
+  const view = new ViewportState()
+  const units = () => [view.viewport(1000, 800).unitY, view.viewport(1000, 800).unitX]
+  const anchor = { x: 500, y: 400 }
+  for (let step = 0; step < 20; step++) {
+    view.zoom(false, anchor, view.transform(1000, 800))
+    const [x, y] = units()
+    expect(x).not.toBe(Math.E)
+    expect(x).not.toBe(Math.PI)
+    expect(x).toBe(y)
+  }
+  for (let step = 0; step < 30; step++) {
+    view.zoom(true, anchor, view.transform(1000, 800))
+    const [x, y] = units()
+    expect(x).toBe(y)
+  }
+})
+
+test('π birimi eksen sürüklenerek seçilir; tekerlek oradan bir sonraki düz basamağa geçer', () => {
+  const view = new ViewportState()
+  const start = view.transform(1000, 800)
+  const grab = { x: 800, y: start.originY }
+  view.beginAxisDrag('xAxis', grab, start)
+  // 1 → 2 → e → π: üç basamak sağa.
+  view.drag({ x: grab.x + 3 * 35, y: grab.y })
+  view.endDrag()
+  expect(view.viewport(1000, 800).unitY).toBe(Math.PI)
+  view.zoom(false, { x: 500, y: 400 }, view.transform(1000, 800))
+  expect(view.viewport(1000, 800).unitY).toBe(5)
+  view.zoom(true, { x: 500, y: 400 }, view.transform(1000, 800))
+  expect(view.viewport(1000, 800).unitY).toBe(2)
+})
+
 test('eksen sürükleme yalnız o ekseni ölçekler ve tutulan noktayı yerinde bırakır', () => {
   const view = new ViewportState()
   const start = view.transform(1000, 800)

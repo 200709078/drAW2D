@@ -906,11 +906,18 @@ Play'den güncelleme alabilsin diye mevcut sürümden (0.1.7, kod 107) başlanı
 **Hazırlandı (2026-11-16):** `public/gizlilik.html` (madematik.com/drAW2D/gizlilik.html), `docs/play/magaza.md` (ad, kısa
 ve tam açıklama, kategori, beyan önerileri, 0.1.7 sürüm notu; `node scripts/play/sinirlar.mjs` sınırları denetler),
 `docs/play/` simge, öne çıkan görsel, telefon / 7" / 10" tablet ekran görüntüleri (`npm run play:gorseller`).
-**Görsellerde bulunan hata (2026-11-16, düzeltilmedi):** kartlarda matematik yazımı (√x) açıkken MathML satırının ilk
-harfi kırpılıyor: "f: y = x² − 2x − 3" kartında f yarım görünüyor (tablet ve masaüstü genişliğinde de). Görseller bu
-yüzden matematik yazımı kapalı çekildi. Ayrıca iki adım uzaklaşınca eksen sayıları e'nin katları (−e, e) olarak
-yazılıyor; bilinçli mi, bakılmalı.
-İmzalı AAB: v0.1.7 sürüm iş akışının `play-Android` artifact'ı. Dosyalar masaüstünde `~/Masaüstü/Play/drAW2D/`.
+**Görsellerde bulunan hata (2026-11-16; düzeltildi 2026-11-17, kullanıcı isteği):** kartlarda matematik yazımı (√x)
+açıkken dokunmatik ekranda MathML satırının ilk harfi renk düğmesinin altında kalıyordu ("f: y = x² − 2x − 3" kartında f
+yarım). Neden: dizilmiş satır (`.card-math`) yazı satırının iç boşluklarını izlemiyordu; dokunmatikte düğmeler 28 px'e
+büyüyüp yazı satırı 40 px içeriden başlarken o 25 px'te kalıyordu. Fareyle de seçili kartta satır sağdaki ayar düğmesinin
+altına giriyordu (68 px yerine 48 px). İkisi `styles.css`'te yazı satırıyla eşitlendi; test `tests/card-display.spec.ts`
+(fare ve dokunmatik). Mevcut Play görselleri matematik yazımı kapalı çekildi; betik artık kapatmıyor. Ayrıca iki adım uzaklaşınca x ekseni e'nin katlarını (−e, e) yazıyordu,
+y ekseni 5, 10. **Düzeltildi (2026-11-17, kullanıcı isteği):** tekerlek her adımda iki eksenin birimini bir basamak
+değiştirir, ama x'in listesinde y'ninkinde olmayan e ve π var (1, 2, e, π, 5…); eksenler kopuyordu. Tekerlek artık e ve
+π'yi atlar, iki eksen hep aynı 1, 2, 5 basamağında kalır. e ve π birimleri x eksenini sürükleyerek seçilmeye devam eder
+(trigonometri, üstel grafikler); oradan tekerlek bir sonraki düz basamağa geçer (`viewport-state.ts` `wheelTick`; test
+`tests/app-view-cards.spec.ts`).
+İmzalı AAB: v0.1.7 sürüm iş akışının `play-Android` artifact'ı. Dosyalar `~/Belgeler/Play/drAW2D/` (geçici; kullanıcı silecek).
 
 **Play Console adımları** (awPDF'teki sırayla):
 1. Uygulama oluştur: ad "drAW2D: Geometri ve Grafik", dil Türkçe, Uygulama, Ücretsiz.

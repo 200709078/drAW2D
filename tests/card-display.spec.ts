@@ -104,3 +104,40 @@ test.describe('kart görünümü', () => {
     await expect((await cardOf(page, 'C')).locator('output[id$="-output"]')).toHaveText('C=(2,1)')
   })
 })
+
+/**
+ * The typeset row takes the text row's place, so the colour button on its left and the buttons on its right must not
+ * cover it. On touch screens the buttons grow to 28px and the text row moves in (2026-11-17: the italic f of
+ * "f: y = x² − 2x − 3" was half under the colour button on phones and tablets).
+ */
+for (const touch of [false, true]) {
+  test.describe(`matematik satırı düğmelerin altında kalmaz (${touch ? 'dokunmatik' : 'fare'})`, () => {
+    test.use({ hasTouch: touch, viewport: { width: 1280, height: 800 } })
+
+    test('ilk harf renk düğmesinin, satır sağdaki düğmelerin dışında başlar ve biter', async ({ page }) => {
+      await page.goto('/')
+      await expect(page.locator('#giris')).toBeVisible()
+      await enter(page, 'x^2-2x-3')
+      const f = await cardOf(page, 'f:')
+      await expect(f.locator('.card-math math')).toBeVisible()
+      for (const active of [false, true]) {
+        if (active) await f.locator('.card-math').click()
+        const gap = await f.evaluate(card => {
+          const row = card.querySelector('.card-math') as HTMLElement
+          const style = getComputedStyle(row)
+          const rowBox = row.getBoundingClientRect()
+          const glyph = row.querySelector('math mi')!.getBoundingClientRect()
+          const colour = card.querySelector('.gizle')!.getBoundingClientRect()
+          // The content box ends before the leftmost visible button on the right.
+          const right = [...card.querySelectorAll('.expr-block .btn:not(.gizle)')]
+            .map(button => button.getBoundingClientRect())
+            .filter(box => box.width > 0 && box.top < rowBox.bottom && box.bottom > rowBox.top)
+            .reduce((least, box) => Math.min(least, box.left), Infinity)
+          return { left: glyph.left - colour.right, right: right - (rowBox.right - parseFloat(style.paddingRight)) }
+        })
+        expect(gap.left, 'ilk harfle renk düğmesi arası').toBeGreaterThanOrEqual(2)
+        expect(gap.right, 'satır sonuyla sağdaki düğmeler arası').toBeGreaterThanOrEqual(0)
+      }
+    })
+  })
+}

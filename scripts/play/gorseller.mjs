@@ -50,8 +50,6 @@ async function scene(device, name) {
   await page.waitForSelector('#giris', { state: 'attached' })
   await page.waitForTimeout(800)
   const narrow = DEVICES[device].viewport.width < 700
-  // Kartlarda matematik yazımı kapalı: açıkken adın ilk harfi kırpılıyor (yol haritasında, 2026-11-16).
-  if ((await page.getAttribute('#cardMath', 'aria-pressed')) === 'true') await page.evaluate(() => document.getElementById('cardMath')?.click())
   // Dar ekranda giriş satırı alt paneldedir: önce paneli aç.
   if (narrow) await page.click('#panelHandle')
   for (const command of SCENES[name]) {

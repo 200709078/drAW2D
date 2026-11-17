@@ -107,8 +107,9 @@ export class ViewportState {
     const next = { ...this.view }
     const step = zoomIn ? -1 : 1
     let changed = false
-    if (HORIZONTAL_UNITS[next.tickY + step] !== undefined) {
-      next.tickY += step
+    const tickY = wheelTick(next.tickY, step)
+    if (tickY !== null) {
+      next.tickY = tickY
       next.scaleY *= zoomIn ? ZOOM_IN : ZOOM_OUT
       changed = true
     }
@@ -223,6 +224,19 @@ export class ViewportState {
 
 function midpoint(first: PixelPoint, second: PixelPoint): PixelPoint {
   return { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 }
+}
+
+/** The x axis's e and π steps, chosen on purpose by dragging the axis. */
+const isSymbolicUnit = (unit: number) => unit === Math.E || unit === Math.PI
+
+/**
+ * The x unit after one wheel step. The wheel skips e and π, so the x axis keeps the same 1, 2, 5 steps as the y axis
+ * (2026-11-17: zooming out twice showed −e, e on x beside 5, 10 on y). Null at the end of the list.
+ */
+function wheelTick(tick: number, step: number): number | null {
+  let next = tick + step
+  while (HORIZONTAL_UNITS[next] !== undefined && isSymbolicUnit(HORIZONTAL_UNITS[next]!)) next += step
+  return HORIZONTAL_UNITS[next] === undefined ? null : next
 }
 
 function clampTick(tick: number, length: number): number {
