@@ -72,6 +72,12 @@ drAW2D ücretsizdir. Öneri ve sorunlar için: destek@madematik.com
 
 Play Console'da sürüm oluşturulurken `<tr-TR>` ile `</tr-TR>` arasına yazılır. En yenisi üstte.
 
+### 0.1.8
+
+<!-- not-0.1.8 -->
+Formüller kartlarda kitaptaki gibi yazılırken ilk harf dokunmatik ekranda renk düğmesinin altında kalıyordu; düzeltildi. Fare tekerleğiyle uzaklaşınca x ekseni artık e'nin katlarına geçmez, iki eksen aynı adımlarla ilerler.
+<!-- /not-0.1.8 -->
+
 ### 0.1.7
 
 <!-- not-0.1.7 -->
