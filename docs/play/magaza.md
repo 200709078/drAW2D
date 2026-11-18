@@ -72,6 +72,12 @@ drAW2D ücretsizdir. Öneri ve sorunlar için: destek@madematik.com
 
 Play Console'da sürüm oluşturulurken `<tr-TR>` ile `</tr-TR>` arasına yazılır. En yenisi üstte.
 
+### 0.1.9
+
+<!-- not-0.1.9 -->
+Dosya menüsüne "Görüntüyü kopyala" eklendi (cihaz destekliyorsa): çizim resim olarak kopyalanır, awDOC'taki sınav kâğıdına ya da başka bir uygulamaya yapıştırılabilir.
+<!-- /not-0.1.9 -->
+
 ### 0.1.8
 
 <!-- not-0.1.8 -->
